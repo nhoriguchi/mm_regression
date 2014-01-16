@@ -1,0 +1,19 @@
+KERNEL_SRC=/src/linux-dev
+. setup_sample_test.sh
+
+TESTCASE_TITLE='sample test'
+TESTCASE_PROGRAM="${TESTPROG} -m private -n1"
+TESTCASE_CONTROL=control_sample
+TESTCASE_CHECKER=check_sample
+do_test_sync
+
+TESTCASE_TITLE='sample test 2'
+TESTCASE_PROGRAM="${TESTPROG} -h 2048 -m private -n1"
+TESTCASE_CONTROL=control_sample
+TESTCASE_CHECKER=check_sample
+do_test_sync
+
+TESTCASE_TITLE='sample async test'
+TESTCASE_CONTROL=control_sample_async
+TESTCASE_CHECKER=check_sample_async
+do_test_async
