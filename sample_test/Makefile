@@ -25,3 +25,6 @@ clean:
 	  rm $(srcdir)/$$file 2> /dev/null ; \
 	  true ; \
 	done
+
+test: all
+	@bash run-test.sh

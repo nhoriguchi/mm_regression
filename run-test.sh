@@ -1,12 +1,13 @@
 #!/bin/bash
 
 TCDIR=$(dirname $(readlink -f $BASH_SOURCE))
-TESTNAME=sample
+TESTNAME="test"
 VERBOSE=""
-while getopts vs: OPT ; do
+while getopts vs:t: OPT ; do
     case $OPT in
         "v" ) VERBOSE="-v" ;;
         "s" ) KERNEL_SRC=${OPTARG} ;;
+        "t" ) TESTCASE=${OPTARG} ;;
     esac
 done
 
@@ -24,7 +25,6 @@ while read line ; do
     [[ $line =~ ^# ]] && continue
 
     if [ "$line" = do_test_sync ] ; then
-        echo do_test "$TESTCASE_TITLE" "$TESTCASE_PROGRAM -p ${PIPE} ${VERBOSE}" "$TESTCASE_CONTROL" "$TESTCASE_CHECKER"
         do_test "$TESTCASE_TITLE" "$TESTCASE_PROGRAM -p ${PIPE} ${VERBOSE}" "$TESTCASE_CONTROL" "$TESTCASE_CHECKER"
         clear_testcase
     elif [ "$line" = do_test_async ] ; then

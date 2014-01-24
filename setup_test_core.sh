@@ -104,12 +104,11 @@ _do_test() {
             fi
         else
             echo "time out, abort test" >&2
-            kill -SIGINT $pid
             set_return_code "TIMEOUT"
             break
         fi
     done
-
+    kill -SIGKILL $pid
     cleanup_test "$title"
 }
 
@@ -122,7 +121,7 @@ do_test() {
     local controller="$3"
     local checker="$4"
 
-    _do_test "$title" "$cmd" "$controller" "$checker" | log
+    _do_test "$title" "$cmd" "$controller" "$checker" | tee -a ${OFILE}
     $checker "$(get_return_code)"
     echo_log "---test '$title' end------------------------------------------------"
 }
@@ -151,7 +150,7 @@ do_test_async() {
     local title="$1"
     local controller="$2"
     local checker="$3"
-    _do_test_async "$title" "$controller" "$checker" | log
+    _do_test_async "$title" "$controller" "$checker" | tee -a ${OFILE}
     $checker "$(get_return_code)"
     echo_log "---test '$title' end------------------------------------------------"
 }
