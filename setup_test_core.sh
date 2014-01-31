@@ -86,10 +86,12 @@ _do_test() {
 
     set_return_code "FAIL"
 
-    echo "---test '$title' start---------------------------------------------------------"
-    echo "$FUNCNAME '$title' '$cmd' $controller $checker"
+    echo_log "---test '$title' start---------------------------------------------------------"
+    echo_log "$FUNCNAME '$title' '$cmd' $controller $checker"
 
     prepare_test "$title"
+
+    exec 2> >( tee -a ${OFILE} )
 
     # Keep pipe open to hold the data on buffer after the writer program
     # is terminated.
@@ -103,12 +105,12 @@ _do_test() {
                 break
             fi
         else
-            echo "time out, abort test" >&2
+            echo "time out, abort test" | tee -a ${OFILE}
             set_return_code "TIMEOUT"
             break
         fi
     done
-    kill -SIGKILL $pid
+    kill -SIGKILL ${pid} | tee -a ${OFILE}
     cleanup_test "$title"
 }
 
@@ -121,7 +123,7 @@ do_test() {
     local controller="$3"
     local checker="$4"
 
-    _do_test "$title" "$cmd" "$controller" "$checker" | tee -a ${OFILE}
+    _do_test "$title" "$cmd" "$controller" "$checker"
     $checker "$(get_return_code)"
     echo_log "---test '$title' end------------------------------------------------"
 }
@@ -137,8 +139,8 @@ _do_test_async() {
 
     set_return_code "FAIL"
 
-    echo "---test '$title' start---------------------------------------------------------"
-    echo "$FUNCNAME '$title' $controller $checker"
+    echo_log "---test '$title' start---------------------------------------------------------"
+    echo_log "$FUNCNAME '$title' $controller $checker"
 
     prepare_test "$title"
     $controller
@@ -150,7 +152,7 @@ do_test_async() {
     local title="$1"
     local controller="$2"
     local checker="$3"
-    _do_test_async "$title" "$controller" "$checker" | tee -a ${OFILE}
+    _do_test_async "$title" "$controller" "$checker"
     $checker "$(get_return_code)"
     echo_log "---test '$title' end------------------------------------------------"
 }

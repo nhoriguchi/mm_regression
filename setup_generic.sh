@@ -27,6 +27,7 @@ echo_log() {
     echo "$@" | tee -a $OFILE
 }
 
+# Don't use this!
 log() {
     perl -ne 'print "$_"' | tee -a ${OFILE}
 }
