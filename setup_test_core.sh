@@ -110,7 +110,7 @@ _do_test() {
             break
         fi
     done
-    kill -SIGKILL ${pid} | tee -a ${OFILE}
+    [ -x /proc/${pid} ] && kill -SIGKILL ${pid} | tee -a ${OFILE}
     cleanup_test "$title"
 }
 
