@@ -3,11 +3,14 @@
 TCDIR=$(dirname $(readlink -f $BASH_SOURCE))
 TESTNAME="test"
 VERBOSE=""
-while getopts vs:t: OPT ; do
+FILTER=""
+
+while getopts vs:t:f: OPT ; do
     case $OPT in
         "v" ) VERBOSE="-v" ;;
-        "s" ) KERNEL_SRC=${OPTARG} ;;
-        "t" ) TESTCASE=${OPTARG} ;;
+        "s" ) KERNEL_SRC="${OPTARG}" ;;
+        "t" ) TESTCASE="${OPTARG}" ;;
+        "f" ) FILTER="${OPTARG}" ;;
     esac
 done
 
@@ -25,10 +28,14 @@ while read line ; do
     [[ $line =~ ^# ]] && continue
 
     if [ "$line" = do_test_sync ] ; then
-        do_test "$TESTCASE_TITLE" "$TESTCASE_PROGRAM -p ${PIPE} ${VERBOSE}" "$TESTCASE_CONTROL" "$TESTCASE_CHECKER"
+        if [ ! "$FILTER" ] || [ "$FILTER" == "$TESTCASE_TITLE" ] ; then
+            do_test "$TESTCASE_TITLE" "$TESTCASE_PROGRAM -p ${PIPE} ${VERBOSE}" "$TESTCASE_CONTROL" "$TESTCASE_CHECKER"
+        fi
         clear_testcase
     elif [ "$line" = do_test_async ] ; then
-        do_test_async "$TESTCASE_TITLE" "$TESTCASE_CONTROL" "$TESTCASE_CHECKER"
+        if [ ! "$FILTER" ] || [ "$FILTER" == "$TESTCASE_TITLE" ] ; then
+            do_test_async "$TESTCASE_TITLE" "$TESTCASE_CONTROL" "$TESTCASE_CHECKER"
+        fi
         clear_testcase
     else
         eval $line

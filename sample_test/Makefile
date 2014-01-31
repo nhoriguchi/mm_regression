@@ -1,5 +1,6 @@
 CC=gcc
 CFLAGS=-g # -Wall -Wextra
+TESTCASE_FILTER=
 
 src=sample.c
 exe=$(src:.c=)
@@ -27,4 +28,4 @@ clean:
 	done
 
 test: all
-	@bash run-test.sh
+	@bash run-test.sh $(TESTCASE_FILTER}
