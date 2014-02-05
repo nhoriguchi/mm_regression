@@ -28,7 +28,7 @@ control_sample() {
             ;;
         "${TESTPROG} exit")
             kill -SIGUSR1 ${pid}
-            set_return_code "PASS"
+            set_return_code "EXIT"
             return 0
             ;;
         *)
@@ -39,39 +39,24 @@ control_sample() {
 
 # inside checker you must tee output in you own.
 check_sample() {
-    local result="$1"
     check_kernel_message -v diff "failed"
     check_kernel_message_nobug diff
-    check_sample_specific PASS $result
+    check_return_code "${EXPECTED_RETURN_CODE}"
 
     # If you know some testcase fails for good reason, you can take it
     # as LATER (will be fixed later) instead of FAIL.
     FALSENEGATIVE=true
     check_kernel_message diff "LRU pages"
-    check_sample_specific PASS "TIMEOUT"
     FALSENEGATIVE=false
 }
 
-check_sample_specific() {
-    local expected="$1"
-    local result="$2"
-
-    count_testcount "sample specific test"
-    if [ "$expected" = "$result" ] ; then
-        count_success "good :)"
-    else
-        count_failure "bad :("
-        return 1
-    fi
-}
-
 control_sample_async() {
-    set_return_code "FAIL"
+    set_return_code "SOME_TEST_CODE"
 }
 
 check_sample_async() {
     local result="$1"
     check_kernel_message -v diff "failed"
     check_kernel_message_nobug diff
-    check_sample_specific FAIL $(get_return_code)
+    check_return_code "${EXPECTED_RETURN_CODE}"
 }

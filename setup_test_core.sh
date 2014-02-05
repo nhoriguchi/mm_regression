@@ -21,23 +21,31 @@ get_kernel_message_diff() {
     echo "####### DMESG END #######"
 }
 
+init_return_code() {
+    rm -f ${TMPF}.return_code*
+}
+
 get_return_code() {
     cat ${TMPF}.return_code
 }
 
+get_return_code_seq() {
+    cat ${TMPF}.return_code_seq | tr '\n' ' ' | sed 's/ *$//g'
+}
+
 set_return_code() {
     echo "$@" > ${TMPF}.return_code
+    echo "$@" >> ${TMPF}.return_code_seq
 }
 
 check_return_code() {
-    local testnote="$1"
-    local successnote="$2"
-    local failurenote="$3"
-    count_testcount "${testnote}"
-    if [ "$(get_return_code)" == "PASS" ] ; then
-        count_success "${successnote}."
+    local expected="$1"
+    [ ! "${expected}" ] && return
+    count_testcount
+    if [ "$(get_return_code_seq)" == "$expected" ] ; then
+        count_success "return code: $(get_return_code_seq)"
     else
-        count_failure "($(get_return_code)) ${failurenote}."
+        count_failure "return code: $(get_return_code_seq) (expected ${expected})"
     fi
 }
 
@@ -75,32 +83,62 @@ check_kernel_message_nobug() {
     fi
 }
 
-# Usage: do_test <testtitle> <external command> <test controller> <result checker>
-# if you need other test program to reproduce the problem, use this function.
-_do_test() {
-    local title="$1"
-    local cmd="$2"
-    local controller="$3"
-    local checker="$4"
+prepare() {
+    if [ "$TEST_PREPARE" ] ; then
+        $TEST_PREPARE
+    elif [ "$DEFAULT_TEST_PREPARE" ] ; then
+        $DEFAULT_TEST_PREPARE
+    fi
+}
+
+run_controller() {
+    local pid="$1"
+    local msg="$2"
+    if [ "$TEST_CONTROLLER" ] ; then
+        $TEST_CONTROLLER "$pid" "$msg"
+    elif [ "$DEFAULT_TEST_CONTROLLER" ] ; then
+        $DEFAULT_TEST_CONTROLLER "$pid" "$msg"
+    fi
+}
+
+cleanup() {
+    if [ "$TEST_CLEANUP" ] ; then
+        $TEST_CLEANUP
+    elif [ "$DEFAULT_TEST_CLEANUP" ] ; then
+        $DEFAULT_TEST_CLEANUP
+    fi
+}
+
+check() {
+    if [ "$TEST_CHECKER" ] ; then
+        $TEST_CHECKER
+    elif [ "$DEFAULT_TEST_CHECKER" ] ; then
+        $DEFAULT_TEST_CHECKER
+    fi
+}
+
+do_test() {
+    local cmd="$1"
     local line=
 
-    set_return_code "FAIL"
+    init_return_code
+    set_return_code "START"
 
-    echo_log "---test '$title' start---------------------------------------------------------"
-    echo_log "$FUNCNAME '$title' '$cmd' $controller $checker"
-
-    prepare_test "$title"
+    echo_log "--- testcase '$TEST_TITLE' start --------------------"
+    prepare
 
     exec 2> >( tee -a ${OFILE} )
-
     # Keep pipe open to hold the data on buffer after the writer program
     # is terminated.
     exec {fd}<>${PIPE}
     eval "( $cmd ) &"
     local pid=$!
     while true ; do
-        if read -t${PIPETIMEOUT} line <> ${PIPE} ; then
-            $controller $pid "$line"
+        if ! pgrep -f "$cmd" 2> /dev/null >&2 ; then
+            run_controller $pid "PROCESS_KILLED"
+            break
+        elif read -t${PIPETIMEOUT} line <> ${PIPE} ; then
+            run_controller $pid "$line"
             if [ $? -eq 0 ] ; then
                 break
             fi
@@ -110,56 +148,33 @@ _do_test() {
             break
         fi
     done
-    [ -x /proc/${pid} ] && kill -SIGKILL ${pid} | tee -a ${OFILE}
-    cleanup_test "$title"
-}
 
-# A wrapper of _do_test() to copy the test output into result file.
-# note that $checker should 'tee' the output inside itself, because
-# it updates global variables and shouldn't called in sub-process.
-do_test() {
-    local title="$1"
-    local cmd="$2"
-    local controller="$3"
-    local checker="$4"
-
-    _do_test "$title" "$cmd" "$controller" "$checker"
-    $checker "$(get_return_code)"
-    echo_log "---test '$title' end------------------------------------------------"
+    pkill -f "$cmd" | tee -a ${OFILE}
+    cleanup
+    check
+    echo_log "--- testcase '$TEST_TITLE' end --------------------"
 }
 
 # Usage: do_test_async <testtitle> <test controller> <result checker>
 # if you don't need any external program to reproduce the problem (IOW, you can
 # reproduce in the test controller,) use this async function.
-_do_test_async() {
-    local title="$1"
-    local controller="$2"
-    local checker="$3"
-    local result="FAIL"
-
-    set_return_code "FAIL"
-
-    echo_log "---test '$title' start---------------------------------------------------------"
-    echo_log "$FUNCNAME '$title' $controller $checker"
-
-    prepare_test "$title"
-    $controller
-    cleanup_test "$title"
-}
-
-# A wrapper of _do_test_async() to copy the test output into result file.
 do_test_async() {
-    local title="$1"
-    local controller="$2"
-    local checker="$3"
-    _do_test_async "$title" "$controller" "$checker"
-    $checker "$(get_return_code)"
-    echo_log "---test '$title' end------------------------------------------------"
+    init_return_code
+    set_return_code "START"
+
+    echo_log "--- testcase '$TEST_TITLE' start --------------------"
+    prepare
+    run_controller
+    cleanup
+    check
+    echo_log "--- testcase '$TEST_TITLE' end --------------------"
 }
 
 clear_testcase() {
-    TESTCASE_TITLE=
-    TESTCASE_PROGRAM=
-    TESTCASE_CONTROL=
-    TESTCASE_CHECKER=
+    TEST_TITLE=
+    TEST_PROGRAM=
+    TEST_CONTROLLER=
+    TEST_CHECKER=
+    TEST_PREPARE=
+    TEST_CLEANUP=
 }

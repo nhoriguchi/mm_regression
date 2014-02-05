@@ -28,4 +28,4 @@ clean:
 	done
 
 test: all
-	@bash run-test.sh $(TESTCASE_FILTER}
+	@bash run-test.sh $(TESTCASE_FILTER)

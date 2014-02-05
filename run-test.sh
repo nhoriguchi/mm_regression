@@ -28,13 +28,13 @@ while read line ; do
     [[ $line =~ ^# ]] && continue
 
     if [ "$line" = do_test_sync ] ; then
-        if [ ! "$FILTER" ] || [ "$FILTER" == "$TESTCASE_TITLE" ] ; then
-            do_test "$TESTCASE_TITLE" "$TESTCASE_PROGRAM -p ${PIPE} ${VERBOSE}" "$TESTCASE_CONTROL" "$TESTCASE_CHECKER"
+        if [ ! "$FILTER" ] || [ "$FILTER" == "$TEST_TITLE" ] ; then
+            do_test "$TEST_PROGRAM -p ${PIPE} ${VERBOSE}"
         fi
         clear_testcase
     elif [ "$line" = do_test_async ] ; then
-        if [ ! "$FILTER" ] || [ "$FILTER" == "$TESTCASE_TITLE" ] ; then
-            do_test_async "$TESTCASE_TITLE" "$TESTCASE_CONTROL" "$TESTCASE_CHECKER"
+        if [ ! "$FILTER" ] || [ "$FILTER" == "$TEST_TITLE" ] ; then
+            do_test_async
         fi
         clear_testcase
     else

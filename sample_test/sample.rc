@@ -1,19 +1,24 @@
 KERNEL_SRC=/src/linux-dev
 . setup_sample_test.sh
 
-TESTCASE_TITLE='sample test'
-TESTCASE_PROGRAM="${TESTPROG} -m private -n1"
-TESTCASE_CONTROL=control_sample
-TESTCASE_CHECKER=check_sample
+DEFAULT_TEST_PREPARE=prepare_test
+DEFAULT_TEST_CHECKER=cleanup_test
+
+DEFAULT_TEST_CONTROLLER=control_sample
+DEFAULT_TEST_CHECKER=check_sample
+
+TEST_TITLE='sample test'
+TEST_PROGRAM="${TESTPROG} -m private -n1"
+EXPECTED_RETURN_CODE="START EXIT"
 do_test_sync
 
-TESTCASE_TITLE='sample test 2'
-TESTCASE_PROGRAM="${TESTPROG} -h 2048 -m private -n1"
-TESTCASE_CONTROL=control_sample
-TESTCASE_CHECKER=check_sample
+TEST_TITLE='sample test 2'
+TEST_PROGRAM="${TESTPROG} -h 2048 -m private -n1"
+EXPECTED_RETURN_CODE="START EXIT"
 do_test_sync
 
-TESTCASE_TITLE='sample async test'
-TESTCASE_CONTROL=control_sample_async
-TESTCASE_CHECKER=check_sample_async
+TEST_TITLE='sample async test'
+TEST_CONTROLLER=control_sample_async
+TEST_CHECKER=check_sample_async
+EXPECTED_RETURN_CODE="START SOME_TEST_CODE"
 do_test_async
