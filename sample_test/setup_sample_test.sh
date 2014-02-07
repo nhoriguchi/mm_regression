@@ -21,9 +21,10 @@ control_sample() {
     local pid="$1"
     local line="$2"
 
+    echo "$line" | tee -a ${OFILE}
     case "$line" in
         "busy loop to check pageflags")
-            cat /proc/${pid}/numa_maps
+            cat /proc/${pid}/numa_maps | tee -a ${OFILE}
             kill -SIGUSR1 ${pid}
             ;;
         "${TESTPROG} exit")
