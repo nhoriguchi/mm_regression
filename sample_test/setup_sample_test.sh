@@ -32,6 +32,10 @@ control_sample() {
             set_return_code "EXIT"
             return 0
             ;;
+        "PROCESS_KILLED")
+            set_return_code "KILLED"
+            return 0
+            ;;
         *)
             ;;
     esac
