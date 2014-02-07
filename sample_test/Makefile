@@ -11,9 +11,13 @@ dstexe=$(addprefix $(dstdir)/,$(exe))
 OPT=-DDEBUG
 LIBOPT= #-lnuma # -lcgroup
 
-all: $(exe)
+all: get_test_core $(exe)
 %: %.c
 	$(CC) $(CFLAGS) -o $@ $^ $(OPT) $(LIBOPT)
+
+get_test_core:
+	git clone https://github.com/Naoya-Horiguchi/test_core || true
+	@true
 
 install: $(exe)
 	for file in $? ; do \
