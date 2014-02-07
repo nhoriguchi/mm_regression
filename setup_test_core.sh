@@ -83,6 +83,28 @@ check_kernel_message_nobug() {
     fi
 }
 
+check_console_output() {
+    [ "$1" = -v ] && local inverse=true && shift
+    local word="$1"
+    if [ "$word" ] ; then
+        count_testcount
+        grep "$word" ${TMPF}.dmesgafterinjectdiff > /dev/null 2>&1
+        if [ $? -eq 0 ] ; then
+            if [ "$inverse" ] ; then
+                count_failure "host kernel message shows unexpected word '$word'."
+            else
+                count_success "host kernel message shows expected word '$word'."
+            fi
+        else
+            if [ "$inverse" ] ; then
+                count_success "host kernel message does not show unexpected word '$word'."
+            else
+                count_failure "host kernel message does not show expected word '$word'."
+            fi
+        fi
+    fi
+}
+
 prepare() {
     if [ "$TEST_PREPARE" ] ; then
         $TEST_PREPARE
