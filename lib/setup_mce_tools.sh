@@ -15,6 +15,9 @@ MCEINJECT=$(dirname $(readlink -f $BASH_SOURCE))/mceinj.sh
 all_unpoison() { $PAGETYPES -b hwpoison,compound_tail=hwpoison -x -N; }
 
 get_HWCorrupted() { grep "HardwareCorrupted" /proc/meminfo | tr -s ' ' | cut -f2 -d' '; }
+save_nr_corrupted_before() { get_HWCorrupted   > ${TMPF}.hwcorrupted1; }
+save_nr_corrupted_inject() { get_HWCorrupted   > ${TMPF}.hwcorrupted2; }
+save_nr_corrupted_unpoison() { get_HWCorrupted > ${TMPF}.hwcorrupted3; }
 save_nr_corrupted() { get_HWCorrupted > ${TMPF}.hwcorrupted"$1"; }
 show_nr_corrupted() {
     if [ -e ${TMPF}.hwcorrupted"$1" ] ; then

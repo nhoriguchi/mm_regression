@@ -5,6 +5,8 @@ if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
     exit 1
 fi
 
+SSH_OPT="-o ConnectTimeout=5"
+
 vm_running() {
     [ "$(virsh domstate ${VM})" = "running" ] && return 0 || return 1
 }
@@ -14,7 +16,7 @@ vm_connectable() {
 }
 
 vm_ssh_connectable() {
-    ssh $VMIP date > /dev/null 2>&1
+    ssh ${SSH_OPT} $VMIP date > /dev/null 2>&1
 }
 
 # Start VM and wait until the VM become connectable.
@@ -77,9 +79,95 @@ vm_restart_wait() {
 }
 
 vm_restart_if_unconnectable() {
-    if ! vm_ssh_connectable ; then
+    if ! vm_connectable ; then
         echo "$VM reboot at first"
         virsh destroy $VM > /dev/null 2>&1
         vm_start_wait > /dev/null 2>&1
+    fi
+}
+
+vm_serial_monitor() {
+    cat <<EOF > ${TMPF}.vm_serial_monitor.exp
+#!/usr/bin/expect
+
+set timeout 5
+set target $VM
+log_file -noappend ${TMPF}.vm_serial_monitor.log
+
+spawn virsh console $VM
+expect "Escape character is"
+send "\n"
+send "\n"
+sleep 10
+send -- ""
+interact
+EOF
+    expect ${TMPF}.vm_serial_monitor.exp > /dev/null 2>&1
+}
+
+run_vm_serial_monitor() {
+    vm_serial_monitor $VM > /dev/null 2>&1 &
+    GUESTSERIALMONITORPID=$!
+    sleep 1
+}
+
+stop_vm_serial_monitor() {
+    disown $GUESTSERIALMONITORPID
+    kill -SIGKILL $GUESTSERIALMONITORPID > /dev/null 2>&1
+}
+
+get_guest_kernel_message() {
+    echo "####### GUEST CONSOLE #######"
+    if [ -e "${TMPF}.dmesg_guest_after" ] ; then
+        diff ${TMPF}.dmesg_guest_before ${TMPF}.dmesg_guest_after | \
+            grep -v '^< ' | tee ${TMPF}.dmesg_guest_diff
+    else
+        layout_guest_dmesg ${TMPF}.vm_serial_monitor.log | \
+            tee ${TMPF}.dmesg_guest_diff
+    fi
+    echo "####### GUEST CONSOLE END #######"
+}
+
+get_guest_kernel_message_before() {
+    ssh ${SSH_OPT} $VMIP dmesg > ${TMPF}.dmesg_guest_before
+    rm ${TMPF}.dmesg_guest_after 2> /dev/null
+}
+
+get_guest_kernel_message_after() {
+    ssh ${SSH_OPT} $VMIP dmesg > ${TMPF}.dmesg_guest_after
+}
+
+layout_guest_dmesg() {
+    tac $1 | gawk '
+  BEGIN { flag = 0; }
+  {
+    if (flag == 0 && $0 ~ /.*login: .*/) {
+      flag = 1;
+      print gensub(/.*login: (.*)/, "\\1", "g", $0);
+    }
+    if (flag == 0) { print $0; }
+  }
+' | tac
+}
+
+check_guest_kernel_message() {
+    [ "$1" = -v ] && local inverse=true && shift
+    local word="$1"
+    if [ "$word" ] ; then
+        count_testcount
+        grep "$word" ${TMPF}.dmesg_guest_diff > /dev/null 2>&1
+        if [ $? -eq 0 ] ; then
+            if [ "$inverse" ] ; then
+                count_failure "guest kernel message shows unexpected word '$word'."
+            else
+                count_success "guest kernel message shows expected word '$word'."
+            fi
+        else
+            if [ "$inverse" ] ; then
+                count_success "guest kernel message does not show unexpected word '$word'."
+            else
+                count_failure "guest kernel message does not show expected word '$word'."
+            fi
+        fi
     fi
 }

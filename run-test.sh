@@ -24,6 +24,7 @@ TRDIR=$(dirname $(readlink -f $RECIPEFILE))
 . ${TCDIR}/setup_test_core.sh
 
 while read line ; do
+    echo "+++ $line"
     [ ! "$line" ] && continue
     [[ $line =~ ^# ]] && continue
 
@@ -41,5 +42,5 @@ while read line ; do
         eval $line
     fi
 done < ${RECIPEFILE}
-
+echo "done"
 show_summary

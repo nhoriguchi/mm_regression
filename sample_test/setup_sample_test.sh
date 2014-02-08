@@ -9,12 +9,12 @@ TESTPROG=$(dirname $(readlink -f $BASH_SOURCE))/sample
 sysctl vm.nr_hugepages=10
 
 prepare_test() {
-    get_kernel_message before
+    get_kernel_message_before
 }
 
 cleanup_test() {
-    get_kernel_message after
-    get_kernel_message_diff before after diff
+    get_kernel_message_after
+    get_kernel_message_diff
 }
 
 control_sample() {
