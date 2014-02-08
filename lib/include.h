@@ -72,12 +72,12 @@ char *testpipe = NULL;
 
 static int checked_open(const char *pathname, int flags)
 {
-        int fd = open(pathname, flags);
-        if (fd < 0) {
-                perror(pathname);
-                exit(EXIT_FAILURE);
-        }
-        return fd;
+	int fd = open(pathname, flags);
+	if (fd < 0) {
+		perror(pathname);
+		exit(EXIT_FAILURE);
+	}
+	return fd;
 }
 
 static int checked_close(int fd) {
@@ -90,7 +90,7 @@ static int checked_close(int fd) {
 }
 
 void *checked_mmap(void *start, size_t length, int prot, int flags,
-                   int fd, off_t offset) {
+		   int fd, off_t offset) {
 	void *map = mmap((void *)start, length, prot, flags, fd, offset);
 	if (map == (void*)-1L)
 		err("mmap");
@@ -112,9 +112,9 @@ void *checked_malloc(size_t size) {
 }
 
 int *checked_munmap(void *start, size_t length) {
-        if (munmap(start, length) == -1)
-                err("munmap");
-        return 0;
+	if (munmap(start, length) == -1)
+		err("munmap");
+	return 0;
 }
 
 void set_mergeable(char *ptr, int size) {
@@ -138,25 +138,25 @@ void clear_hugepage(char *ptr, int size) {
 }
 
 union semun {
-        int              val;
-        struct semid_ds *buf;
-        unsigned short  *array;
-        struct seminfo  *__buf;
+	int		val;
+	struct semid_ds *buf;
+	unsigned short  *array;
+	struct seminfo  *__buf;
 };
 
 int create_and_init_semaphore() {
-        int sem;
-        union semun arg;
-        if ((sem = semget(IPC_PRIVATE, 1, 0666)) == -1)
-                err("semget");
-        arg.val = 1;
-        if (semctl(sem, 0, SETVAL, arg) == -1)
-                err("semctl");
-        return sem;
+	int sem;
+	union semun arg;
+	if ((sem = semget(IPC_PRIVATE, 1, 0666)) == -1)
+		err("semget");
+	arg.val = 1;
+	if (semctl(sem, 0, SETVAL, arg) == -1)
+		err("semctl");
+	return sem;
 }
 
 int delete_semaphore(int sem_id) {
-        return semctl(sem_id, 0, IPC_RMID, NULL);
+	return semctl(sem_id, 0, IPC_RMID, NULL);
 }
 
 int get_semaphore(int sem_id, struct sembuf *sembuffer)
@@ -176,34 +176,38 @@ int put_semaphore(int sem_id, struct sembuf *sembuffer)
 }
 
 static int checked_read(int fd, char *str) {
-        int ret;
-        ret = read(fd, str, sizeof(str));
-        if (ret < 0)
-                err("read");
-        return ret;
+	int ret;
+	ret = read(fd, str, sizeof(str));
+	if (ret < 0)
+		err("read");
+	return ret;
 }
 
 static int checked_write(int fd, char *str) {
-        int ret;
-        if (fd == 0)
-                fd = 1;
-        ret = write(fd, strpair(str));
-        if (ret < 0)
-                err("write");
-        return ret;
+	int ret;
+	if (fd == 0)
+		fd = 1;
+	ret = write(fd, strpair(str));
+	if (ret < 0)
+		err("write");
+	return ret;
 }
 
 int pipe_read(char *buf) {
-        int pipefd = checked_open(testpipe, O_RDONLY);
-        int ret = checked_read(pipefd, buf);
-        close(pipefd);
-        return ret;
+	int pipefd;
+	int ret;
+	if (!testpipe)
+		perror("testpipe not set (with -p option)\n");
+	pipefd = checked_open(testpipe, O_RDONLY);
+	ret = checked_read(pipefd, buf);
+	checked_close(pipefd);
+	return ret;
 }
 
 static int __pipe_printf(char *buf) {
 	int pipefd = checked_open(testpipe, O_WRONLY);
 	int ret = checked_write(pipefd, buf);
-	close(pipefd);
+	checked_close(pipefd);
 	return ret;
 }
 
@@ -211,7 +215,7 @@ static int __pipe_printf(char *buf) {
  * If testpipe is given, write to the pipe. Otherwise, write to stdout.
  */
 int pprintf(char *fmt, ...) {
-        int ret;
+	int ret;
 	char buf[PS];
 	va_list ap;
 
@@ -222,7 +226,7 @@ int pprintf(char *fmt, ...) {
 		ret = printf(buf);
 	else
 		ret = __pipe_printf(buf);
-        return ret;
+	return ret;
 }
 
 static volatile sig_atomic_t pprintf_wait_flag = 0;
@@ -255,14 +259,14 @@ void pprintf_wait(int signum, char *fmt, ...) {
 
 void Dprintf(const char *fmt, ...)
 {
-        if (verbose) {
+	if (verbose) {
 		char buf[PS];
 		va_list ap;
 		va_start(ap, fmt);
 		vsprintf(buf, fmt, ap);
 		pprintf(buf);
 		va_end(ap);
-        }
+	}
 }
 
 #define SYSFS_HUGEPAGES_DIR "/sys/kernel/mm/hugepages/"

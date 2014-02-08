@@ -157,7 +157,7 @@ do_test() {
     local pid=$!
     while true ; do
         if ! pgrep -f "$cmd" 2> /dev/null >&2 ; then
-            run_controller $pid "PROCESS_KILLED"
+            set_return_code "KILLED"
             break
         elif read -t${PIPETIMEOUT} line <> ${PIPE} ; then
             run_controller $pid "$line"
@@ -165,13 +165,18 @@ do_test() {
                 break
             fi
         else
-            echo "time out, abort test" | tee -a ${OFILE}
-            set_return_code "TIMEOUT"
-            break
+            if ! pgrep -f "$cmd" 2> /dev/null >&2 ; then
+                set_return_code "KILLED"
+                break
+            else
+                echo "time out, abort test" | tee -a ${OFILE}
+                set_return_code "TIMEOUT"
+                break
+            fi
         fi
     done
 
-    pkill -f "$cmd" | tee -a ${OFILE}
+    pkill -9 -f "$cmd" | tee -a ${OFILE}
     cleanup
     check
     echo_log "--- testcase '$TEST_TITLE' end --------------------"
