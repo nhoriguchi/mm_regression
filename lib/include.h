@@ -175,6 +175,14 @@ int put_semaphore(int sem_id, struct sembuf *sembuffer)
 	return semop(sem_id, sembuffer, 1);
 }
 
+static int checked_read(int fd, char *str) {
+        int ret;
+        ret = read(fd, str, sizeof(str));
+        if (ret < 0)
+                err("read");
+        return ret;
+}
+
 static int checked_write(int fd, char *str) {
         int ret;
         if (fd == 0)
@@ -182,6 +190,13 @@ static int checked_write(int fd, char *str) {
         ret = write(fd, strpair(str));
         if (ret < 0)
                 err("write");
+        return ret;
+}
+
+int pipe_read(char *buf) {
+        int pipefd = checked_open(testpipe, O_RDONLY);
+        int ret = checked_read(pipefd, buf);
+        close(pipefd);
         return ret;
 }
 
