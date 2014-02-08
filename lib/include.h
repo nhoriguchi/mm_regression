@@ -18,9 +18,7 @@
 #define err(x) perror(x),exit(EXIT_FAILURE)
 #define errmsg(x, ...) fprintf(stderr, x, ##__VA_ARGS__),exit(EXIT_FAILURE)
 #define PSIZE 4096
-unsigned long HPSIZE = 0;
 #define PS PSIZE
-#define HPS HPSIZE
 #define THPS 0x200000UL
 #define strpair(x) x, strlen(x)
 

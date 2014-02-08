@@ -6,6 +6,9 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
+unsigned long HPSIZE = 0x200000UL;
+#define HPS HPSIZE
+
 #define BUF_SIZE   256
 char filepath[BUF_SIZE];
 
@@ -167,7 +170,7 @@ void *alloc_filebacked_hugepage(int size, int private)
 	return addr;
 }
 
-void *alloc_hugepage(int size, int private)
+void *alloc_hugepage(int size, int hptype, int private)
 {
 	void *addr;
 	if (hptype == 2) {
@@ -230,7 +233,7 @@ int free_filebacked_hugepage(void *addr, int size)
 	return ret;
 }
 
-int free_hugepage(void *addr, int size)
+int free_hugepage(void *addr, int hptype, int size)
 {
 	if (hptype == 2) {
 		if (free_shm_hugepage(shmkey, addr) == -1)
