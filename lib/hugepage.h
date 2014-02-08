@@ -5,7 +5,6 @@
 #include <sys/mman.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include "include.h"
 
 #define BUF_SIZE   256
 char filepath[BUF_SIZE];

@@ -6,7 +6,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <getopt.h>
-#include "include.h"
+#include "test_core/lib/include.h"
 
 #define ADDR_INPUT 0x700000000000
 
