@@ -79,7 +79,7 @@ vm_restart_wait() {
 }
 
 vm_restart_if_unconnectable() {
-    if ! vm_connectable ; then
+    if ! vm_ssh_connectable ; then
         echo "$VM reboot at first"
         virsh destroy $VM > /dev/null 2>&1
         vm_start_wait > /dev/null 2>&1

@@ -5,20 +5,22 @@ if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
     exit 1
 fi
 
-[ ! "$TSTAMP" ] &&  TSTAMP=`date +%y%m%d_%H%M`
-ODIR=${TRDIR}/results/$TSTAMP
+export TSTAMP=`date +%y%m%d_%H%M`
+export ODIR=${TRDIR}/results/$TSTAMP
+
 [ ! -d "$ODIR" ] && mkdir -p $ODIR
-OFILE=$ODIR/$TESTNAME
+export OFILE=$ODIR/$TESTNAME
 
-WDIR=${TRDIR}/work
+export WDIR=${TRDIR}/work
 [ ! -d "$WDIR" ] && mkdir -p $WDIR
-TMPF=`mktemp --tmpdir=$WDIR`
+export TMPF=`mktemp --tmpdir=$WDIR`
 
-TESTCOUNT=0
-SUCCESS=0
-FAILURE=0
-LATER=0   # known failure
-FALSENEGATIVE=false
+echo -n 0 > ${TMPF}.testcount
+echo -n 0 > ${TMPF}.success
+echo -n 0 > ${TMPF}.failure
+echo -n 0 > ${TMPF}.later # known failure
+
+export FALSENEGATIVE=false
 
 # print test output with copying into result file. Using tee command
 # for example with "do_test | tee $OFILE" doesn't work because do_test
@@ -27,24 +29,11 @@ echo_log() {
     echo "$@" | tee -a $OFILE
 }
 
-# Don't use this!
-log() {
-    perl -ne 'print "$_"' | tee -a ${OFILE}
-}
-
 echo_verbose() {
     if [ "$VERBOSE" ] ; then
         echo "$@"
     else
         echo "$@" > /dev/null
-    fi
-}
-
-verbose() {
-    if [ "$VERBOSE" ] ; then
-        perl -ne 'print "$_"'
-    else
-        perl -ne 'print "$_"' > /dev/null
     fi
 }
 
@@ -57,7 +46,8 @@ count_testcount() {
         esac
     done
     [ "$@" ] && echo_log $nonewline "$@"
-    TESTCOUNT=$((TESTCOUNT+1))
+    echo -n $[$(cat ${TMPF}.testcount) + 1] > ${TMPF}.testcount
+    # TESTCOUNT=$((TESTCOUNT+1))
 }
 
 count_success() {
@@ -69,11 +59,13 @@ count_success() {
         esac
     done
     if [ "$FALSENEGATIVE" = false ] ; then
-        SUCCESS=$((SUCCESS+1))
+        echo -n $[$(cat ${TMPF}.success) + 1] > ${TMPF}.success
+        # SUCCESS=$((SUCCESS+1))
         echo_log $nonewline "PASS: $@"
         return 0
     else
-        LATER=$((LATER+1))
+        echo -n $[$(cat ${TMPF}.later) + 1] > ${TMPF}.later
+        # LATER=$((LATER+1))
         echo_log $nonewline "LATER: PASS: $@"
         return 0
     fi
@@ -88,11 +80,13 @@ count_failure() {
         esac
     done
     if [ "$FALSENEGATIVE" = false ] ; then
-        FAILURE=$((FAILURE+1))
+        echo -n $[$(cat ${TMPF}.failure) + 1] > ${TMPF}.failure
+        # FAILURE=$((FAILURE+1))
         echo_log $nonewline "FAIL: $@"
         return 1
     else
-        LATER=$((LATER+1))
+        echo -n $[$(cat ${TMPF}.later) + 1] > ${TMPF}.later
+        # LATER=$((LATER+1))
         echo_log $nonewline "LATER: FAIL: $@"
         return 0
     fi
@@ -100,5 +94,10 @@ count_failure() {
 
 show_summary() {
     echo_log "$TESTNAME:"
-    echo_log "$TESTCOUNT test(s) ran, $SUCCESS passed, $FAILURE failed, $LATER laters."
+    # echo_log "$TESTCOUNT test(s) ran, $SUCCESS passed, $FAILURE failed, $LATER laters."
+    echo_log "$(cat ${TMPF}.testcount) test(s) ran, $(cat ${TMPF}.success) passed, $(cat ${TMPF}.failure) failed, $(cat ${TMPF}.later) laters."
 }
+
+for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do
+    export -f $func
+done

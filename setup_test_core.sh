@@ -1,10 +1,10 @@
 #!/bin/bash
 
-PIPE=${TMPF}.pipe
+export PIPE=${TMPF}.pipe
 mkfifo ${PIPE} 2> /dev/null
 [ ! -p ${PIPE} ] && echo_log "Fail to create pipe." >&2 && exit 1
 chmod a+x ${PIPE}
-PIPETIMEOUT=5
+export PIPETIMEOUT=5
 
 get_kernel_message_before() { dmesg > ${TMPF}.dmesg_before; }
 get_kernel_message_after() { dmesg > ${TMPF}.dmesg_after; }
@@ -133,9 +133,19 @@ check() {
     fi
 }
 
+check_testcase_filter() {
+    if [ "${TESTCASE_FILTER}" ] && [ "$TESTCASE_FILTER" != "$TEST_TITLE" ] ; then
+        clear_testcase
+        return 0
+    fi
+    return 1
+}
+
 do_test() {
     local cmd="$1"
     local line=
+
+    check_testcase_filter && return
 
     init_return_code
     set_return_code "START"
@@ -174,12 +184,14 @@ do_test() {
     cleanup
     check
     echo_log "--- testcase '$TEST_TITLE' end --------------------"
+    clear_testcase
 }
 
 # Usage: do_test_async <testtitle> <test controller> <result checker>
 # if you don't need any external program to reproduce the problem (IOW, you can
 # reproduce in the test controller,) use this async function.
 do_test_async() {
+    check_testcase_filter && return
     init_return_code
     set_return_code "START"
 
@@ -189,6 +201,7 @@ do_test_async() {
     cleanup
     check
     echo_log "--- testcase '$TEST_TITLE' end --------------------"
+    clear_testcase
 }
 
 clear_testcase() {
@@ -199,3 +212,7 @@ clear_testcase() {
     TEST_PREPARE=
     TEST_CLEANUP=
 }
+
+for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do
+    export -f $func
+done
