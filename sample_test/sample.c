@@ -11,6 +11,7 @@
 #define ADDR_INPUT 0x700000000000
 
 int flag = 1;
+int HPS;
 
 void sig_handle(int signo) { ; }
 void sig_handle_flag(int signo) { flag = 0; }
