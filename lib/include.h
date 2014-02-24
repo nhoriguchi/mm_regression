@@ -72,7 +72,7 @@ char *testpipe = NULL;
 
 static int checked_open(const char *pathname, int flags)
 {
-	int fd = open(pathname, flags);
+	int fd = open(pathname, flags, S_IRWXU);
 	if (fd < 0) {
 		perror(pathname);
 		exit(EXIT_FAILURE);
