@@ -66,7 +66,8 @@ if ! which mce-inject > /dev/null ; then
     echo "No mce-inject installed."
     check_install_package bison
     check_install_package flex
-    git clone http://git.kernel.org/cgit/utils/cpu/mce/mce-inject.git
+    # http://git.kernel.org/cgit/utils/cpu/mce/mce-inject.git
+    git clone https://github.com/andikleen/mce-inject
     pushd mce-inject
     make
     make install
