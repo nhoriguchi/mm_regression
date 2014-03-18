@@ -39,7 +39,6 @@ check_kernel_message() {
 }
 
 check_kernel_message_nobug() {
-    local tag="$1"
     count_testcount
     grep -e " BUG: " -e " WARNING: " ${TMPF}.dmesgafterinjectdiff > /dev/null 2>&1
     if [ $? -eq 0 ] ; then

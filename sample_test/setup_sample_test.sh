@@ -40,14 +40,14 @@ control_sample() {
 
 # inside checker you must tee output in you own.
 check_sample() {
-    check_kernel_message -v diff "failed"
-    check_kernel_message_nobug diff
+    check_kernel_message -v "failed"
+    check_kernel_message_nobug
     check_return_code "${EXPECTED_RETURN_CODE}"
 
     # If you know some testcase fails for good reason, you can take it
     # as LATER (will be fixed later) instead of FAIL.
     FALSENEGATIVE=true
-    check_kernel_message diff "LRU pages"
+    check_kernel_message "LRU pages"
     FALSENEGATIVE=false
 }
 
@@ -57,7 +57,7 @@ control_sample_async() {
 
 check_sample_async() {
     local result="$1"
-    check_kernel_message -v diff "failed"
-    check_kernel_message_nobug diff
+    check_kernel_message -v "failed"
+    check_kernel_message_nobug
     check_return_code "${EXPECTED_RETURN_CODE}"
 }
