@@ -180,6 +180,8 @@ do_test() {
     done
 
     pkill -9 -f "$cmd" | tee -a ${OFILE}
+    exec $fd<&-
+    exec $fd>&-
     cleanup
     check
     echo_log "--- testcase '$TEST_TITLE' end --------------------"
