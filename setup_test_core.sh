@@ -155,7 +155,7 @@ do_test() {
     exec 2> >( tee -a ${OFILE} )
     # Keep pipe open to hold the data on buffer after the writer program
     # is terminated.
-    exec {fd}<>${PIPE}
+    exec 11<>${PIPE}
     eval "( $cmd ) &"
     local pid=$!
     while true ; do
@@ -180,8 +180,8 @@ do_test() {
     done
 
     pkill -9 -f "$cmd" | tee -a ${OFILE}
-    exec $fd<&-
-    exec $fd>&-
+    exec 11<&-
+    exec 11>&-
     cleanup
     check
     echo_log "--- testcase '$TEST_TITLE' end --------------------"
