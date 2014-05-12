@@ -17,7 +17,7 @@
 #define MMAP_PROT PROT_READ|PROT_WRITE
 #define err(x) perror(x),exit(EXIT_FAILURE)
 #define errmsg(x, ...) fprintf(stderr, x, ##__VA_ARGS__),exit(EXIT_FAILURE)
-#define PSIZE 4096
+#define PSIZE 4096UL
 #define PS PSIZE
 #define THPS 0x200000UL
 #define strpair(x) x, strlen(x)

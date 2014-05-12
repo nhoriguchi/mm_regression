@@ -85,7 +85,7 @@ static unsigned long pagemap_pfn(uint64_t val) {
 int get_pfn(void *vaddr, uint64_t *buf, int pid, int count) {
 	char filename[128];
 	uint64_t *tmpbuf = (uint64_t *)malloc(8 * count);
-	int pages;
+	int ret;
 	unsigned long index = ((unsigned long)vaddr) / getpagesize();
 	int i;
 
@@ -93,17 +93,15 @@ int get_pfn(void *vaddr, uint64_t *buf, int pid, int count) {
 		pid = getpid();
 
 	sprintf(filename, "/proc/%d/pagemap", pid);
-	if ((pagemap_fd = open(filename, O_RDONLY)) < 0) {
-		perror(filename);
-		exit(EXIT_FAILURE);
-	}
-	pages = pagemap_read(tmpbuf, index, 1);
-	for (i = 0; i < pages; i++) {
+	pagemap_fd = checked_open(filename, O_RDONLY);
+	ret = pagemap_read(tmpbuf, index, count);
+	if (ret < count)
+		err("pagemap_read");
+	checked_close(pagemap_fd);
+	for (i = 0; i < ret; i++)
 		buf[i] = pagemap_pfn(tmpbuf[i]);
-	}
-	close(pagemap_fd);
 	free(tmpbuf);
-	return pages;
+	return ret;
 }
 
 static unsigned long kpageflags_read(uint64_t *buf,
@@ -118,7 +116,7 @@ int get_pflags(unsigned long pfn, uint64_t *buf, int count) {
 	int i;
 
 	if ((kpageflags_fd = open("/proc/kpageflags", O_RDONLY)) < 0) {
-		perror("reading /proc/kpageflags");
+		perror("opening /proc/kpageflags");
 		exit(EXIT_FAILURE);
 	}
 	pages = kpageflags_read(tmpbuf, pfn, 1);
@@ -196,4 +194,18 @@ void get_pagestat(char *vaddr, struct pagestat *ps) {
 	get_pcount(ps->pfn, &ps->pcount, 1);
 	printf("pfn 0x%lx, page flags 0x%016lx, page count %ld\n",
 	       ps->pfn, ps->pflags, ps->pcount);
+}
+
+unsigned long get_my_pfn(char *vaddr) {
+	char filename[128];
+	uint64_t tmpbuf;
+	int ret;
+
+	sprintf(filename, "/proc/%d/pagemap", getpid());
+	pagemap_fd = checked_open(filename, O_RDONLY);
+	ret = pagemap_read(&tmpbuf, ((unsigned long)vaddr) / getpagesize(), 1);
+	if (ret != 1)
+		err("pagemap_read");
+	checked_close(pagemap_fd);
+	return pagemap_pfn(tmpbuf);
 }
