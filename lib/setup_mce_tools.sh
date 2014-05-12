@@ -41,6 +41,15 @@ check_nr_hwcorrupted() {
     fi
 }
 
+check_nr_hwcorrupted_consistent() {
+    count_testcount
+    if [ "$(show_nr_corrupted 1)" == "$(show_nr_corrupted 3)" ] ; then
+        count_success "accounting \"HardwareCorrupted\" consistently."
+    else
+        count_failure "accounting \"HardwareCorrupted\" did not back to original value ($(show_nr_corrupted 1) -> $(show_nr_corrupted 3))"
+    fi
+}
+
 BASEVFN=0x700000000
 
 if ! lsmod | grep mce_inject > /dev/null ; then
