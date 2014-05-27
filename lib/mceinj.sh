@@ -53,6 +53,17 @@ MISC 0x8c
 RIP 0x73:0x1eadbabe
 EOF
         mce-inject ${tmpf}.mce-inject
+    elif [ "$ERRORTYPE" = "mce-srar" ] ; then
+        echo "Injecting MCE on host pfn ${TARGET}"
+        cat <<EOF > ${tmpf}.mce-inject
+CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 1
+STATUS UNCORRECTED SRAR 0x134
+MCGSTATUS RIPV MCIP EIPV
+ADDR ${TARGET}000
+MISC 0x8c
+RIP 0x73:0x3eadbabe
+EOF
+        mce-inject ${tmpf}.mce-inject
     elif [ "$ERRORTYPE" = "mce-ce" ] ; then
         echo "Injecting Corrected Error on host pfn ${TARGET}"
         cat <<EOF > ${tmpf}.mce-inject
@@ -69,7 +80,7 @@ EOF
     return 0
 }
 
-if [[ ! "$ERRORTYPE" =~ (mce-srao|mce-ce|hard-offline|soft-offline) ]] ; then
+if [[ ! "$ERRORTYPE" =~ (mce-srao|mce-srar|mce-ce|hard-offline|soft-offline) ]] ; then
     echo "-e <ERRORTYPE> should be given."
     exit 1
 fi
