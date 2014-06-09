@@ -99,10 +99,17 @@ check_return_code() {
 }
 
 prepare() {
+    local prepfunc
     if [ "$TEST_PREPARE" ] ; then
+        prepfunc=$TEST_PREPARE
         $TEST_PREPARE
     elif [ "$DEFAULT_TEST_PREPARE" ] ; then
+        prepfunc=$DEFAULT_TEST_PREPARE
         $DEFAULT_TEST_PREPARE
+    fi
+    if [ $? -ne 0 ] ; then
+        echo "test preparation failed ($prepfunc) check you environment." >&2
+        return 1
     fi
 }
 
@@ -117,10 +124,16 @@ run_controller() {
 }
 
 cleanup() {
+    local cleanfunc
     if [ "$TEST_CLEANUP" ] ; then
+        cleanfunc=$TEST_CLEANUP
         $TEST_CLEANUP
     elif [ "$DEFAULT_TEST_CLEANUP" ] ; then
+        cleanfunc=$DEFAULT_TEST_CLEANUP
         $DEFAULT_TEST_CLEANUP
+    fi
+    if [ $? -ne 0 ] ; then
+        echo "test cleanup failed ($cleanfunc) check you environment." >&2
     fi
 }
 
@@ -150,7 +163,7 @@ do_test() {
     set_return_code "START"
 
     echo_log "--- testcase '$TEST_TITLE' start --------------------"
-    prepare
+    prepare || return 1
 
     exec 2> >( tee -a ${OFILE} )
     # Keep pipe open to hold the data on buffer after the writer program
