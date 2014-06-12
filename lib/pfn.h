@@ -209,3 +209,24 @@ unsigned long get_my_pfn(char *vaddr) {
 	checked_close(pagemap_fd);
 	return pagemap_pfn(tmpbuf);
 }
+
+int get_my_pflags(unsigned long pfn) {
+	uint64_t tmpbuf;
+	int pages;
+	int i;
+
+	if ((kpageflags_fd = open("/proc/kpageflags", O_RDONLY)) < 0) {
+		perror("opening /proc/kpageflags");
+		exit(EXIT_FAILURE);
+	}
+	pages = kpageflags_read(&tmpbuf, pfn, 1);
+	close(kpageflags_fd);
+	return tmpbuf;
+}
+
+int check_kpflags(char *vaddr, unsigned long kpf) {
+        unsigned long pfn = get_my_pfn(vaddr);
+        unsigned long kpflags = get_my_pflags(pfn);
+	printf("pfn %lx, flags %x, ret %lx\n", pfn, kpflags, kpflags & (1 << kpf));
+        return kpflags & (1 << kpf);
+}
