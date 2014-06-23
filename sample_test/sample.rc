@@ -2,7 +2,7 @@ KERNEL_SRC=/src/linux-dev
 . setup_sample_test.sh
 
 DEFAULT_TEST_PREPARE=prepare_test
-DEFAULT_TEST_CHECKER=cleanup_test
+DEFAULT_TEST_CLEANUP=cleanup_test
 
 DEFAULT_TEST_CONTROLLER=control_sample
 DEFAULT_TEST_CHECKER=check_sample
