@@ -33,6 +33,10 @@ else
         [[ $line =~ ^# ]] && continue
 
         if [ "$line" = do_test_sync ] ; then
+            if [ ! "$TEST_PROGRAM" ] ; then
+                echo "no TEST_PROGRAM given for '${TEST_TITLE}'. Check your recipe."
+                exit 1
+            fi
             do_test "$TEST_PROGRAM -p ${PIPE} ${VERBOSE}"
         elif [ "$line" = do_test_async ] ; then
             do_test_async
