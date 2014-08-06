@@ -40,7 +40,7 @@ check_kernel_message() {
 
 check_kernel_message_nobug() {
     count_testcount
-    grep -e " BUG: " -e " WARNING: " ${TMPF}.dmesg_diff > /dev/null 2>&1
+    grep -e " BUG " -e " WARNING " ${TMPF}.dmesg_diff > /dev/null 2>&1
     if [ $? -eq 0 ] ; then
         count_failure "Kernel 'BUG:'/'WARNING:' message"
     else
