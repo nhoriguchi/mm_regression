@@ -5,7 +5,7 @@ if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
     exit 1
 fi
 
-export TSTAMP=`date +%y%m%d_%H%M`
+export TSTAMP=`date +%y%m%d_%H%M%S`
 export ODIR=${TRDIR}/results/$TSTAMP
 
 [ ! -d "$ODIR" ] && mkdir -p $ODIR
