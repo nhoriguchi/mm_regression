@@ -106,7 +106,9 @@ show_fail_summary() {
             fi
         fi
     done < ${TMPF}.sum
-    cat ${TMPF}.sum2 | tee -a ${OFILE}
+    if [ -f ${TMPF}.sum2 ] ; then
+        cat ${TMPF}.sum2 | tee -a ${OFILE}
+    fi
 }
 
 show_summary() {
