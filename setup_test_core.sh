@@ -146,11 +146,22 @@ check() {
 }
 
 check_testcase_filter() {
-    if [ "${TESTCASE_FILTER}" ] && [ "$TESTCASE_FILTER" != "$TEST_TITLE" ] ; then
-        clear_testcase
-        return 0
-    fi
-    return 1
+   [ ! "$TESTCASE_FILTER" ] && return 1
+   if echo "$TESTCASE_FILTER" | grep "*" > /dev/null ; then
+       if echo "$TEST_TITLE" | grep "$TESTCASE_FILTER" > /dev/null ; then
+           return 1
+       else
+           clear_testcase
+           return 0
+       fi
+   else
+       if [ "$TESTCASE_FILTER" == "$TEST_TITLE" ] ; then
+           return 1
+       else
+           clear_testcase
+           return 0
+       fi
+   fi
 }
 
 do_test() {
