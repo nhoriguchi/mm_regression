@@ -47,7 +47,6 @@ count_testcount() {
     done
     [ "$@" ] && echo_log $nonewline "$@"
     echo -n $[$(cat ${TMPF}.testcount) + 1] > ${TMPF}.testcount
-    # TESTCOUNT=$((TESTCOUNT+1))
 }
 
 count_success() {
@@ -60,12 +59,10 @@ count_success() {
     done
     if [ "$FALSENEGATIVE" = false ] ; then
         echo -n $[$(cat ${TMPF}.success) + 1] > ${TMPF}.success
-        # SUCCESS=$((SUCCESS+1))
         echo_log $nonewline "PASS: $@"
         return 0
     else
         echo -n $[$(cat ${TMPF}.later) + 1] > ${TMPF}.later
-        # LATER=$((LATER+1))
         echo_log $nonewline "LATER: PASS: $@"
         return 0
     fi
@@ -81,12 +78,10 @@ count_failure() {
     done
     if [ "$FALSENEGATIVE" = false ] ; then
         echo -n $[$(cat ${TMPF}.failure) + 1] > ${TMPF}.failure
-        # FAILURE=$((FAILURE+1))
         echo_log $nonewline "FAIL: $@"
         return 1
     else
         echo -n $[$(cat ${TMPF}.later) + 1] > ${TMPF}.later
-        # LATER=$((LATER+1))
         echo_log $nonewline "LATER: FAIL: $@"
         return 0
     fi
@@ -94,7 +89,6 @@ count_failure() {
 
 show_summary() {
     echo_log "$TESTNAME:"
-    # echo_log "$TESTCOUNT test(s) ran, $SUCCESS passed, $FAILURE failed, $LATER laters."
     echo_log "$(cat ${TMPF}.testcount) test(s) ran, $(cat ${TMPF}.success) passed, $(cat ${TMPF}.failure) failed, $(cat ${TMPF}.later) laters."
 }
 
