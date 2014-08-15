@@ -87,9 +87,32 @@ count_failure() {
     fi
 }
 
+show_fail_summary() {
+    grep -e "--- testcase" -e "^PASS: " -e "^FAIL: " -e "^LATER: " ${OFILE} > ${TMPF}.sum
+
+    local test_title=
+    local tmpline3=
+    while read line ; do
+        local tmpline1="$(echo $line | sed "s/-* testcase '\(.*\)' start -*/\1/")"
+        local tmpline2="$(echo $line | sed "s/-* testcase '\(.*\)' end -*/\1/")"
+        if [ "$line" != "$tmpline1" ] ; then
+            test_title="$tmpline1"
+        elif [ "$line" != "$tmpline2" ] ; then
+            test_title=
+        else
+            tmpline3="$(echo $line | grep -e "^FAIL: " -e "^LATER: FAIL: ")"
+            if [ "$test_title" ] && [ "$tmpline3" ] ; then
+                echo "# $test_title: $tmpline3" >> ${TMPF}.sum2
+            fi
+        fi
+    done < ${TMPF}.sum
+    cat ${TMPF}.sum2 | tee -a ${OFILE}
+}
+
 show_summary() {
     echo_log "$TESTNAME:"
     echo_log "$(cat ${TMPF}.testcount) test(s) ran, $(cat ${TMPF}.success) passed, $(cat ${TMPF}.failure) failed, $(cat ${TMPF}.later) laters."
+    show_fail_summary
 }
 
 for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do
