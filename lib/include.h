@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <signal.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #define MADV_HUGEPAGE           14
 #define MADV_NOHUGEPAGE         15
