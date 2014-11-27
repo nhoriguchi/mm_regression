@@ -175,6 +175,7 @@ do_test() {
 
     echo_log "--- testcase '$TEST_TITLE' start --------------------"
     prepare || return 1
+    [ "$VERBOSE" ] && echo_log "$cmd"
 
     exec 2> >( tee -a ${OFILE} )
     # Keep pipe open to hold the data on buffer after the writer program
