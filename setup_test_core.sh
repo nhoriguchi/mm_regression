@@ -145,23 +145,36 @@ check() {
     fi
 }
 
-check_testcase_filter() {
-   [ ! "$TESTCASE_FILTER" ] && return 1
-   if echo "$TESTCASE_FILTER" | grep "*" > /dev/null ; then
-       if echo "$TEST_TITLE" | grep "$TESTCASE_FILTER" > /dev/null ; then
+# TESTCASE_FILTER can contain multiple filter items (like "test1 test2 perf*")
+# so we need to do matching on each filter item.
+check_testcase_filter_one() {
+    local filter_item=$1
+   if echo "$filter_item" | grep "*" > /dev/null ; then
+       if echo "$TEST_TITLE" | grep "$filter_item" > /dev/null ; then
            return 1
        else
-           clear_testcase
            return 0
        fi
    else
-       if [ "$TESTCASE_FILTER" == "$TEST_TITLE" ] ; then
+       if [ "$filter_item" == "$TEST_TITLE" ] ; then
            return 1
        else
-           clear_testcase
            return 0
        fi
    fi
+}
+
+# "return 1" means we run the current testcase $TEST_TITLE
+check_testcase_filter() {
+    [ ! "$TESTCASE_FILTER" ] && return 1
+    local filter_item=
+    for filter_item in $TESTCASE_FILTER ; do
+        check_testcase_filter_one $filter_item
+        [ $? -eq 1 ] && return 1
+    done
+    # Didn't match, so we skip the current testcase
+    clear_testcase
+    return 0
 }
 
 do_test() {
