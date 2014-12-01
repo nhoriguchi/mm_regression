@@ -108,7 +108,7 @@ prepare() {
         $DEFAULT_TEST_PREPARE
     fi
     if [ $? -ne 0 ] ; then
-        echo "test preparation failed ($prepfunc) check you environment." >&2
+        echo "test preparation failed ($prepfunc) check your environment." >&2
         return 1
     fi
 }
@@ -133,7 +133,7 @@ cleanup() {
         $DEFAULT_TEST_CLEANUP
     fi
     if [ $? -ne 0 ] ; then
-        echo "test cleanup failed ($cleanfunc) check you environment." >&2
+        echo "test cleanup failed ($cleanfunc) check your environment." >&2
     fi
 }
 
