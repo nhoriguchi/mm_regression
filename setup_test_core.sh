@@ -132,9 +132,6 @@ cleanup() {
         cleanfunc=$DEFAULT_TEST_CLEANUP
         $DEFAULT_TEST_CLEANUP
     fi
-    if [ $? -ne 0 ] ; then
-        echo "test cleanup failed ($cleanfunc) check your environment." >&2
-    fi
 }
 
 check() {
