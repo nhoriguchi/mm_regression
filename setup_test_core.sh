@@ -146,19 +146,19 @@ check() {
 # so we need to do matching on each filter item.
 check_testcase_filter_one() {
     local filter_item=$1
-   if echo "$filter_item" | grep "*" > /dev/null ; then
-       if echo "$TEST_TITLE" | grep "$filter_item" > /dev/null ; then
-           return 1
-       else
-           return 0
-       fi
-   else
-       if [ "$filter_item" == "$TEST_TITLE" ] ; then
-           return 1
-       else
-           return 0
-       fi
-   fi
+    if echo "$filter_item" | grep "*" > /dev/null ; then
+        if echo "$TEST_TITLE" | grep "$filter_item" > /dev/null ; then
+            return 1
+        else
+            return 0
+        fi
+    else
+        if [ "$filter_item" == "$TEST_TITLE" ] ; then
+            return 1
+        else
+            return 0
+        fi
+    fi
 }
 
 # "return 1" means we run the current testcase $TEST_TITLE
