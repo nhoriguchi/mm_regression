@@ -243,6 +243,8 @@ do_test() {
 # reproduce in the test controller,) use this async function.
 do_test_async() {
     check_testcase_filter && return
+    check_test_flag && return
+
     init_return_code
     set_return_code "START"
 
