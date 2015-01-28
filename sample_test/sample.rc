@@ -28,3 +28,11 @@ TEST_FLAGS=devel
 TEST_PROGRAM="${TESTPROG} -m private -n1"
 EXPECTED_RETURN_CODE="START EXIT"
 do_test_sync
+
+TEST_TITLE='sample_test_false_negative'
+FALSENEGATIVE=true
+TEST_PROGRAM="${TESTPROG} -m private -n1"
+EXPECTED_RETURN_CODE="START NEVER_HAPPEN EXIT"
+TEST_CHECKER=check_sample_false_negative
+do_test_sync
+FALSENEGATIVE=false

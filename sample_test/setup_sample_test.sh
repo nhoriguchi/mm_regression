@@ -61,3 +61,8 @@ check_sample_async() {
     check_kernel_message_nobug
     check_return_code "${EXPECTED_RETURN_CODE}"
 }
+
+check_sample_false_negative() {
+    check_kernel_message "NO_SUCH_STRINGS"
+    check_return_code "${EXPECTED_RETURN_CODE}"
+}
