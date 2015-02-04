@@ -188,6 +188,8 @@ check_test_flag() {
     return 0
 }
 
+# return 1 if test (cmd) didn't run, otherwise return 0 even if test itself
+# failed.
 __do_test() {
     local cmd="$1"
     local line=
@@ -195,44 +197,46 @@ __do_test() {
     init_return_code
     set_return_code "START"
 
-    while true ; do # this while loop works like goto jump.
-        prepare || break
-        [ "$VERBOSE" ] && echo_log "$cmd"
+    prepare
+    if [ $? -ne 0 ] ; then
+        cleanup
+        return 1
+    fi
+    [ "$VERBOSE" ] && echo_log "$cmd"
 
-        exec 2> >( tee -a ${OFILE} )
-        # Keep pipe open to hold the data on buffer after the writer program
-        # is terminated.
-        exec 11<>${PIPE}
-        eval "( $cmd ) &"
-        local pid=$!
-        while true ; do
+    exec 2> >( tee -a ${OFILE} )
+    # Keep pipe open to hold the data on buffer after the writer program
+    # is terminated.
+    exec 11<>${PIPE}
+    eval "( $cmd ) &"
+    local pid=$!
+    while true ; do
+        if ! pgrep -f "$cmd" 2> /dev/null >&2 ; then
+            set_return_code "KILLED"
+            break
+        elif read -t${PIPETIMEOUT} line <> ${PIPE} ; then
+            run_controller $pid "$line"
+            if [ $? -eq 0 ] ; then
+                break
+            fi
+        else
             if ! pgrep -f "$cmd" 2> /dev/null >&2 ; then
                 set_return_code "KILLED"
                 break
-            elif read -t${PIPETIMEOUT} line <> ${PIPE} ; then
-                run_controller $pid "$line"
-                if [ $? -eq 0 ] ; then
-                    break
-                fi
             else
-                if ! pgrep -f "$cmd" 2> /dev/null >&2 ; then
-                    set_return_code "KILLED"
-                    break
-                else
-                    echo_log "time out, abort test"
-                    set_return_code "TIMEOUT"
-                    break
-                fi
+                echo_log "time out, abort test"
+                set_return_code "TIMEOUT"
+                break
             fi
-        done
-        pkill -9 -f "$cmd" | tee -a ${OFILE}
-        exec 11<&-
-        exec 11>&-
-        break
+        fi
     done
+    pkill -9 -f "$cmd" | tee -a ${OFILE}
+    exec 11<&-
+    exec 11>&-
 
     cleanup
     check
+    return 0
 }
 
 do_test() {
@@ -246,8 +250,15 @@ do_test() {
     while true ; do
         reset_per_testcase_counters
         __do_test "$@"
+        # test aborted due to the preparation failure
+        if [ $? -ne 0 ] ; then
+            break
+        fi
         if [ "$(cat ${TMPF}.failure_tmp)" -gt 0 ] ; then
-            if [ "$TEST_RETRYABLE" -eq 0 ] ; then
+            if [ ! "$TEST_RETRYABLE" ] ; then
+                # don't care about retry.
+                break
+            elif [ "$TEST_RETRYABLE" -eq 0 ] ; then
                 echo_log "### retried $retryable, but still failed."
                 break
             else
@@ -266,13 +277,15 @@ do_test() {
 __do_test_async() {
     init_return_code
     set_return_code "START"
-    while true ; do # while loop as a goto jump
-        prepare || break
-        run_controller
-        break
-    done
+    prepare
+    if [ $? -ne 0 ] ; then
+        cleanup
+        return 1
+    fi
+    run_controller
     cleanup
     check
+    return 0
 }
 
 # Usage: do_test_async <testtitle> <test controller> <result checker>
@@ -289,8 +302,15 @@ do_test_async() {
     while true ; do
         reset_per_testcase_counters
         __do_test_async
+        # test aborted due to the preparation failure
+        if [ $? -ne 0 ] ; then
+            break
+        fi
         if [ "$(cat ${TMPF}.failure_tmp)" -gt 0 ] ; then
-            if [ "$TEST_RETRYABLE" -eq 0 ] ; then
+            if [ ! "$TEST_RETRYABLE" ] ; then
+                # don't care about retry.
+                break
+            elif [ "$TEST_RETRYABLE" -eq 0 ] ; then
                 echo_log "### retried $retryable, but still failed."
                 break
             else
@@ -316,7 +336,7 @@ clear_testcase() {
     TEST_PREPARE=
     TEST_CLEANUP=
     TEST_FLAGS=
-    TEST_RETRYABLE=0
+    TEST_RETRYABLE=
     reset_per_testcase_counters
 }
 
