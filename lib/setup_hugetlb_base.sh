@@ -38,3 +38,24 @@ hugetlb_empty_check() {
         show_hugetlb_pool
     fi
 }
+
+__set_and_check_hugetlb_pool() {
+    sysctl vm.nr_hugepages=$1
+    [ $(get_hugepage_total) -ne $1 ] && return 1
+    [ $(get_hugepage_free) -ne $1 ] && return 1
+    [ $(get_hugepage_reserved) -ne 0 ] && return 1
+    [ $(get_hugepage_surplus) -ne 0 ] && return 1
+    return 0
+}
+
+set_and_check_hugetlb_pool() {
+    count_testcount
+    if __set_and_check_hugetlb_pool $1 ; then
+        count_success "hugetlb pool set and check: OK $1"
+        return 0
+    else
+        count_failure "hugetlb pool set and check: failed"
+        show_hugetlb_pool
+        return 1
+    fi
+}
