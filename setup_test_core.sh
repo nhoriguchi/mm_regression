@@ -182,81 +182,132 @@ check_test_flag() {
     [ ! "$TEST_FLAGS" ] && return 1
     [ "$TEST_DEVEL" ] && return 1
     # Didn't match, so we skip the current testcase
-    echo "Testcase $TEST_TITLE is skipped because it's not stable yet. If you"
-    echo "really want to run the testcase, please set environment variable TEST_DEVEL"
+    echo_log "Testcase $TEST_TITLE is skipped because it's not stable yet. If you"
+    echo_log "really want to run the testcase, please set environment variable TEST_DEVEL"
     clear_testcase
     return 0
 }
 
-do_test() {
+__do_test() {
     local cmd="$1"
     local line=
-
-    check_testcase_filter && return
-    check_test_flag && return
 
     init_return_code
     set_return_code "START"
 
-    echo_log "--- testcase '$TEST_TITLE' start --------------------"
-    prepare || return 1
-    [ "$VERBOSE" ] && echo_log "$cmd"
+    while true ; do # this while loop works like goto jump.
+        prepare || break
+        [ "$VERBOSE" ] && echo_log "$cmd"
 
-    exec 2> >( tee -a ${OFILE} )
-    # Keep pipe open to hold the data on buffer after the writer program
-    # is terminated.
-    exec 11<>${PIPE}
-    eval "( $cmd ) &"
-    local pid=$!
-    while true ; do
-        if ! pgrep -f "$cmd" 2> /dev/null >&2 ; then
-            set_return_code "KILLED"
-            break
-        elif read -t${PIPETIMEOUT} line <> ${PIPE} ; then
-            run_controller $pid "$line"
-            if [ $? -eq 0 ] ; then
-                break
-            fi
-        else
+        exec 2> >( tee -a ${OFILE} )
+        # Keep pipe open to hold the data on buffer after the writer program
+        # is terminated.
+        exec 11<>${PIPE}
+        eval "( $cmd ) &"
+        local pid=$!
+        while true ; do
             if ! pgrep -f "$cmd" 2> /dev/null >&2 ; then
                 set_return_code "KILLED"
                 break
+            elif read -t${PIPETIMEOUT} line <> ${PIPE} ; then
+                run_controller $pid "$line"
+                if [ $? -eq 0 ] ; then
+                    break
+                fi
             else
-                echo "time out, abort test" | tee -a ${OFILE}
-                set_return_code "TIMEOUT"
-                break
+                if ! pgrep -f "$cmd" 2> /dev/null >&2 ; then
+                    set_return_code "KILLED"
+                    break
+                else
+                    echo_log "time out, abort test"
+                    set_return_code "TIMEOUT"
+                    break
+                fi
             fi
-        fi
+        done
+        pkill -9 -f "$cmd" | tee -a ${OFILE}
+        exec 11<&-
+        exec 11>&-
+        break
     done
 
-    pkill -9 -f "$cmd" | tee -a ${OFILE}
-    exec 11<&-
-    exec 11>&-
     cleanup
     check
+}
+
+do_test() {
+    local i=
+    local retryable=$TEST_RETRYABLE
+
+    check_testcase_filter && return
+    check_test_flag && return
+
+    echo_log "--- testcase '$TEST_TITLE' start --------------------"
+    while true ; do
+        reset_per_testcase_counters
+        __do_test "$@"
+        if [ "$(cat ${TMPF}.failure_tmp)" -gt 0 ] ; then
+            if [ "$TEST_RETRYABLE" -eq 0 ] ; then
+                echo_log "### retried $retryable, but still failed."
+                break
+            else
+                echo_log "### failed, so let's retry ($[retryable - TEST_RETRYABLE + 1])"
+                TEST_RETRYABLE=$[TEST_RETRYABLE-1]
+            fi
+        else
+            break
+        fi
+    done
     echo_log "--- testcase '$TEST_TITLE' end --------------------"
+    commit_counts
     clear_testcase
+}
+
+__do_test_async() {
+    init_return_code
+    set_return_code "START"
+    while true ; do # while loop as a goto jump
+        prepare || break
+        run_controller
+        break
+    done
+    cleanup
+    check
 }
 
 # Usage: do_test_async <testtitle> <test controller> <result checker>
 # if you don't need any external program to reproduce the problem (IOW, you can
 # reproduce in the test controller,) use this async function.
 do_test_async() {
+    local i=
+    local retryable=$TEST_RETRYABLE
+
     check_testcase_filter && return
     check_test_flag && return
 
-    init_return_code
-    set_return_code "START"
-
     echo_log "--- testcase '$TEST_TITLE' start --------------------"
-    prepare
-    run_controller
-    cleanup
-    check
+    while true ; do
+        reset_per_testcase_counters
+        __do_test_async
+        if [ "$(cat ${TMPF}.failure_tmp)" -gt 0 ] ; then
+            if [ "$TEST_RETRYABLE" -eq 0 ] ; then
+                echo_log "### retried $retryable, but still failed."
+                break
+            else
+                echo_log "### failed, so let's retry ($[retryable - TEST_RETRYABLE + 1])"
+                TEST_RETRYABLE=$[TEST_RETRYABLE-1]
+            fi
+        else
+            break
+        fi
+    done
     echo_log "--- testcase '$TEST_TITLE' end --------------------"
+    commit_counts
     clear_testcase
 }
 
+# common initial value
+TEST_RETRYABLE=0
 clear_testcase() {
     TEST_TITLE=
     TEST_PROGRAM=
@@ -265,6 +316,8 @@ clear_testcase() {
     TEST_PREPARE=
     TEST_CLEANUP=
     TEST_FLAGS=
+    TEST_RETRYABLE=0
+    reset_per_testcase_counters
 }
 
 for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do

@@ -19,6 +19,31 @@ echo -n 0 > ${TMPF}.testcount
 echo -n 0 > ${TMPF}.success
 echo -n 0 > ${TMPF}.failure
 echo -n 0 > ${TMPF}.later # known failure
+echo -n 0 > ${TMPF}.skipped # skip the testcase for a good reason
+
+# These counters are independent between each testcase, commit_counts do
+# add values of per-testcase counters into total counters
+reset_per_testcase_counters() {
+    echo -n 0 > ${TMPF}.testcount_tmp
+    echo -n 0 > ${TMPF}.success_tmp
+    echo -n 0 > ${TMPF}.failure_tmp
+    echo -n 0 > ${TMPF}.later_tmp
+    echo -n 0 > ${TMPF}.skipped_tmp
+}
+
+add_counts() {
+    local countfile=$1
+    local value=$2
+    echo -n $[$(cat $countfile) + $value] > $countfile
+}
+
+commit_counts() {
+    add_counts ${TMPF}.testcount $(cat ${TMPF}.testcount_tmp)
+    add_counts ${TMPF}.success   $(cat ${TMPF}.success_tmp)
+    add_counts ${TMPF}.failure   $(cat ${TMPF}.failure_tmp)
+    add_counts ${TMPF}.later     $(cat ${TMPF}.later_tmp)
+    add_counts ${TMPF}.skipped   $(cat ${TMPF}.skipped_tmp)
+}
 
 export FALSENEGATIVE=false
 
@@ -46,7 +71,7 @@ count_testcount() {
         esac
     done
     [ "$@" ] && echo_log $nonewline "$@"
-    echo -n $[$(cat ${TMPF}.testcount) + 1] > ${TMPF}.testcount
+    add_counts ${TMPF}.testcount_tmp 1
 }
 
 count_success() {
@@ -58,11 +83,11 @@ count_success() {
         esac
     done
     if [ "$FALSENEGATIVE" = false ] ; then
-        echo -n $[$(cat ${TMPF}.success) + 1] > ${TMPF}.success
+        add_counts ${TMPF}.success_tmp 1
         echo_log $nonewline "PASS: $@"
         return 0
     else
-        echo -n $[$(cat ${TMPF}.later) + 1] > ${TMPF}.later
+        add_counts ${TMPF}.later_tmp 1
         echo_log $nonewline "LATER: PASS: $@"
         return 0
     fi
@@ -77,14 +102,28 @@ count_failure() {
         esac
     done
     if [ "$FALSENEGATIVE" = false ] ; then
-        echo -n $[$(cat ${TMPF}.failure) + 1] > ${TMPF}.failure
+        add_counts ${TMPF}.failure_tmp 1
         echo_log $nonewline "FAIL: $@"
         return 1
     else
-        echo -n $[$(cat ${TMPF}.later) + 1] > ${TMPF}.later
+        add_counts ${TMPF}.later_tmp 1
         echo_log $nonewline "LATER: FAIL: $@"
         return 0
     fi
+}
+
+count_skipped() {
+    local nonewline=
+    while true ; do
+        case "$1" in
+            -n) nonewline=-n ; shift ; break ;;
+            *) break ;;
+        esac
+    done
+
+    add_counts ${TMPF}.skipped_tmp 1
+    echo_log $nonewline "SKIPPED: $@"
+    return 0
 }
 
 show_fail_summary() {
