@@ -19,14 +19,20 @@ done
 shift $[OPTIND-1]
 RECIPEFILE=$1
 
-# Test root directory
-export TRDIR=$(dirname $(readlink -f $RECIPEFILE))
+[ ! -e "$RECIPEFILE" ] && exit 1
 
-. ${TCDIR}/setup_generic.sh
-. ${TCDIR}/setup_test_core.sh
+# Assuming that current directory is the test root directory.
+export TRDIR=$PWD # $(dirname $(readlink -f $RECIPEFILE))
+
+. $TCDIR/setup_generic.sh
+. $TCDIR/setup_test_core.sh
+. $TCDIR/setup_recipe.sh
+
+# original recipe can 'embed' other small parts
+parse_recipefile $RECIPEFILE .tmp.$RECIPEFILE
 
 if [ "$SCRIPT" == true ] ; then
-    bash ${RECIPEFILE}
+    bash .tmp.${RECIPEFILE}
 else
     while read line ; do
         [ ! "$line" ] && continue
@@ -43,7 +49,7 @@ else
         else
             eval $line
         fi
-    done < ${RECIPEFILE}
+    done < .tmp.${RECIPEFILE}
 fi
 
 show_summary
