@@ -5,8 +5,11 @@ if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
     exit 1
 fi
 
-PAGETYPES=${KERNEL_SRC}/tools/vm/page-types
-[ ! -x "${PAGETYPES}" ] && make -C ${KERNEL_SRC}/tools/vm/ page-types
+PAGETYPES=$KERNEL_SRC/tools/vm/page-types
+if [ ! -x "${PAGETYPES}" ] || [ ! -s "${PAGETYPES}" ] ; then
+    make clean -C $KERNEL_SRC/tools
+    make vm -C $KERNEL_SRC/tools
+fi
 [ ! -x "${PAGETYPES}" ] && echo "${PAGETYPES} not found." >&2 && exit 1
 
 GUESTPAGETYPES=/usr/local/bin/page-types
@@ -60,23 +63,16 @@ if ! lsmod | grep hwpoison_inject > /dev/null ; then
     modprobe hwpoison_inject
 fi
 
-check_install_package() {
-    local pkg=$1
-    if ! which "$pkg" > /dev/null ; then
-        echo "Package $pkg not found, so install now."
-        yum install -y ${pkg}
-    fi
-}
-
 check_install_package expect
 check_install_package ruby
 
-if ! which mce-inject > /dev/null ; then
+if ! which mce-inject > /dev/null || [[ ! -s "$(which mce-inject)" ]] ; then
     echo "No mce-inject installed."
     check_install_package bison
     check_install_package flex
     # http://git.kernel.org/cgit/utils/cpu/mce/mce-inject.git
-    git clone https://github.com/andikleen/mce-inject
+    rm -rf ./mce-inject
+    git clone https://github.com/Naoya-Horiguchi/mce-inject
     pushd mce-inject
     make
     make install
