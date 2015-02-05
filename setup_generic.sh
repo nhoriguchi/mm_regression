@@ -45,7 +45,7 @@ commit_counts() {
     add_counts ${TMPF}.skipped   $(cat ${TMPF}.skipped_tmp)
 }
 
-export FALSENEGATIVE=false
+FALSENEGATIVE=false
 
 # print test output with copying into result file. Using tee command
 # for example with "do_test | tee $OFILE" doesn't work because do_test

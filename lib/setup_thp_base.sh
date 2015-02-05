@@ -3,12 +3,14 @@
 DISTRO=""
 THPDIR=""
 KHPDDIR=""
+RHELOPT=""
 
 # if grep "Red Hat Enterprise Linux.*release 6" /etc/system-release > /dev/null ; then
 if uname -r  | grep "\.el6" > /dev/null ; then
     DISTRO="RHEL6"
     THPDIR="/sys/kernel/mm/redhat_transparent_hugepage"
     KHPDDIR="/sys/kernel/mm/redhat_transparent_hugepage/khugepaged"
+    RHELOPT="-R"
 elif uname -r  | grep "\.el7" > /dev/null ; then
     DISTRO="RHEL7"
     THPDIR="/sys/kernel/mm/transparent_hugepage"
@@ -23,11 +25,7 @@ else
     KHPDDIR="/sys/kernel/mm/transparent_hugepage/khugepaged"
 fi
 
-RHELOPT="" ; [ "$DISTRO" = "RHEL6" ] && RHELOPT="-R"
-
 [ ! -d "$THPDIR" ] && echo "Kernel not support thp." >&2 && exit 1
-
-ulimit -s unlimited
 
 ## routines
 
@@ -98,20 +96,20 @@ show_current_tuning_parameters_compact() {
     echo "thp: `get_thp`, deflag: `get_thp_defrag`, alloc_sleep_millices: `get_khpd_alloc_sleep_millisecs`, defrag (in khpd): `get_khpd_defrag`, max_ptes_none: `get_khpd_max_ptes_none`, pages_to_scan: `get_khpd_pages_to_scan`, scan_sleep_millisecs: `get_khpd_scan_sleep_millisecs`"
 }
 
-thp_fault_alloc=0
-thp_fault_fallback=0
-thp_collapse_alloc=0
-thp_collapse_alloc_failed=0
-thp_split=0
+__thp_fault_alloc=0
+__thp_fault_fallback=0
+__thp_collapse_alloc=0
+__thp_collapse_alloc_failed=0
+__thp_split=0
 get_vmstat_thp() {
-    thp_fault_alloc=`grep thp_fault_alloc /proc/vmstat | cut -f2 -d' '`
-    thp_fault_fallback=`grep thp_fault_fallback /proc/vmstat | cut -f2 -d' '`
-    thp_collapse_alloc=`grep "thp_collapse_alloc " /proc/vmstat | cut -f2 -d' '`
-    thp_collapse_alloc_failed=`grep thp_collapse_alloc_failed /proc/vmstat | cut -f2 -d' '`
-    thp_split=`grep thp_split /proc/vmstat | cut -f2 -d' '`
+    __thp_fault_alloc=`grep thp_fault_alloc /proc/vmstat | cut -f2 -d' '`
+    __thp_fault_fallback=`grep thp_fault_fallback /proc/vmstat | cut -f2 -d' '`
+    __thp_collapse_alloc=`grep "thp_collapse_alloc " /proc/vmstat | cut -f2 -d' '`
+    __thp_collapse_alloc_failed=`grep thp_collapse_alloc_failed /proc/vmstat | cut -f2 -d' '`
+    __thp_split=`grep thp_split /proc/vmstat | cut -f2 -d' '`
 }
 show_stat_thp() {
     get_vmstat_thp
     echo   "        clpsd, fscan, fltal, fltfb, clpal, clpaf, split"
-    printf "Result  %5s, %5s, %5s, %5s, %5s, %5s, %5s\n" `get_khpd_pages_collapsed` `get_khpd_full_scans` $thp_fault_alloc $thp_fault_fallback $thp_collapse_alloc $thp_collapse_alloc_failed $thp_split
+    printf "Result  %5s, %5s, %5s, %5s, %5s, %5s, %5s\n" `get_khpd_pages_collapsed` `get_khpd_full_scans` $__thp_fault_alloc $__thp_fault_fallback $__thp_collapse_alloc $__thp_collapse_alloc_failed $__thp_split
 }
