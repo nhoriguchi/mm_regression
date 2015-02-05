@@ -337,6 +337,7 @@ clear_testcase() {
     TEST_CLEANUP=
     TEST_FLAGS=
     TEST_RETRYABLE=
+    FALSENEGATIVE=false
     reset_per_testcase_counters
 }
 
