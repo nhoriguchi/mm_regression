@@ -5,7 +5,7 @@ if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
     exit 1
 fi
 
-TESTPROG=$(dirname $(readlink -f $BASH_SOURCE))/sample
+check_and_define_tp test_sample
 sysctl vm.nr_hugepages=10
 
 prepare_test() {
