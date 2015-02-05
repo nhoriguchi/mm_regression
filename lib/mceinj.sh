@@ -43,7 +43,7 @@ inject_error() {
         echo "Soft offlining host pfn ${TARGET}"
         echo ${TARGET}000 > /sys/devices/system/memory/soft_offline_page
     elif [ "$ERRORTYPE" = "mce-srao" ] ; then
-        echo "Injecting MCE on host pfn ${TARGET}"
+        echo "Injecting MCE on host pfn ${TARGET} ${tmpf}.mce-inject"
         cat <<EOF > ${tmpf}.mce-inject
 CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 2
 STATUS UNCORRECTED SRAO 0x17a
