@@ -3,6 +3,16 @@
 # input recipe
 # output summarized testcase
 
+WIDTH=30
+while getopts w: OPT
+do
+    case $OPT in
+        w) WIDTH=$OPTARG ;;
+        *) echo "invalid option" && exit 1 ;;
+    esac
+done
+shift $[OPTIND - 1]
+
 SDIR=$(readlink -f $(dirname $BASH_SOURCE))
 RECIPEFILE=$(readlink -f $1)
 
@@ -28,6 +38,7 @@ show_item() {
             return
         fi
     fi
+    eval echo "$sym=\$"$target >> $TMPF/all
     eval echo "\$"$target >> $TMPF/$sym
 }
 
@@ -55,7 +66,7 @@ while read line ; do
 done < $TMPF/recipe
 popd > /dev/null
 
-printf "%-30s %-30s %-30s %-30s %-30s\n" Title Prepare Cleanup Control Check
+printf "%-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s\n" Title Prepare Cleanup Control Check
 paste $TMPF/TEST_TITLE $TMPF/TEST_PREPARE $TMPF/TEST_CLEANUP $TMPF/TEST_CONTROLLER $TMPF/TEST_CHECKER | while read title prepare cleanup controller checker ; do
-    printf "%-30s %-30s %-30s %-30s %-30s\n" $title ${prepare#prepare_} ${cleanup#cleanup_} ${controller#control_} ${checker#check_}
+    printf "%-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s\n" $title ${prepare#prepare_} ${cleanup#cleanup_} ${controller#control_} ${checker#check_}
 done
