@@ -120,6 +120,7 @@ prepare() {
     fi
     if [ $? -ne 0 ] ; then
         echo "test preparation failed ($prepfunc) check your environment." >&2
+        count_skipped
         return 1
     fi
 }
