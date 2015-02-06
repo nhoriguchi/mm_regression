@@ -14,7 +14,7 @@ check_install_package() {
         yum install -y ${pkg}
     fi
     if [ ! -s "$path" ] ; then
-        echo "$(which $pkg) is empty for some reason, so let's re-install now."
-        yum reinstall -y ${pkg}
+        echo "path for $pkg is empty for some reason, so let's re-install now."
+        yum reinstall -y ${pkg} > /dev/null
     fi
 }
