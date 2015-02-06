@@ -11,7 +11,7 @@ get_kernel_message_after() { dmesg > ${TMPF}.dmesg_after; }
 
 get_kernel_message_diff() {
     echo "####### DMESG #######"
-    diff ${TMPF}.dmesg_before ${TMPF}.dmesg_after | grep -v '^< ' | \
+    diff ${TMPF}.dmesg_before ${TMPF}.dmesg_after 2> /dev/null | grep -v '^< ' | \
         tee ${TMPF}.dmesg_diff
     echo "####### DMESG END #######"
 }
@@ -98,6 +98,15 @@ check_return_code() {
     fi
 }
 
+prepare_system_default() {
+    get_kernel_message_before
+}
+
+cleanup_system_default() {
+    get_kernel_message_after
+    get_kernel_message_diff
+}
+
 prepare() {
     local prepfunc
     if [ "$TEST_PREPARE" ] ; then
@@ -106,6 +115,8 @@ prepare() {
     elif [ "$DEFAULT_TEST_PREPARE" ] ; then
         prepfunc=$DEFAULT_TEST_PREPARE
         $DEFAULT_TEST_PREPARE
+    else
+        prepare_system_default
     fi
     if [ $? -ne 0 ] ; then
         echo "test preparation failed ($prepfunc) check your environment." >&2
@@ -124,6 +135,7 @@ run_controller() {
 }
 
 cleanup() {
+    # TODO: unneccessary?
     local cleanfunc
     if [ "$TEST_CLEANUP" ] ; then
         cleanfunc=$TEST_CLEANUP
@@ -131,6 +143,8 @@ cleanup() {
     elif [ "$DEFAULT_TEST_CLEANUP" ] ; then
         cleanfunc=$DEFAULT_TEST_CLEANUP
         $DEFAULT_TEST_CLEANUP
+    else
+        cleanup_system_default
     fi
 }
 
@@ -242,6 +256,7 @@ __do_test() {
 do_test() {
     local i=
     local retryable=$TEST_RETRYABLE
+    local skipped=
 
     check_testcase_filter && return
     check_test_flag && return
@@ -252,6 +267,7 @@ do_test() {
         __do_test "$@"
         # test aborted due to the preparation failure
         if [ $? -ne 0 ] ; then
+            skipped=true
             break
         fi
         if [ "$(cat ${TMPF}.failure_tmp)" -gt 0 ] ; then
@@ -270,7 +286,7 @@ do_test() {
         fi
     done
     echo_log "--- testcase '$TEST_TITLE' end --------------------"
-    commit_counts
+    [ "$skipped" != true ] && commit_counts
     clear_testcase
 }
 
@@ -294,6 +310,7 @@ __do_test_async() {
 do_test_async() {
     local i=
     local retryable=$TEST_RETRYABLE
+    local skipped=
 
     check_testcase_filter && return
     check_test_flag && return
@@ -304,6 +321,7 @@ do_test_async() {
         __do_test_async
         # test aborted due to the preparation failure
         if [ $? -ne 0 ] ; then
+            skipped=true
             break
         fi
         if [ "$(cat ${TMPF}.failure_tmp)" -gt 0 ] ; then
@@ -322,7 +340,7 @@ do_test_async() {
         fi
     done
     echo_log "--- testcase '$TEST_TITLE' end --------------------"
-    commit_counts
+    [ "$skipped" != true ] && commit_counts
     clear_testcase
 }
 

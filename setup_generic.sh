@@ -28,7 +28,6 @@ reset_per_testcase_counters() {
     echo -n 0 > ${TMPF}.success_tmp
     echo -n 0 > ${TMPF}.failure_tmp
     echo -n 0 > ${TMPF}.later_tmp
-    echo -n 0 > ${TMPF}.skipped_tmp
 }
 
 add_counts() {
@@ -42,7 +41,6 @@ commit_counts() {
     add_counts ${TMPF}.success   $(cat ${TMPF}.success_tmp)
     add_counts ${TMPF}.failure   $(cat ${TMPF}.failure_tmp)
     add_counts ${TMPF}.later     $(cat ${TMPF}.later_tmp)
-    add_counts ${TMPF}.skipped   $(cat ${TMPF}.skipped_tmp)
 }
 
 FALSENEGATIVE=false
@@ -121,12 +119,14 @@ count_skipped() {
         esac
     done
 
-    add_counts ${TMPF}.skipped_tmp 1
+    add_counts ${TMPF}.skipped 1
     echo_log $nonewline "SKIPPED: $@"
     echo $TEST_TITLE >> ${TMPF}.skipped_testcases
     return 0
 }
 
+# TODO: testcases could be skipped, so searching PASS/FAIL count from OFILE is
+# not a good idea. Need to record this in tmporary file.
 show_fail_summary() {
     grep -e "--- testcase" -e "^PASS: " -e "^FAIL: " -e "^LATER: " ${OFILE} > ${TMPF}.sum
 

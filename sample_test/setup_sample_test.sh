@@ -69,6 +69,11 @@ check_sample_false_negative() {
 }
 
 prepare_sample_test_skipped() {
+    count_testcount
+    count_success "just success"
+    count_testcount
+    count_failure "just failure"
+    # This test is skipped, so ignore any success/failure recorded before this
     count_skipped "do skip"
     return 1
 }
