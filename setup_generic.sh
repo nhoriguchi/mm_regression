@@ -123,6 +123,7 @@ count_skipped() {
 
     add_counts ${TMPF}.skipped_tmp 1
     echo_log $nonewline "SKIPPED: $@"
+    echo $TEST_TITLE >> ${TMPF}.skipped_testcases
     return 0
 }
 
@@ -154,6 +155,10 @@ show_summary() {
     echo_log "$TESTNAME:"
     echo_log "$(cat ${TMPF}.testcount) test(s) ran, $(cat ${TMPF}.success) passed, $(cat ${TMPF}.failure) failed, $(cat ${TMPF}.later) laters."
     show_fail_summary
+    if [ "$(cat ${TMPF}.skipped)" -ne 0 ] ; then
+        echo_log "$(cat ${TMPF}.skipped) test(s) skipped."
+        cat ${TMPF}.skipped_testcases | sed 's/^/ - /'
+    fi
 }
 
 for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do

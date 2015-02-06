@@ -6,15 +6,16 @@ if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
 fi
 
 check_and_define_tp test_sample
-sysctl vm.nr_hugepages=10
 
-prepare_test() {
+prepare_sample() {
+    sysctl vm.nr_hugepages=10
     get_kernel_message_before
 }
 
-cleanup_test() {
+cleanup_sample() {
     get_kernel_message_after
     get_kernel_message_diff
+    sysctl vm.nr_hugepages=0
 }
 
 control_sample() {
@@ -27,7 +28,7 @@ control_sample() {
             cat /proc/${pid}/numa_maps | tee -a ${OFILE}
             kill -SIGUSR1 ${pid}
             ;;
-        "${TESTPROG} exit")
+        "$test_sample exit")
             kill -SIGUSR1 ${pid}
             set_return_code "EXIT"
             return 0
@@ -65,4 +66,17 @@ check_sample_async() {
 check_sample_false_negative() {
     check_kernel_message "NO_SUCH_STRINGS"
     check_return_code "${EXPECTED_RETURN_CODE}"
+}
+
+prepare_sample_test_skipped() {
+    count_skipped "do skip"
+    return 1
+}
+
+control_sample_test_skipped() {
+    set_return_code THIS_SHOULD_NOT_HAPPEN
+}
+
+check_sample_test_skipped() {
+    echo "BUG: this check should not run, because it's supposed to be skipped."
 }

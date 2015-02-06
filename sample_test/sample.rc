@@ -1,19 +1,20 @@
 KERNEL_SRC=/src/linux-dev
+. test_core/lib/common.sh
 . setup_sample_test.sh
 
-DEFAULT_TEST_PREPARE=prepare_test
-DEFAULT_TEST_CLEANUP=cleanup_test
+DEFAULT_TEST_PREPARE=prepare_sample
+DEFAULT_TEST_CLEANUP=cleanup_sample
 
 DEFAULT_TEST_CONTROLLER=control_sample
 DEFAULT_TEST_CHECKER=check_sample
 
 TEST_TITLE='sample_test'
-TEST_PROGRAM="${TESTPROG} -m private -n1"
+TEST_PROGRAM="$test_sample -m private -n1"
 EXPECTED_RETURN_CODE="START EXIT"
 do_test_sync
 
 TEST_TITLE='sample_test_2'
-TEST_PROGRAM="${TESTPROG} -h 2048 -m private -n1"
+TEST_PROGRAM="$test_sample -h 2048 -m private -n1"
 EXPECTED_RETURN_CODE="START EXIT"
 do_test_sync
 
@@ -25,16 +26,23 @@ do_test_async
 
 TEST_TITLE='sample_test_under_devel'
 TEST_FLAGS=devel
-TEST_PROGRAM="${TESTPROG} -m private -n1"
+TEST_PROGRAM="$test_sample -m private -n1"
 EXPECTED_RETURN_CODE="START EXIT"
 do_test_sync
 
 TEST_TITLE='sample_test_false_negative'
 FALSENEGATIVE=true
-TEST_PROGRAM="${TESTPROG} -m private -n1"
+TEST_PROGRAM="$test_sample -m private -n1"
 EXPECTED_RETURN_CODE="START NEVER_HAPPEN EXIT"
 TEST_CHECKER=check_sample_false_negative
 do_test_sync
 FALSENEGATIVE=false
 
 #!EMBED: cases/sample_test_case_separate_file
+
+TEST_TITLE='sample_test_skipped'
+TEST_PREPARE=prepare_sample_test_skipped
+TEST_CONTROLLER=control_sample_test_skipped
+TEST_CHECKER=check_sample_test_skipped
+EXPECTED_RETURN_CODE="RETURN_CODE_SHOULD_NOT_BE_CHECKED"
+do_test_async
