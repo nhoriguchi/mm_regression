@@ -104,7 +104,13 @@ prepare_system_default() {
 
 cleanup_system_default() {
     get_kernel_message_after
-    get_kernel_message_diff
+    get_kernel_message_diff | tee -a $OFILE
+}
+
+check_system_default() {
+    check_kernel_message -v "failed"
+    check_kernel_message_nobug
+    check_return_code "${EXPECTED_RETURN_CODE}"
 }
 
 prepare() {
@@ -154,6 +160,8 @@ check() {
         $TEST_CHECKER
     elif [ "$DEFAULT_TEST_CHECKER" ] ; then
         $DEFAULT_TEST_CHECKER
+    else
+        check_system_default
     fi
 }
 
