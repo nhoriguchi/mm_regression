@@ -35,6 +35,7 @@ parse_recipefile() {
                 echo "EXPECTED_RETURN_CODE=\"$retcode\""
                 echo "TEST_PROGRAM=\"$program\""
                 echo "TEST_RETRYABLE=\"$retry\""
+                echo "$others"
                 if [ "$program" ] ; then
                     echo "do_test_sync"
                 else
