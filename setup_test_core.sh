@@ -108,7 +108,6 @@ cleanup_system_default() {
 }
 
 check_system_default() {
-    check_kernel_message -v "failed"
     check_kernel_message_nobug
     check_return_code "${EXPECTED_RETURN_CODE}"
 }
