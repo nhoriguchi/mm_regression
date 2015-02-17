@@ -31,6 +31,8 @@ export TRDIR=$PWD # $(dirname $(readlink -f $RECIPEFILE))
 # original recipe can 'embed' other small parts
 parse_recipefile $RECIPEFILE .tmp.$RECIPEFILE
 
+# less .tmp.$RECIPEFILE
+
 if [ "$SCRIPT" == true ] ; then
     bash .tmp.${RECIPEFILE}
 else

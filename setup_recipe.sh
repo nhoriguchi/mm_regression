@@ -15,7 +15,7 @@ parse_recipefile() {
         elif [[ "$line" =~ ^#!TABLE: ]] ; then
             file=$(echo $line | cut -f2- -d:)
             cat $file | while read entry ; do
-                if [ ! "$line" ] || [[ "$line" =~ ^# ]] ; then
+                if [ ! "$entry" ] || [[ "$entry" =~ ^# ]] ; then
                     continue
                 fi
                 local title="$(echo "$entry"   | cut -f1 -d'|' | sed -e 's/^ *//' -e 's/ *$//')"
