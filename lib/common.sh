@@ -8,13 +8,11 @@ check_and_define_tp() {
 
 check_install_package() {
     local pkg=$1
-    local path=$(which $pkg)
-    if [ ! "$path" ] ; then
-        echo "Package $pkg not found, so install now."
+    if ! yum list installed "$pkg" > /dev/null 2>&1 ; then
         yum install -y ${pkg}
     fi
-    if [ ! -s "$path" ] ; then
-        echo "path for $pkg is empty for some reason, so let's re-install now."
-        yum reinstall -y ${pkg} > /dev/null
-    fi
+    # if [ ! -s "$path" ] ; then
+    #     echo "path for $pkg is empty for some reason, so let's re-install now."
+    #     yum reinstall -y ${pkg} > /dev/null
+    # fi
 }
