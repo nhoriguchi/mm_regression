@@ -27,6 +27,7 @@ export TRDIR=$PWD # $(dirname $(readlink -f $RECIPEFILE))
 . $TCDIR/setup_generic.sh
 . $TCDIR/setup_test_core.sh
 . $TCDIR/setup_recipe.sh
+. $TCDIR/lib/patch.sh
 
 # original recipe can 'embed' other small parts
 parse_recipefile $RECIPEFILE .tmp.$RECIPEFILE

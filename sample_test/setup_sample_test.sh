@@ -85,3 +85,13 @@ control_sample_test_skipped() {
 check_sample_test_skipped() {
     echo "BUG: this check should not run, because it's supposed to be skipped."
 }
+
+prepare_sample_test_skipped_unfixed() {
+    count_testcount
+    count_failure "This should never be run."
+}
+
+control_sample_test_skipped_unfixed() {
+    count_testcount
+    count_failure "This should never be run."
+}

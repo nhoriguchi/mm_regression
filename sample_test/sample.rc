@@ -46,3 +46,17 @@ TEST_CONTROLLER=control_sample_test_skipped
 TEST_CHECKER=check_sample_test_skipped
 EXPECTED_RETURN_CODE="RETURN_CODE_SHOULD_NOT_BE_CHECKED"
 do_test_async
+
+# This testcase is an example where test case is not run because the current
+# kernel doesn't contain the patch which should make the test pass. IOW,
+# the environment variable ... is used to automatically avoid the known failure.
+#
+TEST_TITLE='sample_test_skipped_unfixed'
+TEST_PREPARE=prepare_sample_test_skipped_unfixed
+TEST_CONTROLLER=control_sample_test_skipped_unfixed
+EXPECTED_RETURN_CODE="RETURN_CODE_SHOULD_NOT_BE_CHECKED"
+# If you define CURRENT_KERNEL, use it as current kernel instead of $(uname -r)
+CURRENT_KERNEL=v3.19
+FIXEDBY_SUBJECT="mm: hwpoison: drop lru_add_drain_all() in __soft_offline_page()"
+FIXEDBY_COMMITID=9ab3b598d2df
+do_test_async

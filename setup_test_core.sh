@@ -210,6 +210,31 @@ check_test_flag() {
     return 0
 }
 
+check_inclusion_of_fixedby_patch() {
+    # no filter of inclusion of the FIXEDBY patch.
+    [ ! "$FIXEDBY_SUBJECT" ] && [ ! "$FIXEDBY_COMMITID" ] && return 1
+    local cbranch=$(uname -r)
+    [ "$CURRENT_KERNEL" ] && cbranch="$CURRENT_KERNEL"
+    if [ ! -d "$KERNEL_SRC" ] ; then
+        echo_log "kernel source directory KERNEL_SRC $KERNEL_SRC not found"
+        echo_log "Let's skip this testcase for safety"
+        return 0
+    fi
+    pushd $KERNEL_SRC
+    check_patch_applied "$cbranch" "$FIXEDBY_SUBJECT" "$FIXEDBY_COMMITID"
+    local ret=$?
+    popd > /dev/null
+    [ $ret -eq 0 ] && return 1
+    echo_log "Testcase $TEST_TITLE is skipped because it's known to fail without"
+    echo_log "the following patch applied."
+    echo_log "  Subject: $FIXEDBY_SUBJECT"
+    echo_log "  Commit: $FIXEDBY_COMMITID"
+    echo_log "If you really want to run the testcase, please set environment variable"
+    echo_log "CURRENT_KERNEL to some appropriate kernel version."
+    clear_testcase
+    return 0
+}
+
 # return 1 if test (cmd) didn't run, otherwise return 0 even if test itself
 # failed.
 __do_test() {
@@ -268,6 +293,7 @@ do_test() {
 
     check_testcase_filter && return
     check_test_flag && return
+    check_inclusion_of_fixedby_patch && return
 
     echo_log "--- testcase '$TEST_TITLE' start --------------------"
     while true ; do
@@ -322,6 +348,7 @@ do_test_async() {
 
     check_testcase_filter && return
     check_test_flag && return
+    check_inclusion_of_fixedby_patch && return
 
     echo_log "--- testcase '$TEST_TITLE' start --------------------"
     while true ; do
@@ -363,6 +390,8 @@ clear_testcase() {
     TEST_CLEANUP=
     TEST_FLAGS=
     TEST_RETRYABLE=
+    FIXEDBY_SUBJECT=
+    FIXEDBY_COMMITID=
     FALSENEGATIVE=false
     reset_per_testcase_counters
 }
