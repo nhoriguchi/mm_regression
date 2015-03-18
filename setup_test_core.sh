@@ -191,7 +191,8 @@ check_testcase_filter() {
         check_testcase_filter_one $filter_item
         [ $? -eq 1 ] && return 1
     done
-    # Didn't match, so we skip the current testcase
+    # Didn't match, so we skip the current testcase, no need to call count_skipped
+    # because if TESTCASE_FILTER is set, user knows they skip all filtered-out tests.
     clear_testcase
     return 0
 }
@@ -206,22 +207,27 @@ check_test_flag() {
     # Didn't match, so we skip the current testcase
     echo_log "Testcase $TEST_TITLE is skipped because it's not stable yet. If you"
     echo_log "really want to run the testcase, please set environment variable TEST_DEVEL"
+    count_skipped
     clear_testcase
     return 0
 }
 
 check_inclusion_of_fixedby_patch() {
     # no filter of inclusion of the FIXEDBY patch.
-    [ ! "$FIXEDBY_SUBJECT" ] && [ ! "$FIXEDBY_COMMITID" ] && return 1
+    [ ! "$FIXEDBY_SUBJECT" ] && [ ! "$FIXEDBY_COMMITID" ] && [ ! "$FIXEDBY_AUTHOR" ] && return 1
     local cbranch=$(uname -r)
-    [ "$CURRENT_KERNEL" ] && cbranch="$CURRENT_KERNEL"
     if [ ! -d "$KERNEL_SRC" ] ; then
         echo_log "kernel source directory KERNEL_SRC $KERNEL_SRC not found"
         echo_log "Let's skip this testcase for safety"
+        count_skipped
         return 0
+    else
+        cbranch=$(cd $KERNEL_SRC ; git log -n1 --pretty=format:%H)
     fi
+    # explicit setting from recipe
+    [ "$CURRENT_KERNEL" ] && cbranch="$CURRENT_KERNEL"
     pushd $KERNEL_SRC
-    check_patch_applied "$cbranch" "$FIXEDBY_SUBJECT" "$FIXEDBY_COMMITID"
+    check_patch_applied "$cbranch" "$FIXEDBY_SUBJECT" "$FIXEDBY_COMMITID" "$FIXEDBY_AUTHOR" "$FIXEDBY_PATCH_SEARCH_DATE"
     local ret=$?
     popd > /dev/null
     [ $ret -eq 0 ] && return 1
@@ -231,6 +237,7 @@ check_inclusion_of_fixedby_patch() {
     echo_log "  Commit: $FIXEDBY_COMMITID"
     echo_log "If you really want to run the testcase, please set environment variable"
     echo_log "CURRENT_KERNEL to some appropriate kernel version."
+    count_skipped
     clear_testcase
     return 0
 }
@@ -392,6 +399,8 @@ clear_testcase() {
     TEST_RETRYABLE=
     FIXEDBY_SUBJECT=
     FIXEDBY_COMMITID=
+    FIXEDBY_AUTHOR=
+    FIXEDBY_PATCH_SEARCH_DATE=
     FALSENEGATIVE=false
     reset_per_testcase_counters
 }

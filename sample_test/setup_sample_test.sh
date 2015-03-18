@@ -95,3 +95,15 @@ control_sample_test_skipped_unfixed() {
     count_testcount
     count_failure "This should never be run."
 }
+
+prepare_sample_test_unskipped_patch_matched() {
+    prepare_system_default
+}
+
+control_sample_test_unskipped_patch_matched() {
+    set_return_code EXIT
+}
+
+check_sample_test_unskipped_patch_matched() {
+    check_return_code "${EXPECTED_RETURN_CODE}"
+}
