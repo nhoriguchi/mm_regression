@@ -7,8 +7,9 @@ fi
 
 PAGETYPES=$KERNEL_SRC/tools/vm/page-types
 if [ ! -x "${PAGETYPES}" ] || [ ! -s "${PAGETYPES}" ] ; then
-    make clean -C $KERNEL_SRC/tools
-    make vm -C $KERNEL_SRC/tools
+    make clean -C $KERNEL_SRC/tools > /dev/null 2>&1
+    echo -n "build KERNEL_SRC/tools ... "
+    make vm -C $KERNEL_SRC/tools > /dev/null 2>&1 && echo "done" || echo "failed"
 fi
 [ ! -x "${PAGETYPES}" ] && echo "${PAGETYPES} not found." >&2 && exit 1
 
