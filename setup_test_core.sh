@@ -233,7 +233,13 @@ check_inclusion_of_fixedby_patch() {
     [ $ret -eq 0 ] && return 1
     echo_log "Testcase $TEST_TITLE is skipped because it's known to fail without"
     echo_log "the following patch applied."
-    echo_log "  Subject: $FIXEDBY_SUBJECT"
+    echo_log "  Subject:"
+    local subject=
+    while read subject ; do
+        if ! grep "$subject" $TMPF.patches > /dev/null ; then
+            echo_log "    $subject"
+        fi
+    done <<<"$(echo $FIXEDBY_SUBJECT | tr '|' '\n')"
     echo_log "  Commit: $FIXEDBY_COMMITID"
     echo_log "If you really want to run the testcase, please set environment variable"
     echo_log "CURRENT_KERNEL to some appropriate kernel version."
