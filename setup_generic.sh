@@ -80,13 +80,13 @@ count_success() {
             *) break ;;
         esac
     done
-    if [ "$FALSENEGATIVE" = false ] ; then
-        add_counts ${TMPF}.success_tmp 1
-        echo_log $nonewline "PASS: $@"
-        return 0
-    else
+    if [ "$FALSENEGATIVE" = true ] ; then
         add_counts ${TMPF}.later_tmp 1
         echo_log $nonewline "LATER: PASS: $@"
+        return 0
+    else
+        add_counts ${TMPF}.success_tmp 1
+        echo_log $nonewline "PASS: $@"
         return 0
     fi
 }
@@ -99,14 +99,14 @@ count_failure() {
             *) break ;;
         esac
     done
-    if [ "$FALSENEGATIVE" = false ] ; then
-        add_counts ${TMPF}.failure_tmp 1
-        echo_log $nonewline "FAIL: $@"
-        return 1
-    else
+    if [ "$FALSENEGATIVE" = true ] ; then
         add_counts ${TMPF}.later_tmp 1
         echo_log $nonewline "LATER: FAIL: $@"
         return 0
+    else
+        add_counts ${TMPF}.failure_tmp 1
+        echo_log $nonewline "FAIL: $@"
+        return 1
     fi
 }
 
