@@ -22,10 +22,10 @@ show_hugetlb_pool() {
 
 # make sure that hugetlb pool is empty at the beginning/ending of the testcase
 __hugetlb_empty_check() {
-    [ $(get_hugepage_total) -ne 0 ] && return 1
-    [ $(get_hugepage_free) -ne 0 ] && return 1
-    [ $(get_hugepage_reserved) -ne 0 ] && return 1
-    [ $(get_hugepage_surplus) -ne 0 ] && return 1
+    [ $(get_hugepage_total) -eq 0 ] || return 1
+    [ $(get_hugepage_free) -eq 0 ] || return 1
+    [ $(get_hugepage_reserved) -eq 0 ] || return 1
+    [ $(get_hugepage_surplus) -eq 0 ] || return 1
     return 0
 }
 
@@ -41,10 +41,10 @@ hugetlb_empty_check() {
 
 __set_and_check_hugetlb_pool() {
     sysctl vm.nr_hugepages=$1
-    [ $(get_hugepage_total) -ne $1 ] && return 1
-    [ $(get_hugepage_free) -ne $1 ] && return 1
-    [ $(get_hugepage_reserved) -ne 0 ] && return 1
-    [ $(get_hugepage_surplus) -ne 0 ] && return 1
+    [ $(get_hugepage_total) -eq $1 ] || return 1
+    [ $(get_hugepage_free) -eq $1 ] || return 1
+    [ $(get_hugepage_reserved) -eq 0 ] || return 1
+    [ $(get_hugepage_surplus) -eq 0 ] || return 1
     return 0
 }
 
