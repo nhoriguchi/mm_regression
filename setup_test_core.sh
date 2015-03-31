@@ -215,6 +215,9 @@ check_test_flag() {
 check_inclusion_of_fixedby_patch() {
     # no filter of inclusion of the FIXEDBY patch.
     [ ! "$FIXEDBY_SUBJECT" ] && [ ! "$FIXEDBY_COMMITID" ] && [ ! "$FIXEDBY_AUTHOR" ] && return 1
+    # in TEST_DEVEL mode, caller should knows that this testcase could cause
+    # system unstability like kernel panic
+    [ "$TEST_DEVEL" ] && return 1
     local cbranch=$(uname -r)
     if [ ! -d "$KERNEL_SRC" ] ; then
         echo_log "kernel source directory KERNEL_SRC $KERNEL_SRC not found"
