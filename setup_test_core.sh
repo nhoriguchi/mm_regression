@@ -307,9 +307,9 @@ do_test() {
     local retryable=$TEST_RETRYABLE
     local skipped=
 
+    check_testcase_filter && return
     echo_log "--- testcase '$TEST_TITLE' start --------------------"
     while true ; do
-        check_testcase_filter && break
         check_test_flag && break
         check_inclusion_of_fixedby_patch && break
 
@@ -362,9 +362,9 @@ do_test_async() {
     local retryable=$TEST_RETRYABLE
     local skipped=
 
+    check_testcase_filter && return
     echo_log "--- testcase '$TEST_TITLE' start --------------------"
     while true ; do
-        check_testcase_filter && break
         check_test_flag && break
         check_inclusion_of_fixedby_patch && break
 
