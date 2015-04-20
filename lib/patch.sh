@@ -26,6 +26,7 @@ find_patch_applied() {
     local author="$3"
     local search_date="$4"
     local line=
+    local distro="$(guess_distribution)"
 
     if ! git log -n1 $current > /dev/null 2>&1 ; then
         echo "given 'current branch' not exist."
@@ -41,13 +42,18 @@ find_patch_applied() {
     if [ "$search_date" ] ; then
         search_date="--since='$search_date'"
     fi
-    # echo git log --oneline $author $search_date $DEFAULT_START_POINT..$current >&2
-    eval git log --oneline $author $search_date $DEFAULT_START_POINT..$current > $TMPF.patches
-    while read subject ; do
-        if ! grep "$subject" $TMPF.patches > /dev/null ; then
-            return 1
-        fi
-    done <<<"$(echo $subjects | tr '|' '\n')"
+
+    if [ "$distro" = upstream ] ; then
+        eval git log --oneline $author $search_date $DEFAULT_START_POINT..$current > $TMPF.patches
+        while read subject ; do
+            if ! grep "$subject" $TMPF.patches > /dev/null ; then
+                return 1
+            fi
+        done <<<"$(echo $subjects | tr '|' '\n')"
+    elif [ "$distro" = rhel6 ] && [ "$distro" = rhel7 ] ; then
+        true
+        # need traversing patch description to find backported patch
+    fi
     return 0
 }
 
