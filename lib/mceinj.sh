@@ -38,17 +38,17 @@ inject_error() {
 
     if [ "$ERRORTYPE" = "hard-offline" ] ; then
         echo "Hard offlining host pfn ${TARGET}"
-        echo ${TARGET}000 > /sys/devices/system/memory/hard_offline_page
+        echo $[$TARGET * 4096] > /sys/devices/system/memory/hard_offline_page
     elif [ "$ERRORTYPE" = "soft-offline" ] ; then
         echo "Soft offlining host pfn ${TARGET}"
-        echo ${TARGET}000 > /sys/devices/system/memory/soft_offline_page
+        echo $[$TARGET * 4096] > /sys/devices/system/memory/soft_offline_page
     elif [ "$ERRORTYPE" = "mce-srao" ] ; then
         echo "Injecting MCE on host pfn ${TARGET} with ${tmpf}.mce-inject"
         cat <<EOF > ${tmpf}.mce-inject
 CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 2
 STATUS UNCORRECTED SRAO 0x17a
 MCGSTATUS RIPV MCIP
-ADDR ${TARGET}000
+ADDR $[$TARGET * 4096]
 MISC 0x8c
 RIP 0x73:0x1eadbabe
 EOF
@@ -59,7 +59,7 @@ EOF
 CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 1
 STATUS UNCORRECTED SRAR 0x134
 MCGSTATUS RIPV MCIP EIPV
-ADDR ${TARGET}000
+ADDR $[$TARGET * 4096]
 MISC 0x8c
 RIP 0x73:0x3eadbabe
 EOF
@@ -69,7 +69,7 @@ EOF
         cat <<EOF > ${tmpf}.mce-inject
 CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 2
 STATUS CORRECTED 0xc0
-ADDR ${TARGET}000
+ADDR $[$TARGET * 4096]
 EOF
         mce-inject ${tmpf}.mce-inject
     else
