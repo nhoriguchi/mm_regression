@@ -16,6 +16,8 @@ get_kernel_message_diff() {
     echo "####### DMESG END #######"
 }
 
+# Confirm that kernel message does contain the specified words
+# With -v option, negate the confirmation.
 check_kernel_message() {
     [ "$1" = -v ] && local inverse=true && shift
     local word="$1"
