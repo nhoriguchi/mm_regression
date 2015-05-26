@@ -40,17 +40,27 @@ hugetlb_empty_check() {
 }
 
 __set_and_check_hugetlb_pool() {
-    sysctl vm.nr_hugepages=$1
-    [ $(get_hugepage_total) -eq $1 ] || return 1
-    [ $(get_hugepage_free) -eq $1 ] || return 1
-    [ $(get_hugepage_reserved) -eq 0 ] || return 1
-    [ $(get_hugepage_surplus) -eq 0 ] || return 1
+    local expected_total=$1
+    local expected_free=$2
+    local expected_reserved=$3
+    local expected_surplus=$4
+
+    [ ! "$expected_total" ] && echo "$FUNCNAME: expected_total is not specified." && return 1
+    [ ! "$expected_free" ] && expected_free=$expected_total
+    [ ! "$expected_reserved" ] && expected_reserved=0
+    [ ! "$expected_surplus" ] && expected_surplus=0
+
+    sysctl vm.nr_hugepages=$expected_total
+    [ $(get_hugepage_total)    -eq $expected_total ]    || return 1
+    [ $(get_hugepage_free)     -eq $expected_free ]     || return 1
+    [ $(get_hugepage_reserved) -eq $expected_reserved ] || return 1
+    [ $(get_hugepage_surplus)  -eq $expected_surplus ]  || return 1
     return 0
 }
 
 set_and_check_hugetlb_pool() {
     count_testcount
-    if __set_and_check_hugetlb_pool $1 ; then
+    if __set_and_check_hugetlb_pool $1 $2 $3 $4 ; then
         count_success "hugetlb pool set and check: OK $1"
         return 0
     else
