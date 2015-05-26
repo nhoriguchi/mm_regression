@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 	} else
 		memsize = nr * PS;
 	Dprintf("memsize = 0x%x, hpsize = %d, mapflag = 0x%x\n", memsize, HPS, mapflag);
-	p = checked_mmap((void *)ADDR_INPUT, nr * PS, protflag, mapflag, -1, 0);
+	p = checked_mmap((void *)ADDR_INPUT, memsize, protflag, mapflag, -1, 0);
 	if (!reserveonly)
 		memset(p, 'a', memsize);
 	signal(SIGUSR1, sig_handle_flag);
