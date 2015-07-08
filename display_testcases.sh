@@ -6,13 +6,15 @@
 WIDTH=30
 MODE=html
 ALLRECIPES=
-while getopts w:hta OPT
+OUTFILE=
+while getopts w:htao: OPT
 do
     case $OPT in
         w) WIDTH=$OPTARG ;;
         h) MODE=html ;;
         t) MODE=text ;;
         a) ALLRECIPES=true ;;
+        o) OUTFILE=$OPTARG ;;
         *) echo "invalid option" && exit 1 ;;
     esac
 done
@@ -84,7 +86,9 @@ fi
 
 [ ! "$RECIPES" ] && echo "No recipe given" >&2 && exit 1
 
-show_header > $TMPF/index.html
+[ ! "$OUTFILE" ] && OUTFILE=$TMPF/index.html
+
+show_header > $OUTFILE
 for recipe in $RECIPES ; do
     recipefile=$(readlink -f $recipe)
     [ ! -e "$recipefile" ] && echo "$recipefile not found, skipped." >&2 && continue
@@ -92,13 +96,13 @@ for recipe in $RECIPES ; do
     pushd $(dirname $recipefile) > /dev/null
     parse_recipefile $recipefile $TMPF/recipe
     # less $TMPF/recipe
-    show_recipe_header "$(basename $recipefile)" >> $TMPF/index.html
+    show_recipe_header "$(basename $recipefile)" >> $OUTFILE
     while read line ; do
         [ ! "$line" ] && continue
         [[ $line =~ ^# ]] && continue
 
         if [ "$line" = do_test_sync ] || [ "$line" = do_test_async ] ; then
-            show_row >> $TMPF/index.html
+            show_row >> $OUTFILE
             clear_testcase
         else
             if [[ "$line" =~ '=' ]] ; then
@@ -113,9 +117,9 @@ for recipe in $RECIPES ; do
     done < $TMPF/recipe
     popd > /dev/null
 done
-show_footer >> $TMPF/index.html
+show_footer >> $OUTFILE
 
-firefox $TMPF/index.html
+firefox $OUTFILE
 
 if [ "$MODE" = text ] ; then
     printf "%-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s\n" Title Prepare Cleanup Control Check
