@@ -4,19 +4,21 @@
 # output summarized testcase
 
 WIDTH=30
-while getopts w: OPT
+MODE=html
+ALLRECIPES=
+while getopts w:hta OPT
 do
     case $OPT in
         w) WIDTH=$OPTARG ;;
+        h) MODE=html ;;
+        t) MODE=text ;;
+        a) ALLRECIPES=true ;;
         *) echo "invalid option" && exit 1 ;;
     esac
 done
 shift $[OPTIND - 1]
 
 SDIR=$(readlink -f $(dirname $BASH_SOURCE))
-RECIPEFILE=$(readlink -f $1)
-
-[ ! -e "$RECIPEFILE" ] && echo "No recipefile specified/exists." && exit 1
 
 tbasedir=/tmp/$(basename $BASH_SOURCE)
  [ ! -d $tbasedir ] && mkdir -p $tbasedir
@@ -25,48 +27,99 @@ TMPF=$(mktemp --tmpdir=$tbasedir -d XXXXXX)
 . $SDIR/setup_test_core.sh
 . $SDIR/setup_recipe.sh
 
-show_item() {
-    local sym=$1
-    local default=$2
-    local target=$sym
-    if [ ! "$(eval echo "\$"$sym)" ] ; then
-        # echo $sym is empty
-        if [ "$default" ] ; then
-            target=$default
-        else
-            echo "" >> $TMPF/$sym
-            return
-        fi
-    fi
-    eval echo "$sym=\$"$target >> $TMPF/all
-    eval echo "\$"$target >> $TMPF/$sym
+reset_per_testcase_counters() { true ; } # dummy
+
+show_header() {
+    echo "<table border=1>"
+    echo "<tr>"
+    echo "<td>TEST_TITLE</td>"
+    echo "<td>TEST_PROGRAM</td>"
+    echo "<td>TEST_FLAGS</td>"
+    echo "<td>TEST_RETRYABLE</td>"
+    echo "<td>EXPECTED_RETURN_CODE</td>"
+    echo "<td>TEST_PREPARE</td>"
+    echo "<td>TEST_CLEANUP</td>"
+    echo "<td>TEST_CONTROLLER</td>"
+    echo "<td>TEST_CHECKER</td>"
+    echo "<td>FIXEDBY_SUBJECT</td>"
+    echo "<td>FIXEDBY_COMMITID</td>"
+    echo "<td>FIXEDBY_AUTHOR</td>"
+    echo "<td>FIXEDBY_PATCH_SEARCH_DATE</td>"
+    echo "<td>FALSENEGATIVE</td>"
+    echo "</tr>"
 }
 
-pushd $(dirname $RECIPEFILE) > /dev/null
-parse_recipefile $RECIPEFILE $TMPF/recipe
-while read line ; do
-    [ ! "$line" ] && continue
-    [[ $line =~ ^# ]] && continue
+show_footer() {
+    echo "</table>"
+}
 
-    if [ "$line" = do_test_sync ] || [ "$line" = do_test_async ] ; then
-        show_item TEST_TITLE
-        show_item TEST_PROGRAM
-        show_item EXPECTED_RETURN_CODE
-        show_item TEST_PREPARE DEFAULT_TEST_PREPARE
-        show_item TEST_CLEANUP DEFAULT_TEST_CLEANUP
-        show_item TEST_CONTROLLER DEFAULT_TEST_CONTROLLER
-        show_item TEST_CHECKER DEFAULT_TEST_CHECKER
-        show_item TEST_FLAGS
-        show_item TEST_RETRYABLE
-    else
-        if [[ "$line" =~ '=' ]] ; then
-            eval $line
+show_recipe_header() {
+    echo "<tr><td>$@</td></tr>"
+}
+
+show_row() {
+    echo "<tr>"
+    echo "<td>$TEST_TITLE</td>"
+    echo "<td>$TEST_PROGRAM</td>"
+    echo "<td>$TEST_FLAGS</td>"
+    echo "<td>$TEST_RETRYABLE</td>"
+    echo "<td>$EXPECTED_RETURN_CODE</td>"
+    echo "<td>${TEST_PREPARE:=$TEST_PREPARE DEFAULT}</td>"
+    echo "<td>${TEST_CLEANUP:=$TEST_CLEANUP DEFAULT}</td>"
+    echo "<td>${TEST_CONTROLLER:=$TEST_CONTROLLER DEFAULT}</td>"
+    echo "<td>${TEST_CHECKER:=$TEST_CHECKER DEFAULT}</td>"
+    echo "<td>$(echo $FIXEDBY_SUBJECT | tr '|' '\n')</td>"
+    echo "<td>$FIXEDBY_COMMITID</td>"
+    echo "<td>$FIXEDBY_AUTHOR</td>"
+    echo "<td>$FIXEDBY_PATCH_SEARCH_DATE</td>"
+    echo "<td>$FALSENEGATIVE</td>"
+    echo "</tr>"
+}
+
+RECIPES="$@"
+
+if [ "$ALLRECIPES" = true ] ; then
+    RECIPES="$(ls -1 | grep \.rc$ )"
+fi
+
+[ ! "$RECIPES" ] && echo "No recipe given" >&2 && exit 1
+
+show_header > $TMPF/index.html
+for recipe in $RECIPES ; do
+    recipefile=$(readlink -f $recipe)
+    [ ! -e "$recipefile" ] && echo "$recipefile not found, skipped." >&2 && continue
+
+    pushd $(dirname $recipefile) > /dev/null
+    parse_recipefile $recipefile $TMPF/recipe
+    # less $TMPF/recipe
+    show_recipe_header "$(basename $recipefile)" >> $TMPF/index.html
+    while read line ; do
+        [ ! "$line" ] && continue
+        [[ $line =~ ^# ]] && continue
+
+        if [ "$line" = do_test_sync ] || [ "$line" = do_test_async ] ; then
+            show_row >> $TMPF/index.html
+            clear_testcase
+        else
+            if [[ "$line" =~ '=' ]] ; then
+                if [[ "$line" =~ TEST_PROGRAM ]] ; then
+                    # need to print reference like $var as it is
+                    eval $(echo $"$line" | sed -e 's/\$/\\$/')
+                else
+                    eval $line
+                fi
+            fi
         fi
-    fi
-done < $TMPF/recipe
-popd > /dev/null
-
-printf "%-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s\n" Title Prepare Cleanup Control Check
-paste $TMPF/TEST_TITLE $TMPF/TEST_PREPARE $TMPF/TEST_CLEANUP $TMPF/TEST_CONTROLLER $TMPF/TEST_CHECKER | while read title prepare cleanup controller checker ; do
-    printf "%-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s\n" $title ${prepare#prepare_} ${cleanup#cleanup_} ${controller#control_} ${checker#check_}
+    done < $TMPF/recipe
+    popd > /dev/null
 done
+show_footer >> $TMPF/index.html
+
+firefox $TMPF/index.html
+
+if [ "$MODE" = text ] ; then
+    printf "%-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s\n" Title Prepare Cleanup Control Check
+    paste $TMPF/TEST_TITLE $TMPF/TEST_PREPARE $TMPF/TEST_CLEANUP $TMPF/TEST_CONTROLLER $TMPF/TEST_CHECKER | while read title prepare cleanup controller checker ; do
+        printf "%-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s %-${WIDTH}s\n" $title ${prepare#prepare_} ${cleanup#cleanup_} ${controller#control_} ${checker#check_}
+    done
+fi

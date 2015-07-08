@@ -35,3 +35,6 @@ clean:
 test: all
 	TESTCASE_FILTER="$(TC)"
 	@bash run-test.sh -v -r sample.rc $(TESTCASE_FILTER)
+
+list: get_test_core
+	@bash test_core/display_testcases.sh -a
