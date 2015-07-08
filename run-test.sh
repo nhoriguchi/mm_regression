@@ -21,13 +21,18 @@ RECIPEFILE=$1
 
 [ ! -e "$RECIPEFILE" ] && exit 1
 
-# Assuming that current directory is the test root directory.
+# Assuming that current directory is the root directory of the current test.
 export TRDIR=$PWD # $(dirname $(readlink -f $RECIPEFILE))
 
 . $TCDIR/setup_generic.sh
 . $TCDIR/setup_test_core.sh
 . $TCDIR/setup_recipe.sh
 . $TCDIR/lib/patch.sh
+
+# record current revision of test suite and test_core tool
+echo "Current test: $(basename $TRDIR)"
+( cd $TRDIR ; echo "Test version: $(git log -n1 --pretty="format:%H %s")" )
+( cd $TCDIR ; echo "Test Core version: $(git log -n1 --pretty="format:%H %s")" )
 
 # original recipe can 'embed' other small parts
 parse_recipefile $RECIPEFILE .tmp.$RECIPEFILE
