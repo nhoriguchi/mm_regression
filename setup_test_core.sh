@@ -210,7 +210,6 @@ check_test_flag() {
     echo_log "Testcase $TEST_TITLE is skipped because it's not stable yet. If you"
     echo_log "really want to run the testcase, please set environment variable TEST_DEVEL"
     count_skipped
-    clear_testcase
     return 0
 }
 
@@ -249,7 +248,6 @@ check_inclusion_of_fixedby_patch() {
     echo_log "If you really want to run the testcase, please set environment variable"
     echo_log "CURRENT_KERNEL to some appropriate kernel version."
     count_skipped
-    clear_testcase
     return 0
 }
 
