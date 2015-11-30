@@ -6,6 +6,7 @@ if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
 fi
 
 check_and_define_tp test_sample
+check_and_define_tp test_sample_for_both_mode
 
 prepare_sample() {
     sysctl vm.nr_hugepages=10
@@ -106,4 +107,52 @@ control_sample_test_unskipped_patch_matched() {
 
 check_sample_test_unskipped_patch_matched() {
     check_return_code "${EXPECTED_RETURN_CODE}"
+}
+
+control_use_simple_tp_both_for_sync_and_async_mode() {
+    local pid="$1"
+    local line="$2"
+
+    if [ "$pid" ] ; then # sync mode
+        echo "-- $line" | tee -a ${OFILE}
+        case "$line" in
+            "checkpoint_1")
+                cat /proc/$pid/numa_maps | tee -a ${OFILE}
+                kill -SIGUSR1 $pid
+                ;;
+            "checkpoint_2")
+                kill -SIGUSR1 $pid
+                ;;
+            "checkpoint_3")
+                kill -SIGUSR1 $pid
+                ;;
+            "checkpoint_4")
+                kill -SIGUSR1 $pid
+                set_return_code "EXIT"
+                return 0
+                ;;
+            *)
+                ;;
+        esac
+        return 1
+    else # async mode
+        $test_sample_for_both_mode &
+        pid=$!
+        sleep 0.2
+        # for checkpoint_1
+        echo "pkill -SIGUSR1 -f $test_sample_for_both_mode"
+        pkill -SIGUSR1 -f $test_sample_for_both_mode
+        cat /proc/$pid/numa_maps | tee -a ${OFILE}
+        # for checkpoint_2
+        echo "pkill -SIGUSR1 -f $test_sample_for_both_mode"
+        pkill -SIGUSR1 -f $test_sample_for_both_mode
+        # for checkpoint_3
+        echo "pkill -SIGUSR1 -f $test_sample_for_both_mode"
+        pkill -SIGUSR1 -f $test_sample_for_both_mode
+        # for checkpoint_4
+        echo "pkill -SIGUSR1 -f $test_sample_for_both_mode"
+        pkill -SIGUSR1 -f $test_sample_for_both_mode
+        set_return_code "EXIT"
+        return 0
+    fi
 }

@@ -106,3 +106,17 @@ EXPECTED_RETURN_CODE="START EXIT"
 FIXEDBY_SUBJECT="hwpoison: call action_result() in failure path of hwpoison_user_mappings()|hwpoison: fix hugetlbfs/thp precheck in hwpoison_user_mappings()"
 FIXEDBY_PATCH_SEARCH_DATE="Jul 29 2014"
 do_test_async
+
+#
+# Use sample TP both for sync mode and async mode
+#
+TEST_TITLE=use_simple_tp_both_for_sync_and_async_mode_1
+TEST_CONTROLLER=control_use_simple_tp_both_for_sync_and_async_mode
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_PROGRAM="$test_sample_for_both_mode"
+do_test_sync
+
+TEST_TITLE=use_simple_tp_both_for_sync_and_async_mode_2
+TEST_CONTROLLER=control_use_simple_tp_both_for_sync_and_async_mode
+EXPECTED_RETURN_CODE="START EXIT"
+do_test_async

@@ -4,7 +4,7 @@ CFLAGS=-g # -Wall -Wextra
 TESTCASE_FILTER=
 TC=
 
-src=test_sample.c
+src=test_sample.c test_sample_for_both_mode.c
 exe=$(src:.c=)
 srcdir=.
 dstdir=/usr/local/bin
