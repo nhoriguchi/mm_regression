@@ -19,6 +19,10 @@ echo -n 0 > ${TMPF}.testcount
 echo -n 0 > ${TMPF}.success
 echo -n 0 > ${TMPF}.failure
 echo -n 0 > ${TMPF}.later # known failure
+echo -n 0 > ${TMPF}.testcount_tmp
+echo -n 0 > ${TMPF}.success_tmp
+echo -n 0 > ${TMPF}.failure_tmp
+echo -n 0 > ${TMPF}.later_tmp
 echo -n 0 > ${TMPF}.skipped # skip the testcase for a good reason
 
 # These counters are independent between each testcase, commit_counts do
