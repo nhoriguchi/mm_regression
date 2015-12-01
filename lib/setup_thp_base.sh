@@ -100,16 +100,20 @@ __thp_fault_alloc=0
 __thp_fault_fallback=0
 __thp_collapse_alloc=0
 __thp_collapse_alloc_failed=0
-__thp_split=0
+__thp_split_page=0
+__thp_split_page_fail=0
+__thp_split_pmd=0
 get_vmstat_thp() {
     __thp_fault_alloc=`grep thp_fault_alloc /proc/vmstat | cut -f2 -d' '`
     __thp_fault_fallback=`grep thp_fault_fallback /proc/vmstat | cut -f2 -d' '`
     __thp_collapse_alloc=`grep "thp_collapse_alloc " /proc/vmstat | cut -f2 -d' '`
     __thp_collapse_alloc_failed=`grep thp_collapse_alloc_failed /proc/vmstat | cut -f2 -d' '`
-    __thp_split=`grep thp_split /proc/vmstat | cut -f2 -d' '`
+    __thp_split_page=`grep "thp_split_page " /proc/vmstat | cut -f2 -d' '`
+    __thp_split_page_fail=`grep "thp_split_page_failed " /proc/vmstat | cut -f2 -d' '`
+    __thp_split_pmd=`grep "thp_split_pmd " /proc/vmstat | cut -f2 -d' '`
 }
 show_stat_thp() {
     get_vmstat_thp
-    echo   "        clpsd, fscan, fltal, fltfb, clpal, clpaf, split"
-    printf "Result  %5s, %5s, %5s, %5s, %5s, %5s, %5s\n" `get_khpd_pages_collapsed` `get_khpd_full_scans` $__thp_fault_alloc $__thp_fault_fallback $__thp_collapse_alloc $__thp_collapse_alloc_failed $__thp_split
+    echo   "        clpsd, fscan, fltal, fltfb, clpal, clpaf, split, sfail, sppmd"
+    printf "Result  %5s, %5s, %5s, %5s, %5s, %5s, %5s, %5s, %5s\n" `get_khpd_pages_collapsed` `get_khpd_full_scans` $__thp_fault_alloc $__thp_fault_fallback $__thp_collapse_alloc $__thp_collapse_alloc_failed $__thp_split_page $__thp_split_page_fail $__thp_split_pmd
 }
