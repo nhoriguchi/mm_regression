@@ -1,0 +1,87 @@
+KERNEL_SRC=/src/linux-dev
+. test_core/lib/common.sh
+. test_core/lib/setup_mce_tools.sh
+. test_core/lib/setup_hugetlb_base.sh
+. test_core/lib/setup_thp_base.sh
+
+. setup_memcg.sh
+. setup_mincore.sh
+. setup_mbind.sh
+. setup_vma_vm_pfnmap.sh
+. setup_read_through_proc_pid.sh
+
+#!TABLE: page_table_walker.rc.table
+
+TEST_TITLE=vma_vm_pfnmap
+TEST_PREPARE=prepare_vma_vm_pfnmap
+TEST_CLEANUP=cleanup_vma_vm_pfnmap
+TEST_CONTROLLER=control_vma_vm_pfnmap
+TEST_CHECKER=check_vma_vm_pfnmap
+TEST_RETRYABLE=5
+TEST_PROGRAM="$test_vma_vm_pfnmap -n1"
+EXPECTED_RETURN_CODE=START EXIT
+FIXEDBY_SUBJECT="mm: pagewalk: call pte_hole() for VM_PFNMAP during walk_page_range"
+FIXEDBY_PATCH_SEARCH_DATE="Feb 1 2015"
+do_test_sync
+
+TEST_TITLE=mbind_fuzz
+TEST_PREPARE=prepare_mbind_fuzz
+TEST_CLEANUP=cleanup_mbind_fuzz
+TEST_CONTROLLER=control_mbind_fuzz
+TEST_CHECKER=check_mbind_fuzz
+EXPECTED_RETURN_CODE="START EXIT"
+FIXEDBY_SUBJECT="mm/hugetlb: add migration entry check in __unmap_hugepage_range|mm/hugetlb: add migration/hwpoisoned entry check in hugetlb_change_protection|mm/hugetlb: fix getting refcount 0 page in hugetlb_fault()|mm/hugetlb: take page table lock in follow_huge_pmd()|mm/hugetlb: pmd_huge() returns true for non-present hugepage"
+FIXEDBY_AUTHOR="Naoya Horiguchi"
+FIXEDBY_PATCH_SEARCH_DATE="Feb 10 2015"
+do_test_async
+
+TEST_TITLE=mbind_fuzz_devel
+TEST_PREPARE=prepare_mbind_fuzz
+TEST_CLEANUP=cleanup_mbind_fuzz
+TEST_CONTROLLER=control_mbind_fuzz
+TEST_CHECKER=check_mbind_fuzz
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+MBIND_FUZZ_TYPE=0x2
+do_test_async
+
+TEST_TITLE=mbind_fuzz_normal_heavy
+TEST_PREPARE=prepare_mbind_fuzz
+TEST_CLEANUP=cleanup_mbind_fuzz
+TEST_CONTROLLER=control_mbind_fuzz_normal_heavy
+TEST_CHECKER=check_mbind_fuzz
+EXPECTED_RETURN_CODE="START EXIT"
+FIXEDBY_SUBJECT="mm/hugetlb: add migration entry check in __unmap_hugepage_range|mm/hugetlb: add migration/hwpoisoned entry check in hugetlb_change_protection|mm/hugetlb: fix getting refcount 0 page in hugetlb_fault()|mm/hugetlb: take page table lock in follow_huge_pmd()|mm/hugetlb: pmd_huge() returns true for non-present hugepage"
+FIXEDBY_AUTHOR="Naoya Horiguchi"
+FIXEDBY_PATCH_SEARCH_DATE="Feb 10 2015"
+do_test_async
+
+TEST_TITLE=mbind_unmap_race
+TEST_PREPARE=prepare_mbind_fuzz
+TEST_CLEANUP=cleanup_mbind_fuzz
+TEST_CONTROLLER=control_mbind_unmap_race
+TEST_CHECKER=check_mbind_fuzz
+EXPECTED_RETURN_CODE="START EXIT"
+FIXEDBY_SUBJECT="mm/hugetlb: add migration entry check in __unmap_hugepage_range|mm/hugetlb: add migration/hwpoisoned entry check in hugetlb_change_protection|mm/hugetlb: fix getting refcount 0 page in hugetlb_fault()|mm/hugetlb: take page table lock in follow_huge_pmd()|mm/hugetlb: pmd_huge() returns true for non-present hugepage"
+FIXEDBY_AUTHOR="Naoya Horiguchi"
+FIXEDBY_PATCH_SEARCH_DATE="Feb 10 2015"
+do_test_async
+
+TEST_TITLE=vma_vm_pfnmap_from_system_process
+TEST_PREPARE=prepare_vma_vm_pfnmap_from_system_process
+TEST_CLEANUP=cleanup_vma_vm_pfnmap_from_system_process
+TEST_CONTROLLER=control_vma_vm_pfnmap_from_system_process
+TEST_CHECKER=check_vma_vm_pfnmap_from_system_process
+EXPECTED_RETURN_CODE="START EXIT"
+FIXEDBY_SUBJECT="mm: pagewalk: fix misbehavior of walk_page_range for vma(VM_PFNMAP)"
+FIXEDBY_AUTHOR="Naoya Horiguchi"
+FIXEDBY_PATCH_SEARCH_DATE="Feb 10 2015"
+do_test_async
+
+TEST_TITLE=read_through_proc_pid
+TEST_PREPARE=prepare_system_default
+TEST_CLEANUP=cleanup_system_default
+TEST_CONTROLLER=control_read_through_proc_pid
+TEST_CHECKER=check_system_default
+EXPECTED_RETURN_CODE="START EXIT"
+do_test_async

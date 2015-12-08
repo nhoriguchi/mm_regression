@@ -1,0 +1,253 @@
+KERNEL_SRC=/src/linux-dev
+. test_core/lib/common.sh
+. test_core/lib/setup_thp_base.sh
+. test_core/lib/setup_mce_tools.sh
+. test_core/lib/setup_hugetlb_base.sh
+
+. setup_memcg.sh
+. setup_mmgeneric.sh
+
+TEST_TITLE=swap_shmem
+TEST_PREPARE=prepare_$TEST_TITLE
+TEST_CLEANUP=cleanup_$TEST_TITLE
+TEST_CONTROLLER=control_$TEST_TITLE
+TEST_CHECKER=check_$TEST_TITLE
+TEST_PROGRAM="$test_swap_shmem"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+#
+# simple thp split
+#
+NR_THP=1
+
+THP_SPLIT_METHOD=hwpoison
+
+TEST_TITLE=thp_single_mapping_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -F -n $NR_THP -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=soft_offline
+
+TEST_TITLE=thp_single_mapping_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -F -n $NR_THP -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=mbind
+
+TEST_TITLE=thp_single_mapping_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -F -n $NR_THP -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=migratepages
+
+TEST_TITLE=thp_single_mapping_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -F -n $NR_THP -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=move_pages
+
+TEST_TITLE=thp_single_mapping_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -F -n $NR_THP -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+#
+# thp double mapping
+#
+
+NR_THP=1
+
+THP_SPLIT_METHOD=hwpoison
+
+TEST_TITLE=thp_double_mapping_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -n $NR_THP -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=soft_offline
+
+TEST_TITLE=thp_double_mapping_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -n $NR_THP -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=mbind
+
+TEST_TITLE=thp_double_mapping_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -n $NR_THP -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=migratepages
+
+TEST_TITLE=thp_double_mapping_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -n $NR_THP -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=move_pages
+
+TEST_TITLE=thp_double_mapping_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -n $NR_THP -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=hwpoison
+
+TEST_TITLE=thp_double_mapping_pmd_split_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -n $NR_THP -S -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=soft_offline
+
+TEST_TITLE=thp_double_mapping_pmd_split_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -n $NR_THP -S -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=mbind
+
+TEST_TITLE=thp_double_mapping_pmd_split_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -n $NR_THP -S -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=migratepages
+
+TEST_TITLE=thp_double_mapping_pmd_split_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -n $NR_THP -S -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+THP_SPLIT_METHOD=move_pages
+
+TEST_TITLE=thp_double_mapping_pmd_split_$THP_SPLIT_METHOD
+TEST_PREPARE=prepare_thp_double_mapping
+TEST_CLEANUP=cleanup_thp_double_mapping
+TEST_CONTROLLER=control_thp_double_mapping
+TEST_CHECKER=check_thp_double_mapping
+TEST_PROGRAM="$test_thp_double_mapping -n $NR_THP -S -s $THP_SPLIT_METHOD"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+#
+# idle page tracking
+#
+DEF_PIPETIMEOUT=$PIPETIMEOUT
+# PIPETIMEOUT=20
+EACH_BUFSIZE_IN_PAGE=$[1024*16]
+TEST_TITLE=idle_page_tracking_basic
+TEST_PREPARE=prepare_idle_page_tracking
+TEST_CLEANUP=cleanup_idle_page_tracking
+TEST_CONTROLLER=control_idle_page_tracking
+TEST_CHECKER=check_idle_page_tracking
+TEST_PROGRAM="$test_idle_page_tracking -n $EACH_BUFSIZE_IN_PAGE $WDIR/testfile"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+PIPETIMEOUT=$DEF_PIPETIMEOUT
+
+#
+# memory compaction
+#
+EACH_BUFSIZE_IN_PAGE=$[512*10]
+TEST_TITLE=memory_compaction_basic
+TEST_PREPARE=prepare_memory_compaction
+TEST_CLEANUP=cleanup_memory_compaction
+TEST_CONTROLLER=control_memory_compaction
+TEST_CHECKER=check_memory_compaction
+TEST_PROGRAM="$test_memory_compaction"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_sync
+
+#
+# focusing on khugepaged 
+#
+TEST_TITLE=memory_compaction_basic
+TEST_PREPARE=prepare_memory_compaction
+TEST_CLEANUP=cleanup_memory_compaction
+TEST_CONTROLLER=control_memory_compaction
+TEST_CHECKER=check_memory_compaction
+TEST_PROGRAM="$test_memory_compaction"
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_FLAGS=devel
+do_test_async
