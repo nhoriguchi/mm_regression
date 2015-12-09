@@ -1,8 +1,8 @@
 #!/bin/bash
 
-check_and_define_tp tthp
-check_and_define_tp tthp_on_pcplist
-check_and_define_tp tthp_small
+check_and_define_tp test_thp
+check_and_define_tp test_thp_on_pcplist
+check_and_define_tp test_thp_small
 check_and_define_tp memeater_thp
 
 ulimit -s unlimited
@@ -17,7 +17,7 @@ prepare_thp() {
     set_thp_params_for_testing
     # show_current_tuning_parameters
 
-    # echo $tthp
+    # echo $test_thp
     # ps awf
 
     set_thp_never
@@ -27,7 +27,7 @@ prepare_thp() {
     # -> RHEL6.5 starts to support madvise(MADV_HUGEPAGE) so no more need this.
     # set_thp_madvise
 
-    pkill -9 -f $tthp
+    pkill -9 -f $test_thp
 
     show_stat_thp | tee -a ${OFILE}
     save_nr_corrupted_before
@@ -37,7 +37,7 @@ prepare_thp() {
 cleanup_thp() {
     save_nr_corrupted_inject
     all_unpoison
-    pkill -9 -f $tthp
+    pkill -9 -f $test_thp
     save_nr_corrupted_unpoison
     default_tuning_parameters
     # show_current_tuning_parameters
@@ -90,7 +90,7 @@ control_thp() {
             kill -SIGUSR1 ${pid}
             sleep 0.5
             ;;
-        "tthp exit.")
+        "test_thp exit.")
             ${PAGETYPES} -p ${pid} -rlN -a ${BASEVFN}+1310720 | tee ${TMPF}.pageflagcheck2
             kill -SIGUSR1 ${pid}
             set_return_code "EXIT"
@@ -167,7 +167,7 @@ check_page_migrated() {
 
 background_thp_allocator() {
     while true ; do
-        $tthp_on_pcplist
+        $test_thp_on_pcplist
     done
 }
 
@@ -188,7 +188,7 @@ prepare_thp_on_pcplist() {
     set_thp_params_for_testing
     set_thp_never
     set_thp_always
-    pkill -9 -f $tthp_on_pcplist 2> /dev/null
+    pkill -9 -f $test_thp_on_pcplist 2> /dev/null
     pkill -9 -f background_thp_allocator 2>&1 > /dev/null
     show_stat_thp | tee -a $OFILE
     save_nr_corrupted_before
@@ -201,7 +201,7 @@ cleanup_thp_on_pcplist() {
     save_nr_corrupted_unpoison
     default_tuning_parameters
     # show_current_tuning_parameters
-    pkill -9 -f $tthp_on_pcplist 2> /dev/null
+    pkill -9 -f $test_thp_on_pcplist 2> /dev/null
     pkill -9 -f background_thp_allocator 2>&1 > /dev/null
     show_stat_thp | tee -a $OFILE
     cleanup_system_default
@@ -214,8 +214,8 @@ control_thp_on_pcplist() {
     local backpid=$!
     local TARGET_PAGEFLAG="thp,compound_head=thp,compound_head"
     for i in $(seq 10) ; do
-        echo "[$i] $PAGETYPES -p $(pgrep -f tthp_on_pcplist) -b $TARGET_PAGEFLAG -rNl"
-        $PAGETYPES -p $(pgrep -f tthp_on_pcplist) -b $TARGET_PAGEFLAG -rNl | \
+        echo "[$i] $PAGETYPES -p $(pgrep -f test_thp_on_pcplist) -b $TARGET_PAGEFLAG -rNl"
+        $PAGETYPES -p $(pgrep -f test_thp_on_pcplist) -b $TARGET_PAGEFLAG -rNl | \
             grep -v offset | cut -f2 | \
             while read line ; do
                 local thp=0x$line
@@ -235,7 +235,7 @@ check_thp_on_pcplist() {
 
 prepare_race_between_error_handling_and_process_exit() {
     echo 1 > /proc/sys/vm/drop_caches
-    pkill -9 -f $tthp_small 2> /dev/null
+    pkill -9 -f $test_thp_small 2> /dev/null
     set_thp_params_for_testing
     set_thp_never
     set_thp_always
@@ -249,7 +249,7 @@ cleanup_race_between_error_handling_and_process_exit() {
     all_unpoison
     save_nr_corrupted_unpoison
     default_tuning_parameters
-    pkill -9 -f $tthp_small 2> /dev/null
+    pkill -9 -f $test_thp_small 2> /dev/null
     cleanup_system_default
 }
 
@@ -258,10 +258,10 @@ control_race_between_error_handling_and_process_exit() {
     local pid=
 
     for i in $(seq $RACE_ITERATIONS) ; do
-        $tthp_small &
+        $test_thp_small &
         pid=$!
-        echo "[$i] $PAGETYPES -p $(pgrep -f tthp_small) -b $TARGET_PAGEFLAG -rNl"
-        $PAGETYPES -p $(pgrep -f tthp_small) -b $TARGET_PAGEFLAG -rNl | \
+        echo "[$i] $PAGETYPES -p $(pgrep -f test_thp_small) -b $TARGET_PAGEFLAG -rNl"
+        $PAGETYPES -p $(pgrep -f test_thp_small) -b $TARGET_PAGEFLAG -rNl | \
             grep -v offset | cut -f2 | \
             while read line ; do
                 local thp=0x$line
@@ -283,7 +283,7 @@ control_race_between_munmap_and_thp_split() {
     local pid=
 
     for i in $(seq 100) ; do
-        $tthp_small &
+        $test_thp_small &
         pid=$!
         sleep 0.3
         migratepages $pid 0 1
@@ -298,15 +298,15 @@ prepare_multiple_injection_thp() {
     set_thp_params_for_testing
     set_thp_never
     set_thp_always
-    pkill -9 -f $tthp_small
+    pkill -9 -f $test_thp_small
     pkill -9 -f $memeater_thp
-	$tthp_small &
+	$test_thp_small &
 	$memeater_thp -n 200 &
 	prepare_multiple_injection_race
 }
 
 cleanup_multiple_injection_thp() {
-    pkill -9 -f $tthp_small
+    pkill -9 -f $test_thp_small
     pkill -9 -f $memeater_thp
 	cleanup_multiple_injection_race
 }

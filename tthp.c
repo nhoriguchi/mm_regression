@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
 	if (madviseflag)
 		clear_hugepage(thp_addr, length);
 
-	pprintf("tthp exit.\n");
+	pprintf("test_thp exit.\n");
 	pause();
 	return 0;
 }
