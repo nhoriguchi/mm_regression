@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 	clear_mergeable(p1, nr_pages * PS);
 	clear_mergeable(p2, nr_pages * PS);
 
-	pprintf("tksm exit.\n");
+	pprintf("test_ksm exit.\n");
 	pause();
 	exit(EXIT_SUCCESS);
 }

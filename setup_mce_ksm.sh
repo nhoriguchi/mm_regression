@@ -1,12 +1,12 @@
 #!/bin/bash
 
-check_and_define_tp tksm
+check_and_define_tp test_ksm
 
 prepare_ksm() {
     if [ "$ERROR_TYPE" = mce-srao ] ; then
         check_mce_capability || return 1 # MCE SRAO not supported
     fi
-    pkill -9 -f $tksm
+    pkill -9 -f $test_ksm
     ksm_on
     show_ksm_params | tee -a ${OFILE}
     save_nr_corrupted_before
@@ -16,7 +16,7 @@ prepare_ksm() {
 cleanup_ksm() {
     save_nr_corrupted_inject
     all_unpoison
-    pkill -9 -f $tksm
+    pkill -9 -f $test_ksm
     save_nr_corrupted_unpoison
     ksm_off
     show_ksm_params | tee -a ${OFILE}
@@ -54,7 +54,7 @@ control_ksm() {
             kill -SIGUSR1 ${pid}
             sleep 0.5
             ;;        
-        "tksm exit.")
+        "test_ksm exit.")
             ${PAGETYPES} -p ${pid} -rlN -a ${BASEVFN}+1310720 > ${TMPF}.pageflagcheck2
             kill -SIGUSR1 ${pid}
             set_return_code "EXIT"
