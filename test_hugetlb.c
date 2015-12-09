@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 		write_hugepage(addr, nr_hps, 0);
 	}
 
-	pprintf("thugetlb_exit\n");
+	pprintf("test_hugetlb_exit\n");
 	pause();
 	free_anonymous_hugepage(addr, nr_hps * HPS);
 	return 0;

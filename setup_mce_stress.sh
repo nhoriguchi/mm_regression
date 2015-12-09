@@ -89,7 +89,7 @@ check_stress_poison_unpoison_process() {
 }
 
 prepare_stress_poison_unpoison_hugetlb() {
-    pkill -SIGKILL -f $thugetlb
+    pkill -SIGKILL -f $test_hugetlb
     set_and_check_hugetlb_pool 200
     prepare_system_default
 }
@@ -98,7 +98,7 @@ cleanup_stress_poison_unpoison_hugetlb() {
     # all_unpoison
     # set_and_check_hugetlb_pool 0
     cleanup_system_default
-    # pkill -SIGKILL -f $thugetlb
+    # pkill -SIGKILL -f $test_hugetlb
 }
 
 STRESS_NR_HP=1
@@ -128,9 +128,9 @@ control_stress_poison_unpoison_hugetlb() {
     local pid_unpoison=
     local i=
 
-    $thugetlb -a -n $STRESS_NR_HP &
+    $test_hugetlb -a -n $STRESS_NR_HP &
     pid=$!
-    sleep 0.1 # ensure that thugetlb reached internal pause()
+    sleep 0.1 # ensure that test_hugetlb reached internal pause()
 
     random_poison_hugetlb $pid &
     pid_poison=$!

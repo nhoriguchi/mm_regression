@@ -8,7 +8,7 @@ if [ ! -d "${HUGETLBDIR}" ] ; then
     fi
 fi
 
-check_and_define_tp thugetlb
+check_and_define_tp test_hugetlb
 check_and_define_tp memeater_hugetlb
 
 hva2hpa() {
@@ -21,7 +21,7 @@ prepare_hugetlb() {
     if [ "$ERROR_TYPE" = mce-srao ] ; then
         check_mce_capability || return 1 # MCE SRAO not supported
     fi
-    pkill -9 -f $thugetlb
+    pkill -9 -f $test_hugetlb
     save_nr_corrupted_before
     set_and_check_hugetlb_pool 100
     prepare_system_default
@@ -30,7 +30,7 @@ prepare_hugetlb() {
 cleanup_hugetlb() {
     save_nr_corrupted_inject
     all_unpoison
-    pkill -9 -f $thugetlb
+    pkill -9 -f $test_hugetlb
     set_and_check_hugetlb_pool 0
     save_nr_corrupted_unpoison
     prepare_system_default
@@ -71,7 +71,7 @@ control_hugetlb() {
             kill -SIGUSR1 ${pid}
             sleep 0.5
             ;;
-        "thugetlb_exit")
+        "test_hugetlb_exit")
             ${PAGETYPES} -p ${pid} -rlN -a ${BASEVFN}+1310720 | tee ${TMPF}.pageflagcheck2
              kill -SIGUSR1 ${pid}
             set_return_code "EXIT"

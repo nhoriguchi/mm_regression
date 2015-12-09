@@ -1,5 +1,5 @@
 check_and_define_tp memeater
-check_and_define_tp thugetlb
+check_and_define_tp test_hugetlb
 check_and_define_tp test_soft_offline_unpoison_stress
 check_and_define_tp test_zero_page
 
