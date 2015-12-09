@@ -20,7 +20,7 @@ fi
 check_and_define_tp test_alloc
 check_and_define_tp test_mbind_hm
 check_and_define_tp test_move_pages
-check_and_define_tp hugepage_for_hotremove
+check_and_define_tp test_hugetlb_hotremove
 check_and_define_tp hog_hugepages
 check_and_define_tp madvise_hwpoison_hugepages
 check_and_define_tp iterate_hugepage_mmap_fault_munmap
@@ -72,7 +72,7 @@ kill_test_programs() {
     pkill -9 -f $test_alloc
     pkill -9 -f $test_mbind_hm
     pkill -9 -f $test_move_pages
-    pkill -9 -f $hugepage_for_hotremove
+    pkill -9 -f $test_hugetlb_hotremove
     pkill -9 -f $hog_hugepages
     pkill -9 -f $madvise_all_hugepages
     pkill -9 -f $iterate_hugepage_mmap_fault_munmap
