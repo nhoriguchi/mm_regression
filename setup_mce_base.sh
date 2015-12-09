@@ -22,6 +22,7 @@ reonline_memblocks() {
 
 prepare_base_memory_hotremove_pageblock_with_hwpoison() {
     prepare_system_default
+	echo 3 > /proc/sys/vm/drop_caches
 }
 
 cleanup_base_memory_hotremove_pageblock_with_hwpoison() {
@@ -33,6 +34,12 @@ control_base_memory_hotremove_pageblock_with_hwpoison() {
 	bash $TRDIR/find_perferred_pageblock_for_hotremove.sh | tee $WDIR/preferred_pageblock
 	local preferred_memblk=$(grep "^preferred memblk:" $WDIR/preferred_pageblock | awk '{print $3}')
 	local preferred_memblk_pfn=$(grep "^preferred memblk start pfn:" $WDIR/preferred_pageblock | awk '{print $5}')
+
+	if [ ! -e /sys/devices/system/memory/memory${preferred_memblk}/state ] ; then
+		echo "preferred_memblk not found"
+		set_return_code TARGET_MEMBLK_NOT_FOUND
+		return 0
+	fi
 
 	$MCEINJECT -e hard-offline -a $preferred_memblk_pfn
 	$PAGETYPES -b hwpoison

@@ -23,10 +23,10 @@ EST_MAXMEMBLK=$[EST_MAXPFN / 0x8000 + 1]
 echo "estimated max memblk: $EST_MAXMEMBLK"
 
 for i in $(seq $EST_MAXMEMBLK) ; do
-	$PAGETYPES -a $[i * MEMBLKSIZE]+$MEMBLKSIZE | grep ^0x > $TMPD/pagetypes
-	nopage=$(grep ^0x0000000000100000 $TMPD/pagetypes | awk '{print $2}')
-	noflag=$(grep ^0x0000000000000000 $TMPD/pagetypes | awk '{print $2}')
-	buddy=$(grep ^0x0000000000000400 $TMPD/pagetypes | awk '{print $2}')
+	$PAGETYPES -a $[i * MEMBLKSIZE]+$MEMBLKSIZE -b 0xffffffffffffffff=0 | grep ^0x > $TMPD/pagetypes_noflag
+	$PAGETYPES -a $[i * MEMBLKSIZE]+$MEMBLKSIZE -b 0x400=0x400 | grep ^0x > $TMPD/pagetypes_buddy
+	noflag=$(awk '{print $2}' $TMPD/pagetypes_noflag)
+	buddy=$(awk '{print $2}' $TMPD/pagetypes_buddy)
 
 	if [ "$noflag" == 32736 ] && [ "$buddy" == 32 ] ; then
 		printf "preferred memblk: %d\n" $i
