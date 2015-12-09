@@ -341,7 +341,7 @@ prepare_memory_compaction() {
 	# echo "set_khpd_alloc_sleep_millisecs 0"
 	# set_khpd_alloc_sleep_millisecs 0
 	set_thp_always
-	dshow_current_tuning_parameters
+	show_current_tuning_parameters
 	show_current_tuning_parameters_compact
 }
 

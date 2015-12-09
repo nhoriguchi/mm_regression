@@ -242,12 +242,12 @@ do_test_sync
 #
 # focusing on khugepaged 
 #
-TEST_TITLE=memory_compaction_basic
-TEST_PREPARE=prepare_memory_compaction
-TEST_CLEANUP=cleanup_memory_compaction
-TEST_CONTROLLER=control_memory_compaction
-TEST_CHECKER=check_memory_compaction
-TEST_PROGRAM="$test_memory_compaction"
-EXPECTED_RETURN_CODE="START EXIT"
-TEST_FLAGS=devel
-do_test_async
+# TEST_TITLE=memory_compaction_basic
+# TEST_PREPARE=prepare_memory_compaction
+# TEST_CLEANUP=cleanup_memory_compaction
+# TEST_CONTROLLER=control_memory_compaction
+# TEST_CHECKER=check_memory_compaction
+# TEST_PROGRAM="$test_memory_compaction"
+# EXPECTED_RETURN_CODE="START EXIT"
+# TEST_FLAGS=devel
+# do_test_async

@@ -37,7 +37,7 @@ TEST_CHECKER=check_$TEST_TITLE
 TEST_PREPARE=prepare_$TEST_TITLE
 TEST_CLEANUP=cleanup_$TEST_TITLE
 TEST_FLAGS=devel
-# do_test_sync
+do_test_sync
 
 TEST_TITLE="mprotect_on_shared_thp"
 EXPECTED_RETURN_CODE="START EXIT"
@@ -48,7 +48,7 @@ TEST_CHECKER=check_mprotect_on_shared_thp
 TEST_PREPARE=prepare_mprotect_on_shared_thp
 TEST_CLEANUP=cleanup_mprotect_on_shared_thp
 TEST_FLAGS=devel
-# do_test_sync
+do_test_sync
 
 TEST_TITLE="mprotect_on_shared_thp_unaligned"
 EXPECTED_RETURN_CODE="START EXIT"
@@ -59,7 +59,7 @@ TEST_CHECKER=check_mprotect_on_shared_thp
 TEST_PREPARE=prepare_mprotect_on_shared_thp
 TEST_CLEANUP=cleanup_mprotect_on_shared_thp
 TEST_FLAGS=devel
- #do_test_sync
+do_test_sync
 
 NR_THPS=2
 TEST_TITLE=migratepages_thp
@@ -119,7 +119,7 @@ do_test_sync
 NR_THPS=2
 TEST_TITLE=mbind_thp_partial
 TEST_CONTROLLER=control_mbind_migration
-TEST_CHECKER=check_thp_migration
+TEST_CHECKER=check_thp_migration_partial
 TEST_PREPARE=prepare_migratepages_thp
 TEST_CLEANUP=cleanup_migratepages_thp
 TEST_PROGRAM="$test_mbind_hm -m private -n $NR_THPS -t -P"
@@ -149,16 +149,18 @@ TEST_FLAGS=devel
 EXPECTED_RETURN_CODE="START EXIT"
 do_test_sync
 
-NR_THPS=10
+NR_THPS=2
+FILL_NODE1=true
 TEST_TITLE=tmp_move_pages_thp_migration_fail
 TEST_CONTROLLER=control_move_pages
 TEST_CHECKER=check_thp_migration
 TEST_PREPARE=prepare_move_pages_thp_migration_fail
 TEST_CLEANUP=cleanup_move_pages_thp_migration_fail
-TEST_PROGRAM="$test_move_pages -m private -n $NR_THPS"
+TEST_PROGRAM="$test_move_pages -m private -n $NR_THPS -t"
 TEST_FLAGS=devel
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="START FILLED_NODE1 MOVE_PAGES_FAILED"
 do_test_sync
+unset FILL_NODE1
 
 NR_THPS=2
 TEST_TITLE=change_cpuset_thp
@@ -167,8 +169,8 @@ TEST_CHECKER=check_thp_migration
 TEST_PREPARE=prepare_change_cpuset_thp
 TEST_CLEANUP=cleanup_change_cpuset_thp
 TEST_PROGRAM="$test_alloc_thp -n $NR_THPS"
-TEST_FLAGS=devel
-EXPECTED_RETURN_CODE="START EXIT"
+# TEST_FLAGS=devel
+EXPECTED_RETURN_CODE="START CGCLASSIFY_PASS EXIT"
 do_test_sync
 
 NR_THPS=$[HPNUM_FOR_HOTREMOVE \*4/5]
@@ -189,3 +191,13 @@ TEST_CONTROLLER=control_race_migratepages_and_map_fault_unmap
 TEST_CHECKER=check_race_migratepages_and_map_fault_unmap
 EXPECTED_RETURN_CODE="START EXIT"
 do_test_async
+
+# not well-defined...
+# TEST_TITLE=compaction_dropcache_poolallocation_race
+# TEST_CONTROLLER=control_compaction_dropcache_poolallocation_race
+# TEST_CHECKER=check_system_default
+# TEST_PREPARE=prepare_system_default
+# TEST_CLEANUP=cleanup_system_default
+# TEST_FLAGS=devel
+# EXPECTED_RETURN_CODE="START EXIT"
+# do_test_async

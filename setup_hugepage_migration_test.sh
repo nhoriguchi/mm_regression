@@ -230,8 +230,12 @@ control_move_pages() {
     echo "$line" | tee -a ${OFILE}
     case "$line" in
         "before move_pages")
-			$PAGETYPES -p $pid -a 0x700000000+0xf0000000 -Nrl | grep -v offset | tee $TMPF.pagetypes1
+			$PAGETYPES -p $pid -a 0x700000000+0xf0000000 -Nrl | grep -v offset | tee $TMPF.pagetypes1 | head
             get_numa_maps ${pid} > ${TMPF}.numa_maps1
+			# find /sys -type f | grep hugepage | grep node | xargs cat
+			if [ "$FILL_NODE1" ] ; then
+				fill_node_1
+			fi
             kill -SIGUSR1 $pid
             ;;
         "entering busy loop")
@@ -239,8 +243,15 @@ control_move_pages() {
 			sysctl -a | grep huge
             kill -SIGUSR1 $pid
             ;;
+        "move_pages failed")
+			set_return_code MOVE_PAGES_FAILED
+			grep ^Huge /proc/meminfo
+			sysctl -a | grep huge
+            kill -SIGUSR1 $pid
+			return 0
+            ;;
         "exited busy loop")
-			$PAGETYPES -p $pid -a 0x700000000+0xf0000000 -Nrl | grep -v offset | tee $TMPF.pagetypes2
+			$PAGETYPES -p $pid -a 0x700000000+0xf0000000 -Nrl | grep -v offset | tee $TMPF.pagetypes2 | head
             get_numa_maps ${pid} > ${TMPF}.numa_maps2
             kill -SIGUSR1 $pid
             set_return_code EXIT
@@ -262,6 +273,9 @@ control_memory_hotremove() {
             echo $line | sed "s/before memory_hotremove: *//" > ${TMPF}.preferred_memblk
             echo_log "preferred memory block: $targetmemblk"
             $PAGETYPES -rNl -p ${pid} -b huge,compound_head=huge,compound_head > ${TMPF}.pagetypes1
+			grep -i huge /proc/meminfo
+			# find /sys -type f | grep hugepage | grep node | grep 2048
+			# find /sys -type f | grep hugepage | grep node | grep 2048 | xargs cat
             get_numa_maps ${pid} | tee -a $OFILE > ${TMPF}.numa_maps1
             kill -SIGUSR1 $pid
             ;;

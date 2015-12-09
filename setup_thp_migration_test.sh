@@ -13,6 +13,7 @@ check_and_define_tp numa_maps
 check_and_define_tp test_process_vm_access
 check_and_define_tp test_mbind_hm
 check_and_define_tp iterate_mmap_fault_munmap
+check_and_define_tp test_fill_zone
 
 get_numa_maps() { cat /proc/$1/numa_maps; }
 
@@ -283,6 +284,11 @@ check_thp_migration() {
 	check_thp_migrated
 }
 
+check_thp_migration_partial() {
+	check_system_default
+	check_thp_split_migrated
+}
+
 prepare_migratepages_thp() {
 	set_thp_madvise
 	kill_test_programs
@@ -318,6 +324,27 @@ check_thp_migrated() {
 			count_failure "maybe raw page migrated"
 		fi
 	fi
+}
+
+check_thp_split_migrated() {
+	local before_head=$(sed -ne 1p $TMPF.pagetypes1 | cut -f2)
+	local before_tail=$(sed -ne 2p $TMPF.pagetypes1 | cut -f2)
+	local before_flag=$(sed -ne 1p $TMPF.pagetypes1 | cut -f4)
+	local after_head=$(sed -ne 1p $TMPF.pagetypes2 | cut -f2)
+	local after_tail=$(sed -ne 2p $TMPF.pagetypes2 | cut -f2)
+	local after_flag=$(sed -ne 1p $TMPF.pagetypes2 | cut -f4)
+
+ 	count_testcount "thp split/migration check"
+ 	echo "$before_head/$before_tail => $after_head/$after_tail"
+ 	if ! [[ "$before_flag" =~ t ]] ; then
+ 		count_failure "Initial state is not a thp"
+	elif [[ "$after_flag" =~ t ]] ; then
+ 		count_failure "The thp didn't split"
+ 	elif [ "$before_head" = "$after_head" ] || [ "$before_tail" = "$after_tail" ] ; then
+ 		count_failure "split raw pages did not migrated (stay in a place)"
+	else
+		count_success "thp split and migrated"
+ 	fi
 }
 
 control_migratepages_thp_race_with_gup() {
@@ -357,11 +384,11 @@ control_migratepages_thp_race_with_process_vm_access() {
             $PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head -Nl
             echo "$PAGETYPES -p $cpid -r -b thp,compound_head=thp,compound_head -Nl"
 			$PAGETYPES -p $cpid -r -b thp,compound_head=thp,compound_head -Nl
-			( for i in $(seq 10) ; do
-				  migratepages $pid 0 1  # 2> /dev/null
-				  migratepages $pid 1 0  # 2> /dev/null
-				  migratepages $cpid 0 1 # 2> /dev/null
-				  migratepages $cpid 1 0 # 2> /dev/null
+			( for i in $(seq 20) ; do
+				  migratepages $pid 0 1  2> /dev/null
+				  migratepages $pid 1 0  2> /dev/null
+				  migratepages $cpid 0 1 2> /dev/null
+				  migratepages $cpid 1 0 2> /dev/null
 			  done ) &
             kill -SIGUSR1 $pid
             ;;
@@ -387,13 +414,13 @@ prepare_change_cpuset_thp() {
     cgcreate -g cpu,cpuset,memory:test1 || return 1
 	cgset -r cpuset.memory_migrate=1 test1
 	# TODO: confirm multiple mems
-	cgset -r cpuset.cpus=0 test1
+	cgset -r cpuset.cpus=0-1 test1
 	cgset -r cpuset.mems=0 test1
 }
 
 cleanup_change_cpuset_thp() {
-    cgdelete cpu,cpuset,memory:test1 2> /dev/null
-
+    # cgdelete cpu,cpuset,memory:test1 2> /dev/null
+	
 	kill_test_programs
 	set_thp_always
 	khpd_on
@@ -410,14 +437,20 @@ control_change_cpuset_thp() {
         "entering_busy_loop")
 			cgclassify -g cpu,cpuset,memory:test1 $pid
 			[ $? -eq 0 ] && set_return_code CGCLASSIFY_PASS || set_return_code CGCLASSIFY_FAIL
-            $PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
+			echo "cat /sys/fs/cgroup/memory/test1/tasks"
+			cat /sys/fs/cgroup/memory/test1/tasks
+			ls /sys/fs/cgroup/memory/test1/tasks
+			cgget -r cpuset.mems -r cpuset.cpus -r cpuset.memory_migrate test1
+            # $PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
             $PAGETYPES -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee -a $OFILE | tee $TMPF.pagetypes1
+			
 			cgset -r cpuset.mems=0 test1
 			cgset -r cpuset.mems=1 test1
+			cgget -r cpuset.mems -r cpuset.cpus -r cpuset.memory_migrate test1
             kill -SIGUSR1 $pid
             ;;
         "exited_busy_loop")
-            $PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
+            # $PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
             $PAGETYPES -p $pid -r -b anon | grep total
 			grep -A15 ^70000 /proc/$pid/smaps | grep -i anon
 			grep RssAnon /proc/$pid/status
@@ -496,9 +529,9 @@ control_race_migratepages_and_map_fault_unmap() {
         local pid=$!
 		sleep 0.3
         for j in $(seq 100) ; do
-			$PAGETYPES -p $pid -Nl -b thp,compound_head=thp,compound_head | grep -v offset > $TMPF.pagetypes1
+			# $PAGETYPES -p $pid -Nl -b thp,compound_head=thp,compound_head | grep -v offset > $TMPF.pagetypes1
             do_migratepages $pid 0 1
-			$PAGETYPES -p $pid -Nl -b thp,compound_head=thp,compound_head | grep -v offset > $TMPF.pagetypes2
+			# $PAGETYPES -p $pid -Nl -b thp,compound_head=thp,compound_head | grep -v offset > $TMPF.pagetypes2
             do_migratepages $pid 1 0
 			# echo $j
 			# cat $TMPF.pagetypes1 $TMPF.pagetypes2
@@ -513,22 +546,60 @@ check_race_migratepages_and_map_fault_unmap() {
     check_system_default
 }
 
+calc_large_pool_size() {
+	grep "^Node 1" /proc/buddyinfo | tr -s ' ' > $TMPF.buddyinfo
+	if [ "$(cat $TMPF.buddyinfo | wc -l)" -ne 1 ] ; then
+		echo "/proc/buddyinfo shows multiple line for Node 1?" >&2
+		exit 1
+	fi
+	local o0=$(cut -d' ' -f5 $TMPF.buddyinfo)
+	local o1=$(cut -d' ' -f6 $TMPF.buddyinfo)
+	local o2=$(cut -d' ' -f7 $TMPF.buddyinfo)
+	local o3=$(cut -d' ' -f8 $TMPF.buddyinfo)
+	local o4=$(cut -d' ' -f9 $TMPF.buddyinfo)
+	local o5=$(cut -d' ' -f10 $TMPF.buddyinfo)
+	local o6=$(cut -d' ' -f11 $TMPF.buddyinfo)
+	local o7=$(cut -d' ' -f12 $TMPF.buddyinfo)
+	local o8=$(cut -d' ' -f13 $TMPF.buddyinfo)
+	local o9=$(cut -d' ' -f14 $TMPF.buddyinfo)
+	local o10=$(cut -d' ' -f15 $TMPF.buddyinfo)
+	local free=$(echo "$o0 + $o1 * 2 + $o2 * 4 + $o3 * 8 + $o4 * 16 + $o5 * 32 + $o6 * 64 + $o7 * 128 + $o8 * 256 + $o9 * 512 + $o10 * 1024" | bc)
+	echo $[$free/512*99/100]
+}
+
+fill_node_1() {
+	local psize=$(calc_large_pool_size)
+	if [ ! "$psize" ] ; then
+		set_return_code FAILED_TO_FILL_NODE1
+	else
+		echo "echo $psize > /sys/devices/system/node/node1/hugepages/hugepages-2048kB/nr_hugepages"
+		echo $psize > /sys/devices/system/node/node1/hugepages/hugepages-2048kB/nr_hugepages
+		set_return_code FILLED_NODE1
+	fi
+}
+
 prepare_move_pages_thp_migration_fail() {
-    reonline_memblocks
-	set_thp_madvise
     prepare_system_default
-	echo 1 > /proc/sys/vm/compact_memory
-	echo 3 > /proc/sys/vm/drop_caches
-	# echo 2000 > /sys/devices/system/node/node1/hugepages/hugepages-2048kB/nr_hugepages
-    PIPETIMEOUT=30
+	set_and_check_hugetlb_pool 0
 }
 
 cleanup_move_pages_thp_migration_fail() {
-    reonline_memblocks
-	set_thp_always
-	echo 1 > /proc/sys/vm/compact_memory
-	echo 3 > /proc/sys/vm/drop_caches
-	# set_and_check_hugetlb_pool 0
+	set_and_check_hugetlb_pool 0
     cleanup_system_default
-    PIPETIMEOUT=5
+}
+
+control_compaction_dropcache_poolallocation_race() {
+    # reonline_memblocks
+	# set_thp_madvise
+    # prepare_system_default
+	# echo 2000 > /sys/devices/system/node/node1/hugepages/hugepages-2048kB/nr_hugepages
+	echo 0 > /proc/sys/vm/nr_hugepages
+	# echo 1 > /proc/sys/vm/compact_memory
+	# echo 3 > /proc/sys/vm/drop_caches
+	# echo 20000 > /sys/devices/system/node/node1/hugepages/hugepages-2048kB/nr_hugepages
+
+	echo $free , $target
+	# $test_fill_zone $target
+	echo "echo $(calc_large_pool_size) > /sys/devices/system/node/node1/hugepages/hugepages-2048kB/nr_hugepages"
+	set_return_code EXIT
 }

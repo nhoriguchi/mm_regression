@@ -110,27 +110,22 @@ int main(int argc, char *argv[]) {
 	numa_sched_setaffinity(0, all_nodes);
 	for (i = 0; i < nr_p; i++) {
 		addrs[i] = p + i * PS;
-		/* if (partialmigrate && ((i % 512) > 256)) */
-		/* 	addrs[i] -= 256 * PS; */
 		nodes[i] = 1;
 		status[i] = 0;
 	}
 	printf("call move_pages()\n");
 	ret = numa_move_pages(0, nr_p, addrs, nodes, status, MPOL_MF_MOVE_ALL);
-	if (ret == -1)
-		/* err("move_pages"); */
+	if (ret == -1) {
 		perror("move_pages");
+		pprintf("move_pages failed\n");
+		pause();
+		return 0;
+	}
 	signal(SIGUSR1, sig_handle_flag);
 	pprintf("entering busy loop\n");
 	while (flag)
 		memset(p, 'a', nr_hp * HPS);
 	pprintf("exited busy loop\n");
-	for (i = 0; i < nr_p; i++) {
-		printf("%d,", status[i]);
-		if (i %128 == 0)
-		printf("i %d\n", i);
-	}
-	printf("\n");
 	pause();
 	return 0;
 }

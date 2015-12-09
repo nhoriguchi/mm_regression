@@ -4,6 +4,8 @@
 #include <signal.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <numa.h>
+#include <numaif.h>
 #include "test_core/lib/include.h"
 #include "test_core/lib/hugepage.h"
 #include "test_core/lib/pfn.h"
@@ -33,6 +35,9 @@ int main(int argc, char *argv[]) {
 	char c;
 	int mapflag = MAP_ANONYMOUS | MAP_HUGETLB;
 	int thp = 0;
+        unsigned long nr_nodes = numa_max_node() + 1;
+        struct bitmask *new_nodes;
+        unsigned long nodemask;
 
 	while ((c = getopt(argc, argv, "vp:m:n:t")) != -1) {
 		switch(c) {
@@ -68,6 +73,12 @@ int main(int argc, char *argv[]) {
 			break;
 		}
 	}
+
+        new_nodes = numa_bitmask_alloc(nr_nodes);
+        numa_bitmask_setbit(new_nodes, 1);
+        nodemask = 1; /* only node 0 allowed */
+        if (set_mempolicy(MPOL_PREFERRED, &nodemask, nr_nodes) == -1)
+                err("set_mempolicy");
 
 	signal(SIGUSR1, sig_handle);
 	p = checked_mmap((void *)ADDR_INPUT, nr_hp * HPS, PROT_READ | PROT_WRITE,
