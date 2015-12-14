@@ -123,6 +123,7 @@ prepare() {
 		prepfunc=$DEFAULT_TEST_PREPARE
 		$DEFAULT_TEST_PREPARE
 	elif [ "$(type -t _prepare)" = "function" ] ; then
+		prepfunc=_prepare
 		_prepare
 	else
 		prepare_system_default
