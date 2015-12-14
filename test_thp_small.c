@@ -18,10 +18,13 @@ int main(int argc, char *argv[]) {
 	int length;
 	unsigned long exp_addr = ADDR_INPUT;
 
+	if (argc > 1)
+		nr_hps = strtoul(argv[1], NULL, 10);
+
 	length = nr_hps * THPS;
 	while (1) {
 		thp_addr = checked_mmap((void *)exp_addr, length, MMAP_PROT, MAP_THP, -1, 0);
-		set_hugepage(thp_addr, length);
+		madvise(thp_addr, length, MADV_HUGEPAGE);
 		memset(thp_addr, 'a', length);
 		checked_munmap(thp_addr, length);
 	}

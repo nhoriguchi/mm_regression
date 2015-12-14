@@ -238,7 +238,7 @@ prepare_race_between_error_handling_and_process_exit() {
     pkill -9 -f $test_thp_small 2> /dev/null
     set_thp_params_for_testing
     set_thp_never
-    set_thp_always
+    set_thp_madvise
     save_nr_corrupted_before
     all_unpoison
     prepare_system_default
@@ -258,16 +258,33 @@ control_race_between_error_handling_and_process_exit() {
     local pid=
 
     for i in $(seq $RACE_ITERATIONS) ; do
+		for j in $(seq 100) ; do
+			$test_thp_small &
+		done
+
+        $PAGETYPES -b thp,compound_head=thp,compound_head -rNl | grep -v offset | \
+			cut -f1 | while read line ; do
+                local thp=0x$line
+                printf "$MCEINJECT -e $ERROR_TYPE -a 0x%lx\n" $thp
+                $MCEINJECT -e $ERROR_TYPE -a $thp &
+            done
+        pkill -9 -f $test_thp_small
+    done
+    set_return_code EXIT
+}
+
+control_race_between_error_handling_and_process_exit_target_flag() {
+    local pid=
+
+    for i in $(seq $RACE_ITERATIONS) ; do
         $test_thp_small &
         pid=$!
-        echo "[$i] $PAGETYPES -p $(pgrep -f test_thp_small) -b $TARGET_PAGEFLAG -rNl"
         $PAGETYPES -p $(pgrep -f test_thp_small) -b $TARGET_PAGEFLAG -rNl | \
             grep -v offset | cut -f2 | \
             while read line ; do
                 local thp=0x$line
                 printf "$MCEINJECT -e $ERROR_TYPE -a 0x%lx\n" $[$thp + 1]
                 $MCEINJECT -e $ERROR_TYPE -a $[$thp + 1]
-                # $PAGETYPES -a $[$thp + 1] -X -N
             done
         kill -9 $pid
     done
