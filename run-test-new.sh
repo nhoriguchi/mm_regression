@@ -26,7 +26,7 @@ done
 shift $[OPTIND-1]
 RECIPEFILE=$1
 
-[ ! -e "$RECIPEFILE" ] && exit 1
+[ ! -e "$RECIPEFILE" ] && echo "RECIPEFILE not given or not exist." >&2 && exit 1
 
 # Assuming that current directory is the root directory of the current test.
 export TRDIR=$PWD # $(dirname $(readlink -f $RECIPEFILE))
@@ -42,29 +42,19 @@ echo "Current test: $(basename $TRDIR)"
 ( cd $TCDIR ; echo "Test Core version: $(git log -n1 --pretty="format:%H %s")" )
 
 # original recipe can 'embed' other small parts
-parse_recipefile $RECIPEFILE .tmp.$RECIPEFILE
+echo .tmp.${RECIPEFILE/\//_}
 
-# less .tmp.$RECIPEFILE
+parse_recipefile $RECIPEFILE .tmp.${RECIPEFILE/\//_}
 
-if [ "$SCRIPT" == true ] ; then
-    bash .tmp.${RECIPEFILE}
-else
-    while read line ; do
-        [ ! "$line" ] && continue
-        [[ $line =~ ^# ]] && continue
+(
+	echo "---"
+	. .tmp.${RECIPEFILE/\//_}
 
-        if [ "$line" = do_test_sync ] ; then
-            if [ ! "$TEST_PROGRAM" ] ; then
-                echo "no TEST_PROGRAM given for '${TEST_TITLE}'. Check your recipe."
-                exit 1
-            fi
-            do_test "$TEST_PROGRAM -p ${PIPE} ${VERBOSE}"
-        elif [ "$line" = do_test_async ] ; then
-            do_test_async
-        else
-            eval $line
-        fi
-    done < .tmp.${RECIPEFILE}
-fi
+	if [ "$TEST_PROGRAM" ] ; then
+		do_test "$TEST_PROGRAM -p $PIPE $VERBOSE"
+	else
+		do_test_async
+	fi
+)
 
 show_summary

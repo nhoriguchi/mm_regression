@@ -115,55 +115,63 @@ check_system_default() {
 }
 
 prepare() {
-    local prepfunc
-    if [ "$TEST_PREPARE" ] ; then
-        prepfunc=$TEST_PREPARE
-        $TEST_PREPARE
-    elif [ "$DEFAULT_TEST_PREPARE" ] ; then
-        prepfunc=$DEFAULT_TEST_PREPARE
-        $DEFAULT_TEST_PREPARE
-    else
-        prepare_system_default
-    fi
-    if [ $? -ne 0 ] ; then
-        echo "test preparation failed ($prepfunc) check your environment." >&2
-        count_skipped
-        return 1
-    fi
+	local prepfunc
+	if [ "$TEST_PREPARE" ] ; then
+		prepfunc=$TEST_PREPARE
+		$TEST_PREPARE
+	elif [ "$DEFAULT_TEST_PREPARE" ] ; then
+		prepfunc=$DEFAULT_TEST_PREPARE
+		$DEFAULT_TEST_PREPARE
+	elif [ "$(type -t _prepare)" = "function" ] ; then
+		_prepare
+	else
+		prepare_system_default
+	fi
+	if [ $? -ne 0 ] ; then
+		echo "test preparation failed ($prepfunc) check your environment." >&2
+		count_skipped
+		return 1
+	fi
 }
 
 run_controller() {
-    local pid="$1"
-    local msg="$2"
-    if [ "$TEST_CONTROLLER" ] ; then
-        $TEST_CONTROLLER "$pid" "$msg"
-    elif [ "$DEFAULT_TEST_CONTROLLER" ] ; then
-        $DEFAULT_TEST_CONTROLLER "$pid" "$msg"
-    fi
+	local pid="$1"
+	local msg="$2"
+	if [ "$TEST_CONTROLLER" ] ; then
+		$TEST_CONTROLLER "$pid" "$msg"
+	elif [ "$DEFAULT_TEST_CONTROLLER" ] ; then
+		$DEFAULT_TEST_CONTROLLER "$pid" "$msg"
+	elif [ "$(type -t _control)" = "function" ] ; then
+		_control "$pid" "$msg"
+	fi
 }
 
 cleanup() {
-    # TODO: unneccessary?
-    local cleanfunc
-    if [ "$TEST_CLEANUP" ] ; then
-        cleanfunc=$TEST_CLEANUP
-        $TEST_CLEANUP
-    elif [ "$DEFAULT_TEST_CLEANUP" ] ; then
-        cleanfunc=$DEFAULT_TEST_CLEANUP
-        $DEFAULT_TEST_CLEANUP
-    else
-        cleanup_system_default
-    fi
+	# TODO: unneccessary?
+	local cleanfunc
+	if [ "$TEST_CLEANUP" ] ; then
+		cleanfunc=$TEST_CLEANUP
+		$TEST_CLEANUP
+	elif [ "$DEFAULT_TEST_CLEANUP" ] ; then
+		cleanfunc=$DEFAULT_TEST_CLEANUP
+		$DEFAULT_TEST_CLEANUP
+	elif [ "$(type -t _cleanup)" = "function" ] ; then
+		_cleanup
+	else
+		cleanup_system_default
+	fi
 }
 
 check() {
-    if [ "$TEST_CHECKER" ] ; then
-        $TEST_CHECKER
-    elif [ "$DEFAULT_TEST_CHECKER" ] ; then
-        $DEFAULT_TEST_CHECKER
-    else
-        check_system_default
-    fi
+	if [ "$TEST_CHECKER" ] ; then
+		$TEST_CHECKER
+	elif [ "$DEFAULT_TEST_CHECKER" ] ; then
+		$DEFAULT_TEST_CHECKER
+	elif [ "$(type -t _check)" = "function" ] ; then
+		_check
+	else
+		check_system_default
+	fi
 }
 
 # TESTCASE_FILTER can contain multiple filter items (like "test1 test2 perf*")
@@ -367,7 +375,6 @@ do_test_async() {
     while true ; do
         check_test_flag && break
         check_inclusion_of_fixedby_patch && break
-
         reset_per_testcase_counters
         __do_test_async
         # test aborted due to the preparation failure

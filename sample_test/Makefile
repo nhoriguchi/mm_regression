@@ -40,3 +40,6 @@ test: all
 
 list: get_test_core
 	@bash test_core/display_testcases.sh -a
+
+test2: all
+	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/sample_newtype
