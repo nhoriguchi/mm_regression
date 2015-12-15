@@ -1,0 +1,25 @@
+. $TRDIR/setup_hugepage_migration.sh
+
+NUMA_NODE=2
+HUGEPAGESIZE=2048 # kB
+HUGETLB=500
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_PROGRAM="$test_alloc -s madv_soft -m private -n 30 -h 2048"
+
+BG_MIGRATION_PID=
+
+_control() {
+	control_hugepage_migration "$1" "$2"
+}
+
+_prepare() {
+	prepare_hugepage_migration || return 1
+}
+
+_cleanup() {
+	cleanup_hugepage_migration
+}
+
+_check() {
+	check_hugepage_migration
+}

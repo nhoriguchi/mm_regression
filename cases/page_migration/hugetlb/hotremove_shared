@@ -1,0 +1,25 @@
+. $TRDIR/setup_hugepage_migration.sh
+
+MIGRATE_SRC=hotremove
+NUMA_NODE=2
+HUGEPAGESIZE=2048 # kB
+HUGETLB=$[$MEMTOTAL/$HUGEPAGESIZE/2]
+HUGETLB_ALLOCATED=$[HUGETLB*4/5]
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_PROGRAM="$test_alloc -s $MIGRATE_SRC -m shared -h 2048 -n $HUGETLB_ALLOCATED"
+
+_control() {
+	control_hugepage_migration "$1" "$2"
+}
+
+_prepare() {
+	prepare_hugepage_migration || return 1
+}
+
+_cleanup() {
+	cleanup_hugepage_migration
+}
+
+_check() {
+	check_hugepage_migration
+}

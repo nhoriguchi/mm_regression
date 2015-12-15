@@ -1,0 +1,35 @@
+. $TRDIR/setup_hugepage_migration.sh
+
+NUMA_NODE=2
+HUGEPAGESIZE=2048 # kB
+HUGETLB=500
+HUGETLB_MOUNT=$WDIR/mount
+HUGETLB_FILE=$HUGETLB_MOUNT/testfile
+EXPECTED_RETURN_CODE="START EXIT"
+
+PINGPONG_DURATION=10
+
+_control() {
+    echo_log "start hugepage_pingpong"
+	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate1
+    $hugepage_pingpong -n 10 -t 0xff > $TMPD/fuz.out 2>&1 &
+    local pid=$!
+    echo_log "pid $pid"
+    sleep $PINGPONG_DURATION
+	ps ax | grep $pid
+    pkill -SIGUSR1 $pid
+	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate2
+    set_return_code EXIT
+}
+
+_prepare() {
+    prepare_hugepage_migration || return 1
+}
+
+_cleanup() {
+    cleanup_hugepage_migration
+}
+
+_check() {
+    check_hugepage_migration
+}

@@ -17,7 +17,7 @@ NUMNODE=
 
 TEST_TITLE=race_migratepages_and_map_fault_unmap
 TEST_PREPARE=prepare_HM_base
-bTEST_CLEANUP=cleanup_memory_hotremove
+TEST_CLEANUP=cleanup_memory_hotremove
 TEST_CONTROLLER=control_race_migratepages_and_map_fault_unmap
 TEST_CHECKER=check_race_migratepages_and_map_fault_unmap
 EXPECTED_RETURN_CODE="START EXIT"

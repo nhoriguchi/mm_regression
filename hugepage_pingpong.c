@@ -77,6 +77,8 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	signal(SIGUSR1, sig_handle_flag);
+
 	if (nr_nodes < 2)
 		errmsg("A minimum of 2 nodes is required for this test.\n");
 
@@ -116,8 +118,6 @@ int main(int argc, char *argv[]) {
 		memset(phugetlbshmem, 'a', memsize);
 		address += memsize;
 	}
-
-	signal(SIGUSR1, sig_handle_flag);
 
 	pprintf("entering busy loop\n");
 	while (flag) {
