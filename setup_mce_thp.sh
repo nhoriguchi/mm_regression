@@ -273,6 +273,7 @@ control_race_between_error_handling_and_process_exit() {
     set_return_code EXIT
 }
 
+# Not used...
 control_race_between_error_handling_and_process_exit_target_flag() {
     local pid=
 

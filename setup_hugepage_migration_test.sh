@@ -2,7 +2,7 @@
 
 # requires numactl package
 
-NUMNODE=$(numactl -H | grep available | cut -f2 -d' ')
+. $TCDIR/lib/numa.sh
 
 HUGETLBDIR=`grep hugetlbfs /proc/mounts | head -n1 | cut -f2 -d' '`
 if [ ! -d "${HUGETLBDIR}" ] ; then
@@ -16,15 +16,6 @@ if [ "${HPSIZE}" -ne 1048576 -a "${HPSIZE}" -ne 2048 ] ; then
     echo "Unsupported hugepage size ${HPSIZE} kB" >&2
     exit 1
 fi
-
-check_and_define_tp test_alloc
-check_and_define_tp test_mbind_hm
-check_and_define_tp test_move_pages
-check_and_define_tp test_hugetlb_hotremove
-check_and_define_tp hog_hugepages
-check_and_define_tp madvise_hwpoison_hugepages
-check_and_define_tp iterate_hugepage_mmap_fault_munmap
-check_and_define_tp iterate_numa_move_pages
 
 # reserve (total - 2) hugepages
 reserve_most_hugepages() {

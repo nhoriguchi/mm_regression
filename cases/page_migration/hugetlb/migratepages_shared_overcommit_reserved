@@ -1,0 +1,25 @@
+. $TRDIR/setup_hugepage_migration.sh
+
+TEST_PROGRAM="$test_alloc -m shared -h 2048"
+NUMA_NODE=2
+HUGETLB=100
+HUGEPAGESIZE=2048 # kB
+EXPECTED_RETURN_CODE="START SET_OVERCOMMIT RESERVE MIGRATION_PASSED EXIT"
+HUGETLB_OVERCOMMIT=$[HUGETLB + 10]
+RESERVE_HUGEPAGE=$[HUGETLB - 2]
+
+_control() {
+	control_hugepage_migration "$1" "$2"
+}
+
+_prepare() {
+	prepare_hugepage_migration || return 1
+}
+
+_cleanup() {
+	cleanup_hugepage_migration
+}
+
+_check() {
+	check_hugepage_migration
+}

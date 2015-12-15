@@ -60,3 +60,5 @@ TEST_RETRYABLE=3
 ERROR_TYPE=hard-offline
 TARGET_PAGEFLAG="thp,anonymous,lru=thp,anonymous"
 do_test_async
+
+# combinded case with doublde mapping

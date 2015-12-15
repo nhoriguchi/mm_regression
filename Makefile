@@ -56,3 +56,6 @@ test: mmgeneric page_table_walker hugepage_migration thp_migration mce_test
 mce_test: mce_base mce_hugetlb mce_thp mce_ksm
 mce_test_advanced: mce_multiple_injection mce_stress
 mce_test_full: mce_test mce_test_advanced
+
+test2: all
+	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) -d cases/page_migration/hugetlb

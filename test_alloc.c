@@ -30,8 +30,9 @@ int main(int argc, char *argv[]) {
         unsigned long nr_nodes = numa_max_node() + 1;
         struct bitmask *new_nodes;
         unsigned long nodemask;
+	char *migrate_src = "migratetypes";
 
-	while ((c = getopt(argc, argv, "vp:m:n:h:R")) != -1) {
+	while ((c = getopt(argc, argv, "vp:m:n:h:Rs:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -65,6 +66,14 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'R':
 			mapflag |= MAP_NORESERVE;
+			break;
+		case 's':
+			if (strcmp(optarg, "migratetypes") &&
+			    strcmp(optarg, "mbind") &&
+			    strcmp(optarg, "move_pages") &&
+			    strcmp(optarg, "hotremove"))
+				errmsg("invalid optarg for -s\n");
+			migrate_src = optarg;
 			break;
 		default:
 			errmsg("invalid option\n");
