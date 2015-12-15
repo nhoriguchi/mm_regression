@@ -1,11 +1,15 @@
 . $TRDIR/setup_hugepage_migration.sh
 
-MIGRATE_SRC=migratepages
+MIGRATE_SRC=mbind
 TEST_PROGRAM="$test_alloc -s $MIGRATE_SRC -m private -h 2048"
 NUMA_NODE=2
 HUGETLB=100
 HUGEPAGESIZE=2048 # kB
-EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"
+# background memory eater allocate hugepages from node 0 first, so allocation
+# from test_alloc should fail with SIGBUS. This is an expected result.
+EXPECTED_RETURN_CODE="START ALLOCATE KILLED"
+ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
+ALLOCATE_NODE=0
 
 _control() {
 	control_hugepage_migration "$1" "$2"

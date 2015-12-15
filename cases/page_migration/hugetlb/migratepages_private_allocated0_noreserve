@@ -1,6 +1,7 @@
 . $TRDIR/setup_hugepage_migration.sh
 
-TEST_PROGRAM="$test_alloc -m private -h 2048 -R"
+MIGRATE_SRC=migratepages
+TEST_PROGRAM="$test_alloc -s $MIGRATE_SRC -m private -h 2048 -R"
 NUMA_NODE=2
 HUGETLB=100
 HUGEPAGESIZE=2048 # kB

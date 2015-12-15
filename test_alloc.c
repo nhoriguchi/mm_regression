@@ -22,6 +22,7 @@ void sig_handle_flag(int signo) { flag = 0; }
 
 int main(int argc, char *argv[]) {
 	int i;
+	int ret;
 	int nr = 2;
 	char c;
 	char *p;
@@ -31,8 +32,10 @@ int main(int argc, char *argv[]) {
         struct bitmask *new_nodes;
         unsigned long nodemask;
 	char *migrate_src = "migratetypes";
+	int thp = 0;
+	int partialmbind = 0;
 
-	while ((c = getopt(argc, argv, "vp:m:n:h:Rs:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:m:n:h:Rs:P")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -68,12 +71,15 @@ int main(int argc, char *argv[]) {
 			mapflag |= MAP_NORESERVE;
 			break;
 		case 's':
-			if (strcmp(optarg, "migratetypes") &&
+			if (strcmp(optarg, "migratepages") &&
 			    strcmp(optarg, "mbind") &&
 			    strcmp(optarg, "move_pages") &&
 			    strcmp(optarg, "hotremove"))
 				errmsg("invalid optarg for -s\n");
 			migrate_src = optarg;
+			break;
+		case 'P': /* partial mbind() */
+			partialmbind = 1;
 			break;
 		default:
 			errmsg("invalid option\n");
@@ -84,33 +90,84 @@ int main(int argc, char *argv[]) {
         if (nr_nodes < 2)
                 errmsg("A minimum of 2 nodes is required for this test.\n");
 
-        new_nodes = numa_bitmask_alloc(nr_nodes);
-        numa_bitmask_setbit(new_nodes, 1);
+	nodemask = 1; /* node 0 is preferred */
+	if (set_mempolicy(MPOL_BIND, &nodemask, nr_nodes) == -1)
+		err("set_mempolicy");
 
 	signal(SIGUSR1, sig_handle);
 	pprintf("just started\n");
 	pause();
 
-        nodemask = 1; /* only node 0 allowed */
-        if (set_mempolicy(MPOL_BIND, &nodemask, nr_nodes) == -1)
-                err("set_mempolicy");
+	if (!strcmp(migrate_src, "migratepages")) {
+		p = mmap((void *)ADDR_INPUT, nr * HPS, protflag, mapflag, -1, 0);
+		if (p == MAP_FAILED) {
+			pprintf("mmap failed\n");
+			err("mmap");
+		}
+		printf("mmap done %p\n", p);
 
-	p = mmap((void *)ADDR_INPUT, nr * HPS, protflag, mapflag, -1, 0);
-	if (p == MAP_FAILED) {
-		pprintf("mmap failed\n");
-		err("mmap");
-	}
-	printf("mmap done %p\n", p);
-	
-	/* fault in */
-	memset(p, 'a', nr * HPS);
-	signal(SIGUSR1, sig_handle_flag);
-	pprintf("entering busy loop\n");
-	while (flag) {
+		/* fault in */
 		memset(p, 'a', nr * HPS);
-		usleep(100000);
+
+		pprintf("page_fault_done\n");
+		pause();
+
+		signal(SIGUSR1, sig_handle_flag);
+		pprintf("entering busy loop\n");
+		while (flag) {
+			memset(p, 'a', nr * HPS);
+			usleep(100000);
+		}
+		pprintf("exited busy loop\n");
+		pause();
+	} else if (!strcmp(migrate_src, "mbind")) {
+		new_nodes = numa_bitmask_alloc(nr_nodes);
+		numa_bitmask_setbit(new_nodes, 1);
+
+		p = mmap((void *)ADDR_INPUT, nr * HPS, protflag, mapflag, -1, 0);
+		if (p == MAP_FAILED) {
+			pprintf("mmap failed\n");
+			err("mmap");
+		}
+		printf("mmap done %p\n", p);
+		if (thp)
+			madvise(p, nr * HPS, MADV_HUGEPAGE);
+		/* fault in */
+		memset(p, 'a', nr * HPS);
+
+		pprintf("page_fault_done\n");
+		pause();
+		if (set_mempolicy(MPOL_DEFAULT, NULL, nr_nodes) == -1)
+			err("set_mempolicy to MPOL_DEFAULT");
+		printf("call mbind\n");
+		if (partialmbind) {
+			for (i = 0; i < nr; i++) {
+				ret = mbind(p + i * HPS, 10 * PS, MPOL_BIND,
+					    new_nodes->maskp, new_nodes->size + 1,
+					    MPOL_MF_MOVE|MPOL_MF_STRICT);
+				if (ret == -1) {
+					pprintf("mbind failed\n");
+					pause();
+					err("mbind");
+				}
+			}
+		} else {
+			printf("%p, %lx, %lx, %lx, %lx %lx\n", p, nr * HPS, MPOL_BIND, new_nodes->maskp, new_nodes->size + 1, MPOL_MF_MOVE|MPOL_MF_STRICT);
+			ret = mbind(p, nr * HPS, MPOL_BIND, new_nodes->maskp,
+				    new_nodes->size + 1, MPOL_MF_MOVE|MPOL_MF_STRICT);
+			if (ret == -1) {
+				pprintf("mbind failed\n");
+				pause();
+				err("mbind");
+			}
+		}
+		signal(SIGUSR1, sig_handle_flag);
+		pprintf("entering busy loop\n");
+		while (flag)
+			memset(p, 'a', nr * HPS);
+		pprintf("exited busy loop\n");
+		pause();
 	}
-	pprintf("exited busy loop\n");
-	pause();
+
 	return 0;
 }

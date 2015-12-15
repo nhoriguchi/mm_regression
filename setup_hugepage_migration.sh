@@ -4,6 +4,7 @@
 
 . $TCDIR/lib/numa.sh
 . $TCDIR/lib/setup_hugetlb_base.sh
+. $TCDIR/lib/setup_mce_tools.sh
 
 prepare_hugepage_migration() {
 	if [ "$NUMA_NODE" ] ; then
@@ -77,36 +78,44 @@ control_hugepage_migration() {
 		case "$line" in
 			"just started")
 				get_numa_maps $pid | grep 700000
+				grep ^Huge /proc/meminfo
+				cat /sys/devices/system/node/node0/hugepages/hugepages-2048kB/free_hugepages
+				cat /sys/devices/system/node/node1/hugepages/hugepages-2048kB/free_hugepages
+				kill -SIGUSR1 $pid
+				;;
+			"page_fault_done")
+				get_numa_maps $pid | tee $TMPD/numa_maps1 | grep ^700000
+				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -Nrl | grep -v offset | tee $TMPF.pagetypes1
 				kill -SIGUSR1 $pid
 				;;
 			"entering busy loop")
-				get_numa_maps $pid > $TMPD/numa_maps1
-				echo "do migratepages"
-				grep ^Huge /proc/meminfo
 				# sysctl -a | grep huge
 
-				# TODO: other migration source?
-				do_migratepages $pid
-				if [ $? -ne 0 ] ; then
-					set_return_code MIGRATION_FAILED
-					echo "do_migratepages failed."
-				else
-					set_return_code MIGRATION_PASSED
+				if [ "$MIGRATE_SRC" = migratepages ] ; then
+					echo "do migratepages"
+					do_migratepages $pid
+					if [ $? -ne 0 ] ; then
+						set_return_code MIGRATION_FAILED
+						echo "do_migratepages failed."
+					else
+						set_return_code MIGRATION_PASSED
+					fi
 				fi
+
 				kill -SIGUSR1 $pid
 				;;
 			"exited busy loop")
 				# find /sys/kernel/mm/hugepages/hugepages-2048kB | while read a ; do echo "$(basename $a): $(cat $a)" ; done
 				# $PAGETYPES -p $pid -a 0x700000000+0xf0000000 -Nrl | grep -v offset | tee $TMPF.pagetypes2
 				get_numa_maps $pid   > $TMPD/numa_maps2
+				
 				kill -SIGUSR1 $pid
 				set_return_code EXIT
 				return 0
 				;;
-			"before mbind")
-				$PAGETYPES -p $pid -a 0x700000000+0xf0000000 -Nrl | grep -v offset | tee $TMPF.pagetypes1
-				get_numa_maps ${pid} > ${TMPF}.numa_maps1
-				kill -SIGUSR1 $pid
+			"mbind failed")
+				set_return_code MBIND_FAILED
+				return 0
 				;;
 			*)
 				;;
@@ -115,43 +124,6 @@ control_hugepage_migration() {
 	else # async mode
 		true
 	fi
-}
-
-
-allocate_most_hugepages() {
-    eval $hog_hugepages -m private -n $[HPNUM-2] -N $ALLOCATE_NODE &
-	sleep 3
-}
-
-stop_hog_hugepages() {
-    pkill -9 -f $hog_hugepages
-}
-
-get_numa_maps() { cat /proc/$1/numa_maps; }
-
-do_migratepages() {
-    if [ $# -ne 3 ] ; then
-        migratepages $1 0 1;
-    else
-        migratepages "$1" "$2" "$3";
-    fi
-}
-
-do_memory_hotremove() { bash memory_hotremove.sh ${PAGETYPES} $1; }
-
-reonline_memblocks() {
-    local block=""
-    local memblocks="$(find /sys/devices/system/memory/ -type d -maxdepth 1 | grep "memory/memory" | sed 's/.*memory//')"
-    for mb in $memblocks ; do
-        if [ "$(cat /sys/devices/system/memory/memory${mb}/state)" == "offline" ] ; then
-            block="$block $mb"
-        fi
-    done
-    echo "offlined memory blocks: $block"
-    for mb in $block ; do
-        echo "Re-online memory block $mb"
-        echo online > /sys/devices/system/memory/memory${mb}/state
-    done
 }
 
 ### kill_test_programs() {

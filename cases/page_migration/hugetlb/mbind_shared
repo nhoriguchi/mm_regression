@@ -1,10 +1,11 @@
 . $TRDIR/setup_hugepage_migration.sh
 
-TEST_PROGRAM="$test_alloc -m shared -h 2048"
+MIGRATE_SRC=mbind
+TEST_PROGRAM="$test_alloc -s $MIGRATE_SRC -m shared -h 2048"
 NUMA_NODE=2
 HUGETLB=100
 HUGEPAGESIZE=2048 # kB
-EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"
+EXPECTED_RETURN_CODE="START EXIT"
 
 _control() {
 	control_hugepage_migration "$1" "$2"

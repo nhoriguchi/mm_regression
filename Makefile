@@ -58,4 +58,10 @@ mce_test_advanced: mce_multiple_injection mce_stress
 mce_test_full: mce_test mce_test_advanced
 
 test2: all
-	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) -d cases/page_migration/hugetlb
+	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) $(addprefix '-r ',$(RECIPES)) -d cases/page_migration/hugetlb
+
+test3: all
+	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/page_migration/hugetlb/mbind_private_reserved
+
+test4: all
+	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) $(addprefix '-r ',$(RECIPES))

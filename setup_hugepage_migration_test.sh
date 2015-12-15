@@ -160,6 +160,9 @@ control_migratepages() {
 			get_numa_maps $pid | grep 700000
             kill -SIGUSR1 $pid
             ;;
+		"page_fault_done")
+			kill -SIGUSR1 $pid
+			;;
         "entering busy loop")
             get_numa_maps ${pid}   > ${TMPF}.numa_maps1
             echo "do migratepages"
