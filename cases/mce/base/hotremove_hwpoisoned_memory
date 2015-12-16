@@ -1,0 +1,42 @@
+. $TRDIR/setup_mce_test.sh
+
+MEMORY_HOTREMOVE=true
+EXPECTED_RETURN_CODE="START HOTREMOVE_SUCCESS EXIT"
+
+_control() {
+	bash $TRDIR/find_perferred_pageblock_for_hotremove.sh | tee $TMPD/preferred_pageblock
+	local preferred_memblk=$(grep "^preferred memblk:" $TMPD/preferred_pageblock | awk '{print $3}')
+	local preferred_memblk_pfn=$(grep "^preferred memblk start pfn:" $TMPD/preferred_pageblock | awk '{print $5}')
+
+	if [ ! -e /sys/devices/system/memory/memory${preferred_memblk}/state ] ; then
+		echo "preferred_memblk not found"
+		set_return_code TARGET_MEMBLK_NOT_FOUND
+		return 0
+	fi
+
+	$MCEINJECT -e hard-offline -a $preferred_memblk_pfn
+	$PAGETYPES -b hwpoison
+
+	echo offline > /sys/devices/system/memory/memory${preferred_memblk}/state
+	if [ $? -eq 0 ] ; then
+		echo "hot remove memblk $preferred_memblk succeeded."
+		set_return_code HOTREMOVE_SUCCESS
+	else
+		echo "hot remove memblk $preferred_memblk failed."
+		set_return_code HOTREMOVE_FAILURE
+	fi
+
+	set_return_code EXIT
+}
+
+_prepare() {
+	prepare_mce_test || return 1
+}
+
+_cleanup() {
+	cleanup_mce_test
+}
+
+_check() {
+	check_mce_test
+}

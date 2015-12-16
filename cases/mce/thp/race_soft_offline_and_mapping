@@ -1,0 +1,39 @@
+. $TRDIR/setup_mce_test.sh
+
+ERROR_TYPE=hard-offline
+ERROR_OFFSET=1
+THP=true
+EXPECTED_RETURN_CODE="START EXIT"
+RACE_ITERATIONS=10
+
+_control() {
+    local pid=
+
+    for i in $(seq $RACE_ITERATIONS) ; do
+		for j in $(seq 100) ; do
+			# $test_thp_small &
+			$test_alloc_generic -n 1024 -o iterate_mapping -B thp &
+		done
+
+        $PAGETYPES -b thp,compound_head=thp,compound_head -rNl | grep -v offset | \
+			cut -f1 | while read line ; do
+                local thp=0x$line
+                # printf "$MCEINJECT -e $ERROR_TYPE -a 0x%lx\n" $thp
+                $MCEINJECT -e $ERROR_TYPE -a $thp &
+            done
+        kill_all_subprograms
+    done
+    set_return_code EXIT
+}
+
+_prepare() {
+	prepare_mce_test || return 1
+}
+
+_cleanup() {
+	cleanup_mce_test
+}
+
+_check() {
+	check_mce_test
+}

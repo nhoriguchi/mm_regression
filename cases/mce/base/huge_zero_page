@@ -1,0 +1,25 @@
+. $TRDIR/setup_mce_test.sh
+
+ERROR_TYPE=hard-offline
+BACKEND=huge_zero
+THP=true
+TEST_PROGRAM="$test_alloc_generic -o memory_error_injection -e $ERROR_TYPE -B $BACKEND -A -n 4096"
+EXPECTED_RETURN_CODE="START INJECT ACCESS KILLED_IN_ACCESS"
+FALSENEGATIVE=true
+
+_control() {
+	control_mce_test "$1" "$2"
+}
+
+_prepare() {
+	prepare_mce_test || return 1
+}
+
+_cleanup() {
+	cleanup_mce_test
+}
+
+_check() {
+	check_mce_test
+	
+}

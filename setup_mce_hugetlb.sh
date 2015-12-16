@@ -11,10 +11,6 @@ fi
 check_and_define_tp test_hugetlb
 check_and_define_tp memeater_hugetlb
 
-hva2hpa() {
-    $PAGETYPES -Nl -a $1 | grep -v offset | cut -f2
-}
-
 prepare_hugetlb() {
     # TODO: early kill knob?
     # TODO: kill exisiting programs?

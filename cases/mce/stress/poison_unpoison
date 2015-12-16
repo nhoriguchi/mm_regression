@@ -1,0 +1,72 @@
+. $TRDIR/setup_mce_test.sh
+
+EXPECTED_RETURN_CODE="START EXIT"
+
+TESTFILE="$WDIR/testfile"
+
+HUGETLB=50
+HUGETLB_MOUNT=$WDIR/hugetlbfs
+HUGETLB_FILE=$HUGETLB_MOUNT/testfile
+
+POISON_ITERATION=100
+
+random_poison() {
+    local i=
+    local j=
+    local pos=
+    local pid=$1
+    local range=
+
+    rm -f $TMPD/pfnlist
+    for i in $(cat $TMPD/mapping) ; do
+        for j in $(seq 0 255) ; do
+            echo "$[$i/4096 + $j]" >> $TMPD/pfnlist
+        done
+    done
+    range=$(wc -l $TMPD/pfnlist | cut -f1 -d' ')
+
+    for i in $(seq $POISON_ITERATION) ; do
+        pos=$(ruby -e "puts rand($range) + 1")
+        $PAGETYPES -N -p $pid -a $(sed -ne ${pos}p $TMPD/pfnlist) -X 2> /dev/null
+    done
+}
+
+random_unpoison() {
+    local i=
+    local pid=$1
+    for i in $(seq $POISON_ITERATION) ; do
+        $PAGETYPES -N -p $pid -b hwpoison -x
+    done
+}
+
+_control() {
+    local pid=
+    local pid_poison=
+    local pid_unpoison=
+    local i=
+
+    $memeater -f $TMPD/mapping &
+    pid=$!
+    sleep 1 # ensure that memeater reached internal pause()
+
+    random_poison $pid &
+    pid_poison=$!
+    random_unpoison $pid &
+    pid_unpoison=$!
+
+    wait $pid_poison $pid_unpoison
+    kill -SIGUSR1 $pid
+    set_return_code EXIT
+}
+
+_prepare() {
+	prepare_mce_test || return 1
+}
+
+_cleanup() {
+	cleanup_mce_test
+}
+
+_check() {
+	check_mce_test
+}
