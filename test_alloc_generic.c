@@ -310,9 +310,17 @@ static void do_multi_backend(void) {
 		mmap_all(p[i]);
 	}
 
-	if (injection_type == MADV_HARD || injection_type == MADV_SOFT)
-		for (i = 0; i < NR_BACKEND_TYPES; i++)
+	if (injection_type == MADV_HARD || injection_type == MADV_SOFT) {
+		for (i = 0; i < NR_BACKEND_TYPES; i++) {
 			__do_madv_stress(p[i], i);
+		}
+	} else if (busyloop) {
+		pprintf("do_multi_backend_busyloop\n");
+		while (flag) {
+			for (i = 0; i < NR_BACKEND_TYPES; i++)
+				access_all(p[i]);
+		}
+	}
 
 	for (i = 0; i < NR_BACKEND_TYPES; i++) {
 		backend_type = i;
@@ -370,6 +378,9 @@ static void precheck_options(void) {
 			err("you must set workdir with -d option to allocate hugetlbfs file");
 		create_hugetlbfs_file();
 	}
+
+	if (access_after_injection && injection_type == -1)
+		err("-A is set, but -e is not set, which is meaningless.");
 }
 
 int main(int argc, char *argv[]) {

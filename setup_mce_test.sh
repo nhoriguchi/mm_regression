@@ -8,6 +8,18 @@
 . $TCDIR/lib/setup_thp_base.sh
 . $TCDIR/lib/setup_ksm_base.sh
 
+SYSFS_MCHECK=/sys/devices/system/machinecheck
+
+set_monarch_timeout() {
+    local value=$1
+
+	[ ! "$value" ] && return
+
+    find $SYSFS_MCHECK/ -type f -name monarch_timeout | while read line ; do
+        echo $value > $line
+    done
+}
+
 prepare_mce_test() {
 	if [ "$ERROR_TYPE" = mce-srao ] ; then
         check_mce_capability || return 1 # MCE SRAO not supported
@@ -24,7 +36,7 @@ prepare_mce_test() {
 		if [ "$HUGEPAGESIZE" ] ; then
 			hugepage_size_support_check || return 1
 		fi
-		set_and_check_hugetlb_pool $HUGETLB || return 1
+		set_and_check_hugetlb_pool $HUGETLB || echo "### Hugetlb pool might not clean, be careful! ###"
 	fi
 
 	if [ "$HUGETLB_MOUNT" ] ; then # && [ "$HUGETLB_FILE" ] ; then
@@ -62,6 +74,10 @@ prepare_mce_test() {
 		done
 	fi
 
+	if [ "$MONARCH_TIMEOUT" ] ; then
+		set_monarch_timeout $MONARCH_TIMEOUT
+	fi
+
 	# TODO: better location?
 	all_unpoison
 	ipcrm --all > /dev/null 2>&1
@@ -81,11 +97,6 @@ cleanup_mce_test() {
 
 	if [ "$HUGETLB" ] ; then
 		set_and_check_hugetlb_pool 0
-		grep ^Huge /proc/meminfo
-		$PAGETYPES -b hwpoison,compound_tail=hwpoison
-		$PAGETYPES -b huge,compound_head,hwpoison=huge,compound_head,hwpoison 
-		$PAGETYPES -b huge,compound_head,hwpoison=huge,compound_head,hwpoison -x
-		$PAGETYPES -b huge,compound_head,hwpoison=huge,compound_head,hwpoison 
 	fi
 
 	if [ "$HUGETLB_OVERCOMMIT" ] ; then
@@ -115,6 +126,10 @@ cleanup_mce_test() {
 
 	if [ -f $WDIR/testfile ] ; then
 		rm -f $WDIR/testfile*
+	fi
+
+	if [ "$DEFAULT_MONARCH_TIMEOUT" ] ; then
+		set_monarch_timeout $DEFAULT_MONARCH_TIMEOUT
 	fi
 
 	# cleanup routine must make sure all corrupted pages are unpoisoned
@@ -225,9 +240,76 @@ control_mce_test() {
 				set_return_code "EXIT"
 				return 0
 				;;
+			"do_multi_backend_busyloop")
+				# TODO: better flag
+				if [ "$MULTIINJ_ITERATIONS" ] ; then
+					echo "do_multi_inject"
+					do_multi_inject
+				fi
+				kill -SIGUSR1 $pid
+				;;
 			*)
 				;;
 		esac
 		return 1
 	fi
+}
+
+do_multi_inject() {
+	local target=$($PAGETYPES -b $TARGET_PAGEFLAG -rNl | grep -v X | grep -v offset | head -n1 | cut -f1)
+	$PAGETYPES -b $TARGET_PAGEFLAG -rNl | grep -v X | head -n10
+	if [ ! "$target" ] ; then
+		echo "No page with $TARGET_PAGEFLAG found"
+        set_return_code TARGET_NOT_FOUND
+		return
+	fi
+
+	touch $TMPD/sync
+
+    local i=
+    for i in $(seq $NR_THREAD) ; do
+        if [ "$INJECT_TYPE" == mce-srao ] || [ "$INJECT_TYPE" == hard-offline ] || [ "$INJECT_TYPE" == soft-offline ] ; then
+            injtype=$INJECT_TYPE
+        elif [ "$INJECT_TYPE" == hard-soft ] ; then
+            if [ "$[$i % 2]" == "0" ] ; then
+                injtype=hard-offline
+            else
+                injtype=soft-offline
+            fi
+        else
+            echo "Invalid INJECT_TYPE"
+            set_return_code INVALID_INJECT_TYPE
+            return 1
+        fi
+		if [ "$DIFFERENT_PFNS" == true ] ; then
+			# echo_log "$MCEINJECT -e $injtype -a $[0x$target + i]"
+			( while [ -e $TMPD/sync ] ; do true ; done ; $MCEINJECT -e $injtype -a $[0x$target + i] > /dev/null ) &
+		else
+			# echo_log "$MCEINJECT -e $injtype -a 0x$target"
+			( while [ -e $TMPD/sync ] ; do true ; done ; $MCEINJECT -e $injtype -a 0x$target > /dev/null ) &
+		fi
+        # echo_log $!
+    done
+
+    rm $TMPD/sync
+    sleep 1
+}
+
+#
+# Default definition. You can overwrite in each recipe
+#
+_control() {
+	control_mce_test "$1" "$2"
+}
+
+_prepare() {
+	prepare_mce_test || return 1
+}
+
+_cleanup() {
+	cleanup_mce_test
+}
+
+_check() {
+	check_mce_test
 }

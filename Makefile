@@ -64,4 +64,10 @@ test3: all
 	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/page_migration/hugetlb/mbind_private_reserved
 
 test4: all
-	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) $(addprefix '-r ',$(RECIPES))
+	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) $(addprefix '-r ',$(RECIPES)) ${DEVEL:+-d}
+
+split_recipes:
+	@ruby test_core/lib/split_recipe.rb
+
+cleanup_recipes:
+	@find cases -type f -name *.auto | xargs rm

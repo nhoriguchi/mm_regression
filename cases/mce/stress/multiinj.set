@@ -1,0 +1,52 @@
+. $TRDIR/setup_mce_test.sh
+
+TEST_PROGRAM="$test_alloc_generic -o multi_backend -d work -b -n 4096"
+EXPECTED_RETURN_CODE="START EXIT"
+
+TESTFILE="$WDIR/testfile"
+HUGETLB=300
+HUGETLB_MOUNT=$WDIR/hugetlbfs
+HUGETLB_FILE=$HUGETLB_MOUNT/testfile
+
+case __MARK_BACKEND in
+	buddy)			# __________BM_____________________________
+		TARGET_PAGEFLAG="buddy"
+		;;
+	free_hugetlb)	# _______________H_G_______________________
+		TARGET_PAGEFLAG="huge,compound_head,mmap=huge,compound_head"
+		;;
+	anon)			# ___U_lA____Ma_b__________________________
+		TARGET_PAGEFLAG="huge,thp,mmap,anonymous=anonymous,mmap"
+		;;
+	pagecache)		# __RU_lA____M_____________________________
+		TARGET_PAGEFLAG="huge,thp,mmap,anonymous=mmap"
+		;;
+	anon_hugetlb)	# ___U_______Ma__H_G_______________________
+		TARGET_PAGEFLAG="huge,mmap,anonymous,compound_head=huge,mmap,anonymous,compound_head"
+		;;
+	shm_hugetlb)	# ___U_______M___H_G_______________________
+		TARGET_PAGEFLAG="huge,mmap,anonymous,compound_head=huge,mmap,compound_head"
+		;;
+	thp)			# ___U_lA____Ma_bH______t__________________
+		TARGET_PAGEFLAG="thp,mmap,anonymous,compound_head=thp,mmap,anonymous,compound_head"
+		;;
+	thp_doublemap)
+		;;
+	zero)			# ________________________z________________
+		TARGET_PAGEFLAG="thp,zero_page=zero_page"
+		;;
+	huge_zero)		# ______________________t_z________________
+		TARGET_PAGEFLAG="thp,zero_page=thp,zero_page"
+		;;
+esac
+TARGET_PAGEFLAG="huge,compound_head,mmap=huge,compound_head"
+NR_THREAD=4
+DEFAULT_MONARCH_TIMEOUT=1000000
+MONARCH_TIMEOUT=20000000
+MULTIINJ_ITERATIONS=1
+INJECT_TYPE=__MARK_INJECT_TYPE
+DIFFERENT_PFNS=__MARK_DIFFERENT_PFNS
+
+#! BACKEND: buddy free_hugetlb anon pagecache active_hugetlb shm_hugetlb thp thp_doublemap zero huge_zero
+#! INJECT_TYPE: mce-srao hard-offline soft-offline hard-soft
+#! DIFFERENT_PFNS: true false
