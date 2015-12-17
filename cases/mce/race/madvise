@@ -4,7 +4,7 @@ EXPECTED_RETURN_CODE="START EXIT"
 
 TESTFILE="$WDIR/testfile"
 
-HUGETLB=50
+HUGETLB=100
 HUGETLB_MOUNT=$WDIR/hugetlbfs
 HUGETLB_FILE=$HUGETLB_MOUNT/testfile
 
@@ -17,16 +17,4 @@ _control() {
 		$test_alloc_generic -o multi_backend -d work -e madv_soft -A | tee -a $OFILE
     done
     set_return_code EXIT
-}
-
-_prepare() {
-	prepare_mce_test || return 1
-}
-
-_cleanup() {
-	cleanup_mce_test
-}
-
-_check() {
-	check_mce_test
 }

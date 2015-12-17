@@ -1,0 +1,34 @@
+#! BACKEND: anonymous pagecache ksm zero
+#! ERROR_TYPE: mce-srao hard-offline soft-offline madv_hard madv_soft
+#! ACCESS_LATER: later_access avoid_access
+
+. $TRDIR/setup_mce_test.sh
+
+# NUMA_NODE=2
+
+BACKEND=__MARK_BACKEND
+
+ERROR_TYPE=__MARK_ERROR_TYPE
+
+ACCESS_LATER_OPTION=
+[ __MARK_ACCESS_LATER = later_access ] && ACCESS_LATER_OPTION=-A
+
+TEST_PROGRAM="$test_alloc_generic -o memory_error_injection -e $ERROR_TYPE -B $BACKEND $ACCESS_LATER_OPTION -d work"
+
+if [ "$BACKEND" == ksm ] ; then
+	FALSENEGATIVE=true
+fi
+
+if [[ __MARK_ERROR_TYPE =~ (mce-srao|hard-offline|madv_hard) ]] ; then
+	if [ __MARK_ACCESS_LATER == later_access ] ; then
+		EXPECTED_RETURN_CODE="START INJECT ACCESS KILLED_IN_ACCESS"
+	else
+		EXPECTED_RETURN_CODE="START INJECT EXIT"
+	fi
+else
+	if [ __MARK_ACCESS_LATER == later_access ] ; then
+		EXPECTED_RETURN_CODE="START INJECT ACCESS ACCESS_SUCCEEDED EXIT"
+	else
+		EXPECTED_RETURN_CODE="START INJECT EXIT"
+	fi
+fi

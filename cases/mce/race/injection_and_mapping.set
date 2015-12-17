@@ -1,0 +1,42 @@
+#! BACKEND: anonymous pagecache ksm zero hugetlb_anon thp
+#! ERROR_TYPE: mce-srao hard-offline soft-offline
+
+# Not care about head/tail difference for now.
+
+. $TRDIR/setup_mce_test.sh
+
+BACKEND=__MARK_BACKEND
+ERROR_TYPE=__MARK_ERROR_TYPE
+TARGET_PAGEFLAGS=$(get_target_pageflags $BACKEND)
+
+RACE_ITERATIONS=10
+
+# TODO: goto common place
+case "$BACKEND" in
+	thp)
+		THP=100
+		;;
+	hugetlb_free|hugetlb_anon|hugetlb_shmem|hugetlb_file)
+		HUGETLB=100
+		HUGEPAGESIZE=2048 # kB
+		;;		 
+esac
+
+EXPECTED_RETURN_CODE="START EXIT"
+
+_control() {
+    local pid=
+
+    for i in $(seq $RACE_ITERATIONS) ; do
+		for j in $(seq 100) ; do
+			$test_alloc_generic -o iterate_mapping -B thp &
+		done
+
+        $PAGETYPES -b "$TARGET_PAGEFLAGS" -rNl | grep -v offset | \
+			cut -f1 | while read line ; do
+                $MCEINJECT -e $ERROR_TYPE -a 0x$line &
+            done
+        kill_all_subprograms
+    done
+    set_return_code EXIT
+}

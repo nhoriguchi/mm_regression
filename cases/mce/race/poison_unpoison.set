@@ -1,0 +1,87 @@
+##! BACKEND: buddy hugetlb_free anonymous pagecache hugetlb_anon hugetlb_shmem hugetlb_file ksm thp zero huge_zero
+#! BACKEND: buddy hugetlb_free anonymous pagecache hugetlb_anon hugetlb_shmem hugetlb_file ksm thp zero huge_zero
+#! ERROR_TYPE: mce-srao hard-offline soft-offline
+
+. $TRDIR/setup_mce_test.sh
+
+EXPECTED_RETURN_CODE="START EXIT"
+
+BACKEND=__MARK_BACKEND
+ERROR_TYPE=__MARK_ERROR_TYPE
+TARGET_PAGEFLAGS=$(get_target_pageflags $BACKEND)
+
+# TODO: goto common place
+case "$BACKEND" in
+	thp)
+		THP=100
+		;;
+	hugetlb_free|hugetlb_anon|hugetlb_shmem|hugetlb_file)
+		HUGETLB=300
+		HUGEPAGESIZE=2048 # kB
+		HUGETLB_MOUNT=$WDIR/hugetlbfs
+		HUGETLB_FILE=$HUGETLB_MOUNT/testfile
+		;;
+esac
+
+TESTFILE="$WDIR/testfile"
+
+POISON_ITERATION=100
+TIMEOUT=30
+
+random_poison() {
+    local i=
+    local j=
+    local pos=
+    local pid=$1
+    local range=
+
+	case "$BACKEND" in
+		buddy|hugetlb_free)
+			$PAGETYPES -Nlr -b "$TARGET_PAGEFLAGS" | grep -v offset | \
+				cut -f1 | sed -e 's/^/0x/' > $TMPD/target_pfns
+			;;
+		*)
+			$PAGETYPES -Nlr -p $pid -b "$TARGET_PAGEFLAGS" -a 0x700000000, \
+				| grep -v offset | cut -f1 | sed -e 's/^/0x/' > $TMPD/target_pfns
+			;;
+	esac
+
+	while read line ; do
+		$PAGETYPES -N -p $pid -a $line -X 2> /dev/null
+	done < $TMPD/target_pfns
+	pkill -9 -f random_unpoison
+}
+
+random_unpoison() {
+	while true ; do
+        $PAGETYPES -N -b hwpoison -x
+    done
+}
+
+_control() {
+    local pid=
+
+	$test_alloc_generic -o multi_backend -d work -b -n 4096 &
+    pid=$!
+
+    random_poison $pid &
+    local pid_poison=$!
+    random_unpoison $pid &
+    local pid_unpoison=$!
+	sleep $TIMEOUT
+	kill -9 $pid_poison $pid_unpoison
+    kill -SIGUSR1 $pid
+    set_return_code EXIT
+}
+
+_prepare() {
+	prepare_mce_test || return 1
+}
+
+_cleanup() {
+	cleanup_mce_test
+}
+
+_check() {
+	check_mce_test
+}
