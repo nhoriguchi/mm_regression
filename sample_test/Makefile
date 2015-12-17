@@ -43,3 +43,12 @@ list: get_test_core
 
 test2: all
 	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/sample_newtype
+
+test2/sff: all
+	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/dir1/dir2/recipe12
+
+test3: all
+	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/sample_sync_newtype
+
+test4: all
+	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) -d cases

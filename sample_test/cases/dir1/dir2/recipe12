@@ -1,0 +1,16 @@
+_control() {
+		true;
+}
+
+_prepare() {
+		true;
+}
+
+_cleanup() {
+		true;
+}
+
+_check() {
+		count_testcount "testcase $(basename $BASH_SOURCE)"
+		count_success pass
+}
