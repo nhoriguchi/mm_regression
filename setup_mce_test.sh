@@ -159,7 +159,7 @@ control_mce_test() {
 		echo_log "=> $line"
 		case "$line" in
 			"waiting for injection from outside")
-				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | tee $TMPD/pageflagcheck1
+				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | tee $TMPD/pageflagcheck1 | head -n10
 
 				if [ "$HUGETLB" ] ; then
 					$PAGETYPES -p $pid -a $BASEVFN | grep huge > /dev/null 2>&1
@@ -197,7 +197,7 @@ control_mce_test() {
 				echo "$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]" # 2>&1
 				$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET] # 2>&1
 				# /* TODO: return value? */
-				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | tee $TMPD/pageflagcheck1
+				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | head
 				ps ax | grep $pid
 				if ! kill -0 $pid 2> /dev/null ; then
 					set_return_code KILLED_IN_INJECTION
@@ -209,7 +209,7 @@ control_mce_test() {
 				;;
 			"error injection with madvise")
 				# tell cmd the page offset into which error is injected
-				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | tee $TMPD/pageflagcheck1
+				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | tee $TMPD/pageflagcheck1 | head
 				echo $ERROR_OFFSET > $PIPE
 				kill -SIGUSR1 $pid
 				;;
@@ -235,7 +235,7 @@ control_mce_test() {
 				fi
 				;;
 			"memory_error_injection_done")
-				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | tee $TMPD/pageflagcheck2
+				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | tee $TMPD/pageflagcheck2 | head
 				kill -SIGUSR1 $pid
 				set_return_code "EXIT"
 				return 0

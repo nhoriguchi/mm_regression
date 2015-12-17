@@ -19,6 +19,10 @@ if [ "$BACKEND" == ksm ] ; then
 	FALSENEGATIVE=true
 fi
 
+if [ "$BACKEND" == zero ] ; then
+	FALSENEGATIVE=true
+fi
+
 if [[ __MARK_ERROR_TYPE =~ (mce-srao|hard-offline|madv_hard) ]] ; then
 	if [ __MARK_ACCESS_LATER == later_access ] ; then
 		EXPECTED_RETURN_CODE="START INJECT ACCESS KILLED_IN_ACCESS"
