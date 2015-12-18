@@ -8,7 +8,7 @@ EXPECTED_RETURN_CODE="START EXIT"
 
 BACKEND=__MARK_BACKEND
 ERROR_TYPE=__MARK_ERROR_TYPE
-TARGET_PAGEFLAGS=$(get_target_pageflags $BACKEND)
+TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
 
 # TODO: goto common place
 case "$BACKEND" in

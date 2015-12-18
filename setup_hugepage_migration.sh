@@ -2,6 +2,7 @@
 
 # requires numactl package
 
+. $TCDIR/lib/mm.sh
 . $TCDIR/lib/numa.sh
 . $TCDIR/lib/setup_hugetlb_base.sh
 . $TCDIR/lib/setup_mce_tools.sh
@@ -88,26 +89,27 @@ cleanup_hugepage_migration() {
 }
 
 check_hugepage_migration() {
-	if [[ "$EXPECTED_RETURN_CODE" =~ " MIGRATION_PASSED" ]] ; then
-		if [ -s $TMPD/numa_maps2 ] ; then
-			check_numa_maps
-		fi
+	# migration from madv_soft allows page migration within the same node,
+	# so it's meaningless to compare node statistics.
+	if [[ "$EXPECTED_RETURN_CODE" =~ " MIGRATION_PASSED" ]] && \
+		   [ -s $TMPD/numa_maps2 ] && [ "$MIGRATE_SRC" != "madv_soft" ] ; then
+		check_numa_maps
 	fi
 
 	if [ "$CGROUP" ] && [ -s $TMPD/memcg2 ] ; then
 		# TODO: meaningful check/
-		diff -u $TMPF.memcg0 $TMPF.memcg1
-		diff -u $TMPF.memcg1 $TMPF.memcg2
+		diff -u $TMPD/memcg0 $TMPD/memcg1
+		diff -u $TMPD/memcg1 $TMPD/memcg2
 	fi
 }
 
 check_numa_maps() {
-    local map1=$(grep " huge " $TMPD/numa_maps1 | sed -r 's/.* (N[0-9]*=[0-9]*).*/\1/g')
-    local map2=$(grep " huge " $TMPD/numa_maps2 | sed -r 's/.* (N[0-9]*=[0-9]*).*/\1/g')
+    local map1="$(grep " huge " $TMPD/numa_maps1 | sed -r 's/.* (N[0-9]*=[0-9]*).*/\1/g' | tr '\n' ' ')"
+    local map2="$(grep " huge " $TMPD/numa_maps2 | sed -r 's/.* (N[0-9]*=[0-9]*).*/\1/g' | tr '\n' ' ')"
 
     count_testcount "CHECK /proc/pid/numa_maps"
     if [ "$map1" == "$map2" ] ; then
-        count_failure "hugepage is not migrated (${map1})"
+        count_failure "hugepage is not migrated ($map1, $map2)"
     else
         count_success "hugepage is migrated. ($map1 -> $map2)"
     fi
@@ -121,6 +123,7 @@ control_hugepage_migration() {
 		echo_log "$line"
 		case "$line" in
 			"just started")
+				# TODO: Need better data output
 				get_numa_maps $pid | grep 700000
 				grep ^Huge /proc/meminfo
 				cat /sys/devices/system/node/node0/hugepages/hugepages-2048kB/free_hugepages
@@ -134,8 +137,12 @@ control_hugepage_migration() {
 				kill -SIGUSR1 $pid
 				;;
 			"page_fault_done")
+				grep ^Huge /proc/meminfo
 				get_numa_maps $pid | tee $TMPD/numa_maps1 | grep ^700000
-				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -Nrl | grep -v offset | tee $TMPF.pagetypes1
+				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -Nrl | grep -v offset | tee $TMPD/pagetypes1 | head
+				cat /sys/devices/system/node/node0/hugepages/hugepages-2048kB/free_hugepages
+				cat /sys/devices/system/node/node1/hugepages/hugepages-2048kB/free_hugepages
+				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -NrL | grep -v offset | cut -f1,2 > $TMPD/mig1
 				kill -SIGUSR1 $pid
 				;;
 			"entering busy loop")
@@ -145,15 +152,16 @@ control_hugepage_migration() {
 					cgget -g $CGROUP > $TMPD/memcg1
 				fi
 
+				# check migration pass/fail now.
 				if [ "$MIGRATE_SRC" = migratepages ] ; then
 					echo "do migratepages"
 					do_migratepages $pid
-					if [ $? -ne 0 ] ; then
-						set_return_code MIGRATION_FAILED
-						echo "do_migratepages failed."
-					else
-						set_return_code MIGRATION_PASSED
-					fi
+					# if [ $? -ne 0 ] ; then
+					# 	set_return_code MIGRATEPAGES_FAILED
+					# else
+					# 	set_return_code MIGRATEPAGES_PASSED
+					# fi
+					sleep 1
 				fi
 
 				if [ "$MIGRATE_SRC" = hotremove ] ; then
@@ -166,33 +174,48 @@ control_hugepage_migration() {
 					fi
 				fi
 
-				kill -SIGUSR1 $pid
+				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -NrL | grep -v offset | cut -f1,2 > $TMPD/mig2
+				# count diff stats
+				diff -u0 $TMPD/mig1 $TMPD/mig2 > $TMPD/mig3
+				diffsize=$(grep -c -e ^+ -e ^- $TMPD/mig3)
+				if [ "$diffsize" -eq 0 ] ; then
+					set_return_code MIGRATION_FAILED
+					echo "do_migratepages failed."
+				else
+					echo "pfn/vaddr shows $diffsize diff lines"
+					set_return_code MIGRATION_PASSED
+				fi
+
+				kill -SIGUSR2 $pid
 				;;
 			"exited busy loop")
-				# find /sys/kernel/mm/hugepages/hugepages-2048kB | while read a ; do echo "$(basename $a): $(cat $a)" ; done
-				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -Nrl | grep -v offset | tee $TMPF.pagetypes2
+				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -Nrl | grep -v offset | tee $TMPD/pagetypes2 | head
 				get_numa_maps $pid   > $TMPD/numa_maps2
 
 				if [ "$CGROUP" ] ; then
 					cgget -g $CGROUP > $TMPD/memcg2
 				fi
-
 				kill -SIGUSR1 $pid
 				set_return_code EXIT
 				return 0
 				;;
 			"mbind failed")
-				set_return_code MBIND_FAILED
-				return 0
+				# TODO: how to handle returncode?
+				# set_return_code MBIND_FAILED
+				kill -SIGUSR1 $pid
 				;;
 			"move_pages failed")
-				set_return_code MOVE_PAGES_FAILED
-				return 0
+				# TODO: how to handle returncode?
+				# set_return_code MOVE_PAGES_FAILED
+				kill -SIGUSR1 $pid
+				;;
+			"madvise(MADV_SOFT_OFFLINE) failed")
+				kill -SIGUSR1 $pid
 				;;
 			"before memory_hotremove"* )
 				echo $line | sed "s/before memory_hotremove: *//" > $TMPD/preferred_memblk
 				echo_log "preferred memory block: $targetmemblk"
-				$PAGETYPES -rNl -p ${pid} -b huge,compound_head=huge,compound_head > $TMPD/pagetypes1
+				$PAGETYPES -rNl -p ${pid} -b huge,compound_head=huge,compound_head > $TMPD/pagetypes1 | head
 				grep -i huge /proc/meminfo
 				# find /sys -type f | grep hugepage | grep node | grep 2048
 				# find /sys -type f | grep hugepage | grep node | grep 2048 | xargs cat
@@ -200,7 +223,7 @@ control_hugepage_migration() {
 				kill -SIGUSR1 $pid
 				;;
 			"need unpoison")
-				$PAGETYPES -b hwpoison,huge,compound_head=hwpoison,huge,compound_head -x -N
+				$PAGETYPES -b hwpoison,huge,compound_head=hwpoison,huge,compound_head -x -N | head
 				kill -SIGUSR2 $pid
 				;;
 			"start background migration")
@@ -235,4 +258,20 @@ run_background_migration() {
         get_numa_maps $tp_pid    2> /dev/null | grep " huge " >> $TMPD/run_background_migration
         grep HugeP /proc/meminfo >> $TMPD/run_background_migration
     done
+}
+
+_control() {
+	control_hugepage_migration "$1" "$2"
+}
+
+_prepare() {
+	prepare_hugepage_migration || return 1
+}
+
+_cleanup() {
+	cleanup_hugepage_migration
+}
+
+_check() {
+	check_hugepage_migration
 }

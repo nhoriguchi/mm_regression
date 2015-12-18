@@ -71,3 +71,4 @@ split_recipes:
 
 cleanup_recipes:
 	@find cases -type f -name *.auto | xargs rm
+	@true

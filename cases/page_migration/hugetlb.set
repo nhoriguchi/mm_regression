@@ -1,0 +1,92 @@
+#!1 BACKEND: hugetlb_anon
+#!1 MIGRATE_SRC: migratepages mbind move_pages madv_soft
+#!1 BACKGROUND: none
+#!1 OVERCOMMIT: overcommit noovercommit
+#!1 RESERVE: reserve noreserve
+
+#!2 BACKEND: hugetlb_anon
+#!2 MIGRATE_SRC: migratepages mbind move_pages madv_soft
+#!2 BACKGROUND: reserve
+#!2 OVERCOMMIT: overcommit noovercommit
+#!2 RESERVE: reserve noreserve
+
+#!3 BACKEND: hugetlb_anon
+#!3 MIGRATE_SRC: migratepages mbind move_pages madv_soft
+#!3 BACKGROUND: allocate0 allocate1
+#!3 OVERCOMMIT: overcommit noovercommit
+
+#!4 BACKEND: hugetlb_anon
+#!4 MIGRATE_SRC: hotremove
+
+#!5 BACKEND: thp
+#!5 MIGRATE_SRC: migratepages hotremove
+#!5 BACKGROUND: none reserve
+
+. $TRDIR/setup_hugepage_migration.sh
+
+MIGRATE_SRC=__MARK_MIGRATE_SRC
+BACKEND=__MARK_BACKEND
+BACKGROUND=__MARK_BACKGROUND
+
+NUMA_NODE=2
+HUGETLB=100
+HUGEPAGESIZE=2048 # kB
+if [ __MARK_OVERCOMMIT == overcommit ] ; then
+	HUGETLB_OVERCOMMIT=10
+fi
+if [ __MARK_RESERVE == noreserve ] ; then
+	NORESERVEFLAG=-R
+fi
+
+TEST_PROGRAM="$test_alloc -s $MIGRATE_SRC -B $BACKEND -m shared -d work -N 2 $NORESERVEFLAG"
+
+append_expected_retcode() {
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE $@"
+}
+
+EXPECTED_RETURN_CODE="START"
+
+if [ "$BACKGROUND" == reserve ] ; then
+	RESERVE_HUGEPAGE=$[HUGETLB - 2]
+	if [ __MARK_OVERCOMMIT == overcommit ] ; then
+		append_expected_retcode SET_OVERCOMMIT RESERVE MIGRATION_PASSED
+	else
+		append_expected_retcode RESERVE MIGRATION_FAILED
+	fi
+elif [ "$BACKGROUND" == allocate0 ] ; then
+	ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
+	ALLOCATE_NODE=0
+	if [ __MARK_OVERCOMMIT == overcommit ] ; then
+		# in 2 node system, if background thread eats up all hugepages on
+		# node 0, TEST_PROGRAM cannot help using node 1 before migration.
+		# In such a case, page migration never succeeds, even if overcommit
+		# is enabled.
+		# ... but mbind somehow succeed in such case :(, let's make it
+		# failed until situation is understood.
+		append_expected_retcode SET_OVERCOMMIT ALLOCATE MIGRATION_FAILED
+	else
+		append_expected_retcode ALLOCATE MIGRATION_FAILED
+	fi
+elif [ "$BACKGROUND" == allocate1 ] ; then
+	ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
+	ALLOCATE_NODE=1
+	if [ __MARK_OVERCOMMIT == overcommit ] ; then
+		append_expected_retcode SET_OVERCOMMIT ALLOCATE MIGRATION_PASSED
+	else
+		append_expected_retcode ALLOCATE MIGRATION_FAILED
+	fi
+else
+	if [ __MARK_OVERCOMMIT == overcommit ] ; then
+		append_expected_retcode SET_OVERCOMMIT
+	fi
+	append_expected_retcode MIGRATION_PASSED
+fi
+
+if [ "$MIGRATE_SRC" == hotremove ] && [[ "$BACKEND" =~ hugetlb ]] ; then
+	HUGETLB=$[$MEMTOTAL/$HUGEPAGESIZE/2]
+	HUGETLB_ALLOCATED=$[HUGETLB*4/5]
+	# no pass fail ?
+	TEST_PROGRAM="$test_alloc -s $MIGRATE_SRC -B $BACKEND -d work -N $HUGETLB_ALLOCATED -M $(get_backend_pageflags hugetlb_mapped)"
+fi
+
+append_expected_retcode EXIT

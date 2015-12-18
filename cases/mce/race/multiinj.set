@@ -8,7 +8,7 @@
 TEST_PROGRAM="$test_alloc_generic -o multi_backend -d work -b -n 4096"
 EXPECTED_RETURN_CODE="START EXIT"
 
-TARGET_PAGEFLAG=$(get_target_pageflags __MARK_BACKEND)
+TARGET_PAGEFLAG=$(get_backend_pageflags __MARK_BACKEND)
 
 TESTFILE="$WDIR/testfile"
 HUGETLB=300

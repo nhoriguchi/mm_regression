@@ -54,6 +54,17 @@ enum {
 int operation_type;
 
 enum {
+	MCE_SRAO,
+	SYSFS_HARD,
+	SYSFS_SOFT,
+	MADV_HARD,
+	MADV_SOFT,
+	NR_INJECTION_TYPES,
+};
+int injection_type = -1;
+int access_after_injection;
+
+enum {
 	PAGECACHE,
 	ANONYMOUS,
 	THP,
@@ -66,17 +77,6 @@ enum {
 	NR_BACKEND_TYPES,
 };
 int backend_type;
-
-enum {
-	MCE_SRAO,
-	SYSFS_HARD,
-	SYSFS_SOFT,
-	MADV_HARD,
-	MADV_SOFT,
-	NR_INJECTION_TYPES,
-};
-int injection_type = -1;
-int access_after_injection;
 
 /*
  * @i is current chunk index. In the last chunk mmaped size will be truncated.
@@ -366,7 +366,7 @@ static void create_hugetlbfs_file(void) {
 }
 
 /* TODO: validation options' combination more */
-static void precheck_options(void) {
+static void setup(void) {
 	if (backend_type == PAGECACHE || operation_type == OT_MULTI_BACKEND) {
 		if (!workdir)
 			err("you must set workdir with -d option to allocate pagecache");
@@ -381,6 +381,12 @@ static void precheck_options(void) {
 
 	if (access_after_injection && injection_type == -1)
 		err("-A is set, but -e is not set, which is meaningless.");
+
+	/* depends on busyloop flag */
+	signal(SIGUSR1, sig_handle_flag);
+	/* signal(SIGUSR1, sig_handle); */
+
+	nr_chunk = (nr_p - 1) / CHUNKSIZE + 1;
 }
 
 int main(int argc, char *argv[]) {
@@ -484,18 +490,9 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	precheck_options();
+	setup();
 
-        /* new_nodes = numa_bitmask_alloc(nr_nodes); */
-        /* numa_bitmask_setbit(new_nodes, 1); */
-
-	/* depends on busyloop flag */
-	signal(SIGUSR1, sig_handle_flag);
-	/* signal(SIGUSR1, sig_handle); */
-
-	nr_chunk = (nr_p - 1) / CHUNKSIZE + 1;
 	Dprintf("nr_p %lx, nr_chunk %lx\n", nr_p, nr_chunk);
-
 	Dprintf("operation:%lx, backend:%lx, injection:%lx\n",
 		operation_type, backend_type, injection_type);
 
