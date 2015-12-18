@@ -22,7 +22,7 @@
 #!5 MIGRATE_SRC: migratepages hotremove
 #!5 BACKGROUND: none reserve
 
-. $TRDIR/setup_hugepage_migration.sh
+. $TRDIR/setup_page_migration.sh
 
 MIGRATE_SRC=__MARK_MIGRATE_SRC
 BACKEND=__MARK_BACKEND

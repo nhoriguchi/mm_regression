@@ -1,9 +1,0 @@
-. $TRDIR/setup_hugepage_migration.sh
-
-MIGRATE_SRC=migratepages
-# TEST_PROGRAM="$test_alloc -s $MIGRATE_SRC -m shared -h 2048"
-TEST_PROGRAM="$test_alloc -s $MIGRATE_SRC -B hugetlb_anon -m shared -d work"
-NUMA_NODE=2
-HUGETLB=100
-HUGEPAGESIZE=2048 # kB
-EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"

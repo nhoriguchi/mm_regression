@@ -1,4 +1,4 @@
-. $TRDIR/setup_hugepage_migration.sh
+. $TRDIR/setup_page_migration.sh
 
 NUMA_NODE=2
 HUGEPAGESIZE=2048 # kB
@@ -7,17 +7,16 @@ EXPECTED_RETURN_CODE="START EXIT"
 
 _control() {
 	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate1
-	for i in $(seq 5) ; do
-		$iterate_hugepage_mmap_fault_munmap 10 &
-		local pid=$!
-		for j in $(seq 100) ; do
-		    do_migratepages $pid 0 1
-		    do_migratepages $pid 1 0
-		done
-		kill -SIGUSR1 $pid 2> /dev/null
-	done
+    for i in $(seq 5) ; do
+        $iterate_hugepage_mmap_fault_munmap 10 &
+        local pidhuge=$!
+        $iterate_numa_move_pages 10 $pidhuge &
+        local pidmove=$!
+        sleep 7
+        kill -SIGUSR1 $pidhuge $pidmove 2> /dev/null
+    done
 	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate2
-	set_return_code EXIT
+    set_return_code EXIT
 }
 
 _prepare() {

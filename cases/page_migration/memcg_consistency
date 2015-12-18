@@ -1,4 +1,4 @@
-. $TRDIR/setup_hugepage_migration.sh
+. $TRDIR/setup_page_migration.sh
 
 NUMA_NODE=2
 HUGEPAGESIZE=2048 # kB

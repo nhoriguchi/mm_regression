@@ -1,0 +1,81 @@
+#!1 BACKEND: anonymous pagecache ksm zero
+#!1 ERROR_TYPE: mce-srao hard-offline soft-offline madv_hard madv_soft
+#!1 ACCESS_LATER: later_access avoid_access
+
+#!2 BACKEND: hugetlb_anon thp
+#!2 ERROR_TYPE: mce-srao hard-offline soft-offline madv_hard madv_soft
+#!2 ACCESS_LATER: later_access avoid_access
+#!2 ERROR_OFFSET: head tail
+
+#!3 BACKEND: buddy free_hugepage
+#!3 ERROR_TYPE: mce-srao hard-offline soft-offline
+
+# remaining setting parameter
+# BACKEND: hugetlb_shmem hugetlb_file huge_zero
+
+. $TRDIR/setup_mce_test.sh
+
+BACKEND=__MARK_BACKEND
+ERROR_TYPE=__MARK_ERROR_TYPE
+ACCESS_LATER_OPTION=
+[ __MARK_ACCESS_LATER = later_access ] && ACCESS_LATER_OPTION=-A
+
+TEST_PROGRAM="$test_alloc_generic -o memory_error_injection -e $ERROR_TYPE -B $BACKEND $ACCESS_LATER_OPTION -d work"
+
+case "$BACKEND" in
+	thp)
+		THP=100
+		;;
+	hugetlb_free|hugetlb_anon|hugetlb_shmem|hugetlb_file)
+		HUGETLB=100
+		HUGEPAGESIZE=2048 # kB
+		;;
+	ksm|zero)
+	FALSENEGATIVE=true
+		;;
+	buddy)
+		_control() {
+			# TODO: racy
+			local pfn=$($PAGETYPES -b buddy -Nl | grep -v offset | head -n1 | cut -f1)
+			if [ ! "$pfn" ] ; then
+				set_return_code PFN_NOT_FOUND
+				return 1
+			fi
+			$MCEINJECT -e $ERROR_TYPE -a 0x$pfn
+			set_return_code INJECT
+			set_return_code EXIT
+		}
+		;;
+	free_hugepage)
+		HUGETLB=300
+		HUGETLB_MOUNT=$WDIR/hugetlbfs
+		HUGETLB_FILE=$HUGETLB_MOUNT/testfile
+
+		_control() {
+			# TODO: racy
+			TARGET_PAGEFLAG="huge,compound_head,mmap=huge,compound_head"
+			local pfn=$($PAGETYPES -b $TARGET_PAGEFLAG -Nl | grep -v offset | head -n1 | cut -f1)
+			if [ ! "$pfn" ] ; then
+				set_return_code PFN_NOT_FOUND
+				return 1
+			fi
+			$MCEINJECT -e $ERROR_TYPE -a 0x$pfn
+			set_return_code INJECT
+			set_return_code EXIT
+		}
+		;;
+esac
+
+if [[ __MARK_ERROR_TYPE =~ (mce-srao|hard-offline|madv_hard) ]] ; then
+	if [ __MARK_ACCESS_LATER == later_access ] ; then
+		EXPECTED_RETURN_CODE="START INJECT ACCESS KILLED_IN_ACCESS"
+	else
+		EXPECTED_RETURN_CODE="START INJECT EXIT"
+	fi
+else
+	if [ __MARK_ACCESS_LATER == later_access ] ; then
+		EXPECTED_RETURN_CODE="START INJECT ACCESS ACCESS_SUCCEEDED EXIT"
+	else
+		EXPECTED_RETURN_CODE="START INJECT EXIT"
+	fi
+fi
