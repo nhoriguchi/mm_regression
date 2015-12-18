@@ -41,6 +41,11 @@ echo "Current test: $(basename $TRDIR)"
 ( cd $TRDIR ; echo "Test version: $(git log -n1 --pretty="format:%H %s")" )
 ( cd $TCDIR ; echo "Test Core version: $(git log -n1 --pretty="format:%H %s")" )
 
+# workaround for compatibility with older test_core
+export TMPD=$GTMPD
+export OFILE=$TMPD/result
+mkdir -p $TMPD
+
 # original recipe can 'embed' other small parts
 parse_recipefile $RECIPEFILE .tmp.$RECIPEFILE
 

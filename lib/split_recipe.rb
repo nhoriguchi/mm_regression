@@ -6,25 +6,31 @@ require 'pp'
 class SplitRecipe
   def initialize f
     @text = File.read(f)
-    parse_rules f
-    generate_auto_recipes f
+    parse_rule_sets f
+    @rule_sets.each do |key, rs|
+      ary = rs.map {|k, v| [k].product v}
+      rules = ary.shift.product(*ary).map {|a| Hash[a]}
+      generate_auto_recipes f, rules
+    end
   end
 
-  def parse_rules f
+  def parse_rule_sets f
     tmp = @text.split("\n")
 
+    rule_sets = {}
     rules = tmp.select {|line| line =~ /^#!/}
-    rules_hash = {}
-    rules.each do |rule|
-      rule =~ /^#!\s*(\S+):\s*(.*)\s*$/
-      rules_hash[$1] = $2.split(/\s+/)
+    rules.each do |r|
+      if r =~ /^#!(\S*)\s+(\S+):\s*(.*)\s*$/
+        key = $1 == "" ? "default" : $1
+        rule_sets[key] = {} if rule_sets[key].nil?
+        rule_sets[key][$2] = $3.split(/\s+/)
+      end
     end
-    ary = rules_hash.map {|k,v| [k].product v}
-    @rules = ary.shift.product(*ary).map {|a| Hash[a]}
+    @rule_sets = rule_sets
   end
 
-  def generate_auto_recipes f
-    @rules.each do |rule|
+  def generate_auto_recipes f, rules
+    rules.each do |rule|
       id = rule.values.join("_")
       outfile = f.gsub(".set", "_#{id}.auto")
       tmp = @text.dup

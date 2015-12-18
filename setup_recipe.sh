@@ -50,3 +50,38 @@ parse_recipefile() {
         fi
     done < $1 > $2
 }
+
+check_remove_suffix() {
+	local recipe=$1
+
+	if [[ "$recipe" =~ \.auto$ ]] ; then
+		echo "$recipe: auto generated recipe."
+		if [ -f "${recipe%%.auto}" ] ; then
+			echo "Manually made recipe with same recipe ID exists (${recipe%%.auto},) so skip this .auto recipe"
+			return 1
+		fi
+	fi
+
+	if [[ "$recipe" =~ \.devel$ ]] ; then
+		echo "$recipe: developing recipe."
+		if [ -f "${recipe%%.devel}" ] ; then
+			echo "Manually made recipe with same recipe ID exists (${recipe%%.devel},) so no reason to run this .devel recipe? If you really want to run, please give environment variable DEVEL=true from calling make."
+			[ "$DEVEL_MODE" != true ] && return 1
+		fi
+	fi
+
+	if [[ "$recipe" =~ \.set$ ]] ; then
+		echo "$recipe: recipeset recipe. This recipe is not intended to be run directly, so let's skip this. To run split recipe, call make split_recipes first."
+		return 1
+	fi
+
+	if [[ "$recipe" =~ \.tmp$ ]] ; then
+		echo "$recipe: temporary recipe. This recipe is either just in PoC phase, or not completed yet. So let's skip this for now."
+		return 1
+	fi
+
+	if [[ "$recipe" =~ \.old$ ]] ; then
+		echo "$recipe: old (obsolete) recipe. It might not run as intended, so just skip it."
+		return 1
+	fi
+}

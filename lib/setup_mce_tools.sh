@@ -16,7 +16,7 @@ fi
 GUESTPAGETYPES=/usr/local/bin/page-types
 MCEINJECT=$(dirname $(readlink -f $BASH_SOURCE))/mceinj.sh
 
-all_unpoison() { $PAGETYPES -b hwpoison,compound_tail=hwpoison -x -N; }
+all_unpoison() { $PAGETYPES -b hwpoison -x -N; }
 
 get_HWCorrupted() { grep "HardwareCorrupted" /proc/meminfo | tr -s ' ' | cut -f2 -d' '; }
 save_nr_corrupted_before() { get_HWCorrupted   > ${TMPF}.hwcorrupted1; }
@@ -34,7 +34,7 @@ show_nr_corrupted() {
 # if accounting corrupted, "HardwareCorrupted" value could be very large
 # number, which bash cannot handle as numerical values. So we do here
 # comparation as string
-check_nr_hwcorrupted() {
+__check_nr_hwcorrupted() {
     count_testcount
     if [ "$(show_nr_corrupted 1)" == "$(show_nr_corrupted 2)" ] ; then
         count_failure "hwpoison inject didn't raise \"HardwareCorrupted\" value ($(show_nr_corrupted 1) -> $(show_nr_corrupted 2))"
@@ -45,13 +45,21 @@ check_nr_hwcorrupted() {
     fi
 }
 
-check_nr_hwcorrupted_consistent() {
+__check_nr_hwcorrupted_consistent() {
     count_testcount
     if [ "$(show_nr_corrupted 1)" == "$(show_nr_corrupted 3)" ] ; then
         count_success "accounting \"HardwareCorrupted\" consistently."
     else
         count_failure "accounting \"HardwareCorrupted\" did not back to original value ($(show_nr_corrupted 1) -> $(show_nr_corrupted 3))"
     fi
+}
+
+check_nr_hwcorrupted() {
+	if [ "${TMPF}.hwcorrupted2" ] ; then
+		__check_nr_hwcorrupted
+	else
+		__check_nr_hwcorrupted_consistent
+	fi
 }
 
 BASEVFN=0x700000000

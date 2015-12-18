@@ -1,4 +1,27 @@
-#!/bin/bash
+HUGETLBDIR=`grep hugetlbfs /proc/mounts | head -n1 | cut -f2 -d' '`
+
+hugetlb_support_check() {
+	if [ ! -d /sys/kernel/mm/hugepages ] ; then
+		echo_log "hugetlbfs not supported on your system."
+		return 1
+	fi
+
+	if [ ! -d "$HUGETLBDIR" ] ; then
+		echo_log "hugetlbfs not mounted"
+		return 1
+	fi
+
+	return 0
+}
+
+hugepage_size_support_check() {
+	if [ ! -d /sys/kernel/mm/hugepages/hugepages-${HUGEPAGESIZE}kB ] ; then
+		echo_log "$HUGEPAGESIZE kB hugepage is not supported"
+		return 1
+	fi
+
+	return 0
+}
 
 get_hugepage_total() {
     awk '/^HugePages_Total:/ {print $2}' /proc/meminfo
@@ -68,4 +91,8 @@ set_and_check_hugetlb_pool() {
         show_hugetlb_pool
         return 1
     fi
+}
+
+set_hugetlb_overcommit() {
+    sysctl vm.nr_overcommit_hugepages=$1
 }

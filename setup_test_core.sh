@@ -1,19 +1,20 @@
 #!/bin/bash
 
-export PIPE=${TMPF}.pipe
+export PIPE=${GTMPD}/pipe
 mkfifo ${PIPE} 2> /dev/null
 [ ! -p ${PIPE} ] && echo_log "Fail to create pipe." >&2 && exit 1
 chmod a+x ${PIPE}
 export PIPETIMEOUT=5
 
-get_kernel_message_before() { dmesg > ${TMPF}.dmesg_before; }
-get_kernel_message_after() { dmesg > ${TMPF}.dmesg_after; }
+get_kernel_message_before() { dmesg > ${GTMPD}/dmesg_before; }
+get_kernel_message_after() { dmesg > ${GTMPD}/dmesg_after; }
 
 get_kernel_message_diff() {
     echo "####### DMESG #######"
-    diff ${TMPF}.dmesg_before ${TMPF}.dmesg_after 2> /dev/null | grep -v '^< ' | \
-        tee ${TMPF}.dmesg_diff
+    diff ${GTMPD}/dmesg_before ${GTMPD}/dmesg_after 2> /dev/null | grep -v '^< ' | \
+        tee ${GTMPD}/dmesg_diff
     echo "####### DMESG END #######"
+	rm ${GTMPD}/dmesg_before ${GTMPD}/dmesg_after 2> /dev/null
 }
 
 # Confirm that kernel message does contain the specified words
@@ -23,7 +24,7 @@ check_kernel_message() {
     local word="$1"
     if [ "$word" ] ; then
         count_testcount
-        grep "$word" ${TMPF}.dmesg_diff > /dev/null 2>&1
+        grep "$word" ${GTMPD}/dmesg_diff > /dev/null 2>&1
         if [ $? -eq 0 ] ; then
             if [ "$inverse" ] ; then
                 count_failure "kernel message shows unexpected word '$word'."
@@ -42,7 +43,7 @@ check_kernel_message() {
 
 check_kernel_message_nobug() {
     count_testcount
-    grep -e "BUG:" -e "WARNING:" ${TMPF}.dmesg_diff > /dev/null 2>&1
+    grep -e "BUG:" -e "WARNING:" ${GTMPD}/dmesg_diff > /dev/null 2>&1
     if [ $? -eq 0 ] ; then
         count_failure "Kernel 'BUG:'/'WARNING:' message"
     else
@@ -55,7 +56,7 @@ check_console_output() {
     local word="$1"
     if [ "$word" ] ; then
         count_testcount
-        grep "$word" ${TMPF}.dmesgafterinjectdiff > /dev/null 2>&1
+        grep "$word" ${GTMPD}/dmesgafterinjectdiff > /dev/null 2>&1
         if [ $? -eq 0 ] ; then
             if [ "$inverse" ] ; then
                 count_failure "host kernel message shows unexpected word '$word'."
@@ -73,20 +74,23 @@ check_console_output() {
 }
 
 init_return_code() {
-    rm -f ${TMPF}.return_code*
+    rm -f ${GTMPD}/return_code* ${TMPD}/return_code*
 }
 
 get_return_code() {
-    cat ${TMPF}.return_code
+    cat ${TMPD}/return_code
 }
 
 get_return_code_seq() {
-    cat ${TMPF}.return_code_seq | tr '\n' ' ' | sed 's/ *$//g'
+    cat ${TMPD}/return_code_seq | tr '\n' ' ' | sed 's/ *$//g'
 }
 
 set_return_code() {
-    echo "$@" > ${TMPF}.return_code
-    echo "$@" >> ${TMPF}.return_code_seq
+    echo "$@" > ${GTMPD}/return_code
+    echo "$@" >> ${GTMPD}/return_code_seq
+	if [ "$GTMPD" != "$TMPD" ] ; then
+		echo "$@" >> ${TMPD}/return_code_seq
+	fi
 }
 
 check_return_code() {
@@ -111,24 +115,38 @@ cleanup_system_default() {
 
 check_system_default() {
     check_kernel_message_nobug
-    check_return_code "${EXPECTED_RETURN_CODE}"
+	if [ "$EXPECTED_RETURN_CODE" ] ; then
+		check_return_code "${EXPECTED_RETURN_CODE}"
+	fi
 }
 
 prepare() {
 	local prepfunc
-	if [ "$TEST_PREPARE" ] ; then
-		prepfunc=$TEST_PREPARE
-		$TEST_PREPARE
-	elif [ "$DEFAULT_TEST_PREPARE" ] ; then
-		prepfunc=$DEFAULT_TEST_PREPARE
-		$DEFAULT_TEST_PREPARE
-	elif [ "$(type -t _prepare)" = "function" ] ; then
-		prepfunc=_prepare
-		_prepare
-	else
-		prepare_system_default
-	fi
-	if [ $? -ne 0 ] ; then
+	local ret=0
+
+	while true ; do # mocking goto
+		if [ "$TEST_PREPARE" ] ; then
+			prepfunc=$TEST_PREPARE
+			$TEST_PREPARE
+			[ $? -ne 0 ] && ret=1 && break;
+		elif [ "$DEFAULT_TEST_PREPARE" ] ; then
+			prepfunc=$DEFAULT_TEST_PREPARE
+			$DEFAULT_TEST_PREPARE
+			[ $? -ne 0 ] && ret=1 && break;
+		elif [ "$(type -t _prepare)" = "function" ] ; then
+			prepfunc=_prepare
+			_prepare
+			[ $? -ne 0 ] && ret=1 && break;
+			prepare_system_default
+			[ $? -ne 0 ] && ret=1 && break;
+		else
+			prepare_system_default
+			[ $? -ne 0 ] && ret=1 && break;
+		fi
+		break;
+	done
+
+	if [ $ret -ne 0 ] ; then
 		echo "test preparation failed ($prepfunc) check your environment." >&2
 		count_skipped
 		return 1
@@ -138,6 +156,7 @@ prepare() {
 run_controller() {
 	local pid="$1"
 	local msg="$2"
+
 	if [ "$TEST_CONTROLLER" ] ; then
 		$TEST_CONTROLLER "$pid" "$msg"
 	elif [ "$DEFAULT_TEST_CONTROLLER" ] ; then
@@ -157,7 +176,9 @@ cleanup() {
 		cleanfunc=$DEFAULT_TEST_CLEANUP
 		$DEFAULT_TEST_CLEANUP
 	elif [ "$(type -t _cleanup)" = "function" ] ; then
+		kill_all_subprograms
 		_cleanup
+		cleanup_system_default
 	else
 		cleanup_system_default
 	fi
@@ -170,6 +191,7 @@ check() {
 		$DEFAULT_TEST_CHECKER
 	elif [ "$(type -t _check)" = "function" ] ; then
 		_check
+		check_system_default
 	else
 		check_system_default
 	fi
@@ -249,7 +271,7 @@ check_inclusion_of_fixedby_patch() {
     echo_log "  Subject:"
     local subject=
     while read subject ; do
-        if ! grep "$subject" $TMPF.patches > /dev/null ; then
+        if ! grep "$subject" ${GTMPD}/patches > /dev/null ; then
             echo_log "    $subject"
         fi
     done <<<"$(echo $FIXEDBY_SUBJECT | tr '|' '\n')"
@@ -258,6 +280,10 @@ check_inclusion_of_fixedby_patch() {
     echo_log "CURRENT_KERNEL to some appropriate kernel version."
     count_skipped
     return 0
+}
+
+check_tp_existence() {
+	pgrep -f "$(echo $cmd | cut -f1 -d' ')" 2> /dev/null >&2
 }
 
 # return 1 if test (cmd) didn't run, otherwise return 0 even if test itself
@@ -283,7 +309,7 @@ __do_test() {
     eval "( $cmd ) &"
     local pid=$!
     while true ; do
-        if ! pgrep -f "$cmd" 2> /dev/null >&2 ; then
+        if ! check_tp_existence ; then #pgrep -f "$cmd" 2> /dev/null >&2 ; then
             set_return_code "KILLED"
             break
         elif read -t${PIPETIMEOUT} line <> ${PIPE} ; then
@@ -292,7 +318,7 @@ __do_test() {
                 break
             fi
         else
-            if ! pgrep -f "$cmd" 2> /dev/null >&2 ; then
+			if ! check_tp_existence ; then
                 set_return_code "KILLED"
                 break
             else
@@ -322,14 +348,14 @@ do_test() {
         check_test_flag && break
         check_inclusion_of_fixedby_patch && break
 
-        reset_per_testcase_counters
+        reset_per_testcase_counters $NEWSTYLE
         __do_test "$@"
         # test aborted due to the preparation failure
         if [ $? -ne 0 ] ; then
             skipped=true
             break
         fi
-        if [ "$(cat ${TMPF}.failure_tmp)" -gt 0 ] ; then
+        if [ "$(cat ${TMPD}/failure)" -gt 0 ] ; then
             if [ ! "$TEST_RETRYABLE" ] ; then
                 # don't care about retry.
                 break
@@ -376,14 +402,14 @@ do_test_async() {
     while true ; do
         check_test_flag && break
         check_inclusion_of_fixedby_patch && break
-        reset_per_testcase_counters
+        reset_per_testcase_counters $NEWSTYLE
         __do_test_async
         # test aborted due to the preparation failure
         if [ $? -ne 0 ] ; then
             skipped=true
             break
         fi
-        if [ "$(cat ${TMPF}.failure_tmp)" -gt 0 ] ; then
+        if [ "$(cat ${TMPD}/failure)" -gt 0 ] ; then
             if [ ! "$TEST_RETRYABLE" ] ; then
                 # don't care about retry.
                 break
@@ -419,7 +445,7 @@ clear_testcase() {
     FIXEDBY_AUTHOR=
     FIXEDBY_PATCH_SEARCH_DATE=
     FALSENEGATIVE=false
-    reset_per_testcase_counters
+    reset_per_testcase_counters $NEWSTYLE
 }
 
 for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do
