@@ -22,7 +22,7 @@ get_test_core:
 	@true
 
 get_rpms:
-	yum install -y numactl*
+	@yum install -q -y numactl* > /dev/null 2>&1
 	@true
 
 install: $(exe)
@@ -64,11 +64,9 @@ test3: all
 	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/page_migration/hugetlb/mbind_private_reserved
 
 test4: all
-	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) $(addprefix '-r ',$(RECIPES)) ${DEVEL:+-d}
+	@bash test_core/run-test-new.sh -v $(addprefix '-f ',$(TESTCASE_FILTER)) $(addprefix '-r ',$(RECIPES)) ${DEVEL:+-D} ${RUNNAME:+-t $(RUNNAME)}
 
-split_recipes:
-	@ruby test_core/lib/split_recipe.rb
+page_migration: all
+	@bash test_core/run-test-new.sh -v $(addprefix '-f ',$(TESTCASE_FILTER)) $(addprefix '-r ',$(RECIPES)) ${DEVEL:+-D} ${RUNNAME:+-t $(RUNNAME)}
 
-cleanup_recipes:
-	@find cases -type f -name *.auto | xargs rm
-	@true
+-include test_core/make.include
