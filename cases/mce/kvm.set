@@ -1,0 +1,53 @@
+##!1 BACKEND: anonymous pagecache ksm zero
+##!1 ERROR_TYPE: mce-srao hard-offline soft-offline madv_hard madv_soft
+##!1 ACCESS_LATER: later_access avoid_access
+
+#!1 FLAVOR: panic mce-srar mce_on_qemu
+
+#!2 FLAVOR: clean_pagecache dirty_pagecache anonymous
+#!2 ERROR_TYPE: mce-srao hard-offline soft-offline
+#!2 ACCESS_LATER: none
+
+. $TRDIR/setup_mce_kvm.sh
+
+FLAVOR=__MARK_FLAVOR
+ERROR_TYPE=__MARK_ERROR_TYPE
+ACCESS_LATER_OPTION=
+[ __MARK_ACCESS_LATER = later_access ] && ACCESS_LATER_OPTION=-A
+
+echo "FLAVOR is $FLAVOR"
+if [ "$FLAVOR" == panic ] ; then
+	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_PANICKED"
+	TARGET_PAGETYPES="dirty,lru,mmap,anonymous=lru,mmap"
+	ERROR_TYPE=mce-srao
+	_control() { control_kvm_panic; }
+	_check() { check_kvm_panic; }
+elif [ "$FLAVOR" == mce-srar ] ; then
+	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS TEST"
+	TARGET_PAGETYPES="lru,mmap,anonymous=lru,mmap,anonymous"
+	_control() { control_kvm_action_required; }
+	# _check() { check_kvm_action_required; }
+elif [ "$FLAVOR" == mce_on_qemu ] ; then
+	EXPECTED_RETURN_CODE="START END"
+	_control() { control_kvm_inject_mce_on_qemu_page; }
+	_check() { check_kvm_inject_mce_on_qemu_page; }
+else
+	if [ "$FLAVOR" == clean_pagecache ] ; then
+		TARGET_PAGETYPES="dirty,lru,mmap,anonymous=lru,mmap"
+		EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
+	elif [ "$FLAVOR" == dirty_pagecache ] ; then
+		TARGET_PAGETYPES="dirty,lru,mmap,anonymous=dirty,lru,mmap"
+		EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
+	elif [ "$FLAVOR" == anonymous ] ; then
+		TARGET_PAGETYPES="lru,mmap,anonymous=lru,mmap,anonymous"
+		EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
+	fi
+
+	_control() { control_kvm; }
+	if [ "$ERROR_TYPE" == soft-offline ] ; then
+		_check() { check_kvm_soft_offline; }
+		EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
+	else
+		_check() { check_kvm; }
+	fi
+fi

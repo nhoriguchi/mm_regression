@@ -1,0 +1,84 @@
+#!1 THP_SPLIT_METHOD: hwpoison soft_offline mbind migratepages move_pages
+#!1 THP_ACTION: thp_split double_mapping pmd_split
+
+. $TRDIR/setup_mmgeneric.sh
+
+THP=100
+OPT=
+if [ __MARK_THP_ACTION == thp_split ] ; then
+	OPT=-F
+elif [ __MARK_THP_ACTION == pmd_split ] ; then
+	OPT=-S
+fi
+
+TEST_PROGRAM="$test_thp_double_mapping -n $THP -s __MARK_THP_SPLIT_METHOD $OPT"
+EXPECTED_RETURN_CODE="START EXIT"
+
+_prepare() {
+	true
+}
+
+_cleanup() {
+	[[ "$(jobs -p)" ]] || kill -9 $(jobs -p)
+	cleanup_system_default
+}
+
+__show_page_types() {
+	local pid=$1
+
+	if [ "$(pgrep -P $pid)" ] ; then
+		echo "after fork: parent"
+		$PAGETYPES -r -p $pid -a 0x700000000+1024 -Nl | tee $TMPD/page_type.1 | head
+		echo "after fork: child"
+		$PAGETYPES -r -p $(pgrep -P $pid) -a 0x700000000+1024 -Nl | tee $TMPD/page_type.1 | head
+	else
+		echo "after fork:"
+		$PAGETYPES -r -p $pid -a 0x700000000+1024 -Nl | tee $TMPD/page_type.1 | head
+	fi
+}
+
+_control() {
+    local pid="$1"
+    local line="$2"
+
+    echo_log "$line"
+    case "$line" in
+        "thp allocated")
+            kill -SIGUSR1 $pid
+            ;;
+        "forked")
+			__show_page_types $pid
+			grep thp /proc/vmstat
+			grep -i anon /proc/meminfo
+            kill -SIGUSR1 $pid
+            ;;
+        "pmd_split")
+			__show_page_types $pid
+			grep thp /proc/vmstat
+			grep -i anon /proc/meminfo
+            kill -SIGUSR1 $pid $(pgrep -P $pid)
+            ;;
+        "waiting_migratepages")
+			migratepages $pid 0 1
+            kill -SIGUSR1 $pid $(pgrep -P $pid)
+            ;;
+        "thp_split")
+			__show_page_types $pid
+			grep thp /proc/vmstat
+			grep -i anon /proc/meminfo
+            kill -SIGUSR1 $pid
+            ;;
+        "done")
+            set_return_code "EXIT"
+            kill -SIGUSR1 $pid
+            return 0
+            ;;
+        *)
+            ;;
+    esac
+    return 1
+}
+
+_check() {
+	true
+}

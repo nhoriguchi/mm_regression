@@ -1,0 +1,84 @@
+#!1 THP_SPLIT_METHOD: base
+
+. $TRDIR/setup_mmgeneric.sh
+
+PIPETIMEOUT=20
+EACH_BUFSIZE_IN_PAGE=$[1024*16]
+
+TEST_PROGRAM="$test_idle_page_tracking -n $EACH_BUFSIZE_IN_PAGE $WDIR/testfile"
+EXPECTED_RETURN_CODE="START EXIT"
+
+_prepare() {
+	pkill -9 -P $$ -f $test_idle_page_tracking
+	pkill -9 memhog
+    dd if=/dev/zero of=$WDIR/testfile bs=4096 count=$EACH_BUFSIZE_IN_PAGE > /dev/null 2>&1
+    [ $? -ne 0 ] && echo "failed to create $swapfile" && return 1
+	set_and_check_hugetlb_pool 100
+	prepare_system_default
+	memhog -r100000000 $[$(grep ^MemTotal: /proc/meminfo | awk '{print $2}') * 3 / 4]k > /dev/null &
+	sleep 3
+	free
+}
+
+_cleanup() {
+	cleanup_system_default
+	set_and_check_hugetlb_pool 0
+    rm -rf $WDIR/testfile
+	pkill -9 -P $$ -f $test_idle_page_tracking
+	pkill -9 memhog
+}
+
+_control() {
+    local pid="$1"
+    local line="$2"
+
+    echo "$line" | tee -a $OFILE
+    case "$line" in
+        "test_idle_page_tracking start")
+            kill -SIGUSR1 $pid
+            ;;
+        "test_idle_page_tracking exit")
+            set_return_code "EXIT"
+            kill -SIGUSR1 $pid
+			return 0
+            ;;
+        "faulted-in")
+			sleep 1
+			echo $mark_idle_all write | tee -a $OFILE
+			$mark_idle_all write
+			# echo "$PAGETYPES -r -p $pid -a 0x700000000+$[4*$EACH_BUFSIZE_IN_PAGE]" | tee -a $OFILE
+			# $PAGETYPES -r -p $pid -a 0x700000000+$[4*$EACH_BUFSIZE_IN_PAGE] | tee -a $OFILE
+
+            echo "$PAGETYPES -r -b idle_page | grep total" | tee -a $OFILE
+            $PAGETYPES -r -b idle_page | grep total | tee -a $OFILE
+            kill -SIGUSR1 $pid
+            ;;
+        "busyloop")
+			sleep 2
+			echo $mark_idle_all read | tee -a $OFILE
+            echo "$PAGETYPES -r -p $pid -a 0x700000000+$[4*$EACH_BUFSIZE_IN_PAGE]" | tee -a $OFILE
+			$PAGETYPES -r -p $pid -a 0x700000000+$[4*$EACH_BUFSIZE_IN_PAGE] | tee -a $OFILE
+
+            echo "$PAGETYPES -r -b idle_page | grep total" | tee -a $OFILE
+            $PAGETYPES -r -b idle_page | grep total | tee -a $OFILE
+            kill -SIGUSR1 $pid
+            ;;
+        "referenced")
+			sleep 1
+			echo $mark_idle_all read | tee -a $OFILE
+            echo "$PAGETYPES -r -p $pid -a 0x700000000+$[4*$EACH_BUFSIZE_IN_PAGE]" | tee -a $OFILE
+			$PAGETYPES -r -p $pid -a 0x700000000+$[4*$EACH_BUFSIZE_IN_PAGE] | tee -a $OFILE
+
+            echo "$PAGETYPES -r -b idle_page | grep total" | tee -a $OFILE
+            $PAGETYPES -r -b idle_page | grep total | tee -a $OFILE
+            kill -SIGUSR1 $pid
+            ;;
+        *)
+            ;;
+    esac
+    return 1
+}
+
+_check() {
+	true
+}

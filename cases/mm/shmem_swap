@@ -1,0 +1,164 @@
+. $TRDIR/setup_mmgeneric.sh
+
+TEST_PROGRAM="$test_swap_shmem"
+EXPECTED_RETURN_CODE="START EXIT"
+
+__prepare_memcg() {
+    cgdelete cpu,memory:test1 2> /dev/null
+    cgdelete cpu,memory:test2 2> /dev/null
+    cgcreate -g cpu,memory:test1 || return 1
+    cgcreate -g cpu,memory:test2 || return 1
+    echo 1 > $MEMCGDIR/test1/memory.move_charge_at_immigrate || return 1
+    echo 1 > $MEMCGDIR/test2/memory.move_charge_at_immigrate || return 1
+}
+
+__cleanup_memcg() {
+    cgdelete cpu,memory:test1 || return 1
+    cgdelete cpu,memory:test2 || return 1
+}
+
+_prepare() {
+    local swapfile=$WDIR/swapfile
+    __prepare_memcg || return 1
+    [ $? -ne 0 ] && echo "failed to __prepare_memcg" && return 1
+    dd if=/dev/zero of=$swapfile bs=4096 count=10240 > /dev/null 2>&1
+    [ $? -ne 0 ] && echo "failed to create $swapfile" && return 1
+    mkswap $swapfile
+    chmod 0600 $swapfile
+    swapon $swapfile
+    count_testcount
+    if swapon -s | grep ^$swapfile > /dev/null ; then
+        count_success "create swapfile"
+    else
+        count_failure "create swapfile"
+    fi
+    echo 3 > /proc/sys/vm/drop_caches
+	# 16M
+    echo "cgset -r memory.limit_in_bytes=0x1000000 test1"
+    cgset -r memory.limit_in_bytes=0x1000000 test1
+    [ $? -ne 0 ] && echo "failed to cgset memory.limit_in_bytes" && return 1
+	# 128M
+    echo "cgset -r memory.memsw.limit_in_bytes=0x8000000 test1"
+    cgset -r memory.memsw.limit_in_bytes=0x8000000 test1
+    [ $? -ne 0 ] && echo "failed to cgset memory.memsw.limit_in_bytes" && return 1
+    set_thp_never
+    return 0
+}
+
+_cleanup() {
+    set_thp_always
+	ipcrm --all
+    swapoff $WDIR/swapfile
+    rm -rf $WDIR/swapfile
+    __cleanup_memcg
+}
+
+__get_smaps_shmem() {
+    gawk '
+      BEGIN {gate=0;}
+      /^[0-9]/ {
+          if ($0 ~ /^7000000/) {
+              gate = 1;
+          } else {
+              gate = 0;
+          }
+      }
+      {if (gate==1) {print $0;}}
+    ' /proc/$pid/smaps
+}
+
+__get_smaps_anon() {
+    gawk '
+      BEGIN {gate=0;}
+      /^[0-9]/ {
+          if ($0 ~ /^700000c/) {
+              gate = 1;
+          } else {
+              gate = 0;
+          }
+      }
+      {if (gate==1) {print $0;}}
+    ' /proc/$pid/smaps
+}
+
+_control() {
+    local pid="$1"
+    local line="$2"
+
+    echo_log "$line"
+    case "$line" in
+        "swap_shmem start")
+            cgclassify -g cpu,memory:test1 $pid || set_return_code CGCLASSIFY_FAIL
+            kill -SIGUSR1 $pid
+            ;;
+        "shmem allocated")
+            kill -SIGUSR1 $pid
+            ;;
+        "shmem attached")
+            kill -SIGUSR1 $pid
+            ;;
+        "shmem faulted-in")
+			__get_smaps_shmem | tee -a $OFILE > $TMPD/smaps_shmem.1
+			__get_smaps_anon | tee -a $OFILE > $TMPD/smaps_anon.1
+			grep ^Swap: /proc/$pid/smaps > $TMPD/smaps_swap.1
+            $PAGETYPES -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.1
+			cat /proc/$pid/status > $TMPD/proc_status.1
+            kill -SIGUSR1 $pid
+            ;;
+        "swap_shmem exit")
+			__get_smaps_shmem | tee -a $OFILE > $TMPD/smaps_shmem.2
+			__get_smaps_anon | tee -a $OFILE > $TMPD/smaps_anon.2
+			grep ^Swap: /proc/$pid/smaps > $TMPD/smaps_swap.2
+            $PAGETYPES -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.2
+			cat /proc/$pid/status > $TMPD/proc_status.2
+            set_return_code "EXIT"
+            kill -SIGUSR1 $pid
+            return 0
+            ;;
+        *)
+            ;;
+    esac
+    return 1
+}
+
+_check() {
+    check_system_default
+
+	# grep -e ^Swap: -e ^Size: -e ^Rss: $TMPD/smaps_shmem.1
+	# grep -e ^Swap: -e ^Size: -e ^Rss: $TMPD/smaps_shmem.2
+	# grep -e ^Swap: -e ^Size: -e ^Rss: $TMPD/smaps_anon.1
+	# grep -e ^Swap: -e ^Size: -e ^Rss: $TMPD/smaps_anon.2
+	# echo '---'
+	# grep -e ^Vm $TMPD/proc_status.1
+	# echo '---'
+	# grep -e ^Vm $TMPD/proc_status.2
+	# echo '---'
+	# cat $TMPD/smaps_swap.1
+	# echo '---'
+	# cat $TMPD/smaps_swap.2
+
+	local shmsize="$(grep ^Size: $TMPD/smaps_shmem.2 2> /dev/null | awk '{print $2}')"
+	local shmrss="$(grep ^Rss: $TMPD/smaps_shmem.2 2> /dev/null | awk '{print $2}')"
+	local shmswap="$(grep ^Swap: $TMPD/smaps_shmem.2 2> /dev/null | awk '{print $2}')"
+	local anonsize="$(grep ^Size: $TMPD/smaps_anon.2 2> /dev/null | awk '{print $2}')"
+	local anonrss="$(grep ^Rss: $TMPD/smaps_anon.2 2> /dev/null | awk '{print $2}')"
+	local anonswap="$(grep ^Swap: $TMPD/smaps_anon.2 2> /dev/null | awk '{print $2}')"
+	local vmrss="$(grep ^VmRSS: $TMPD/proc_status.2 2> /dev/null | awk '{print $2}')"
+	local vmrss="$(grep ^VmSwap: $TMPD/proc_status.2 2> /dev/null | awk '{print $2}')"
+
+	count_testcount
+	if [ "$[$anonsize - $anonrss - $anonswap]" -eq 0 ] ; then
+        count_success "anonsize - anonrss - anonswap == 0"
+    else
+        count_failure "anonsize - anonrss - anonswap != 0"
+    fi
+
+    FALSENEGATIVE=true
+	count_testcount
+	if [ "$[$shmsize - $shmrss - $shmswap]" -eq 0 ] ; then
+        count_success "shmsize - shmrss - shmswap == 0"
+    else
+        count_failure "shmsize - shmrss - shmswap != 0"
+    fi
+    FALSENEGATIVE=false
+}

@@ -1,11 +1,10 @@
 #!/bin/bash
 
-# requires numactl package
-
 . $TCDIR/lib/mm.sh
 . $TCDIR/lib/numa.sh
-. $TCDIR/lib/setup_hugetlb_base.sh
-. $TCDIR/lib/setup_mce_tools.sh
+. $TCDIR/lib/mce.sh
+. $TCDIR/lib/hugetlb.sh
+. $TCDIR/lib/memcg.sh
 
 prepare_hugepage_migration() {
 	if [ "$NUMA_NODE" ] ; then
@@ -65,6 +64,8 @@ cleanup_hugepage_migration() {
 	# TODO: better location?
 	all_unpoison
 	ipcrm --all > /dev/null 2>&1
+    echo 3 > /proc/sys/vm/drop_caches
+    sync
 
 	if [ "$HUGETLB_MOUNT" ] ; then
 		rm -rf $HUGETLB_MOUNT/* 2>&1 > /dev/null

@@ -1,0 +1,19 @@
+#!1 FLAVOR: simple process
+
+. $TRDIR/setup_vma_vm_pfnmap.sh
+
+FLAVOR=__MARK_FLAVOR
+
+if [ "$FLAVOR" == simple ] ; then
+	TEST_PROGRAM="$test_vma_vm_pfnmap -n1"
+	EXPECTED_RETURN_CODE="START EXIT"
+	_control() { control_vma_vm_pfnmap "$1" "$2"; }
+	_check() { check_vma_vm_pfnmap; }
+elif [ "$FLAVOR" == process ] ; then
+	_control() {
+		echo_log "Walk through processes with vma(VM_PFNMAP) and check pagemap/maps/smaps/numa_maps" | tee -a $OFILE
+		TMPF=$TMPF PAGETYPES=$PAGETYPES bash $TRDIR/find_vma_vm_pfnmap.sh
+		echo_log "done"
+		set_return_code EXIT
+	}
+fi

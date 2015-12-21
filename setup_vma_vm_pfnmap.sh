@@ -2,21 +2,6 @@
 
 check_and_define_tp test_vma_vm_pfnmap
 
-kill_test_programs_pfnmap() {
-    pkill -9 -f $test_vma_vm_pfnmap
-    return 0
-}
-
-prepare_vma_vm_pfnmap() {
-    prepare_system_default
-    kill_test_programs_pfnmap
-}
-
-cleanup_vma_vm_pfnmap() {
-    kill_test_programs_pfnmap
-    cleanup_system_default
-}
-
 read_pagemap() {
     local pid=$1
     local vfn=$2
@@ -140,23 +125,4 @@ check_numa_maps() {
     else
         count_failure "numa_maps doesn't contain VM_PFNMAP area"
     fi
-}
-
-prepare_vma_vm_pfnmap_from_system_process() {
-    prepare_system_default
-}
-
-cleanup_vma_vm_pfnmap_from_system_process() {
-    cleanup_system_default
-}
-
-control_vma_vm_pfnmap_from_system_process() {
-    echo "Walk through processes with vma(VM_PFNMAP) and check pagemap/maps/smaps/numa_maps" | tee -a $OFILE
-    TMPF=$TMPF PAGETYPES=$PAGETYPES bash $TRDIR/find_vma_vm_pfnmap.sh
-    echo "done" | tee -a $OFILE
-    set_return_code EXIT
-}
-
-check_vma_vm_pfnmap_from_system_process() {
-    check_system_default
 }

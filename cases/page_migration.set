@@ -38,7 +38,7 @@ if [ __MARK_RESERVE == noreserve ] ; then
 	NORESERVEFLAG=-R
 fi
 
-TEST_PROGRAM="$test_alloc -s $MIGRATE_SRC -B $BACKEND -m shared -d work -N 2 $NORESERVEFLAG"
+TEST_PROGRAM="$test_alloc_generic -o page_migration -s $MIGRATE_SRC -B $BACKEND -m shared -d work -N 2 $NORESERVEFLAG"
 
 append_expected_retcode() {
 	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE $@"
@@ -86,7 +86,7 @@ if [ "$MIGRATE_SRC" == hotremove ] && [[ "$BACKEND" =~ hugetlb ]] ; then
 	HUGETLB=$[$MEMTOTAL/$HUGEPAGESIZE/2]
 	HUGETLB_ALLOCATED=$[HUGETLB*4/5]
 	# no pass fail ?
-	TEST_PROGRAM="$test_alloc -s $MIGRATE_SRC -B $BACKEND -d work -N $HUGETLB_ALLOCATED -M $(get_backend_pageflags hugetlb_mapped)"
+	TEST_PROGRAM="$test_alloc_generic -s $MIGRATE_SRC -B $BACKEND -d work -N $HUGETLB_ALLOCATED -M $(get_backend_pageflags hugetlb_mapped)"
 fi
 
 append_expected_retcode EXIT

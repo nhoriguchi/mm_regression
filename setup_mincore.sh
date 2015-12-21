@@ -1,31 +1,12 @@
 #!/bin/bash
 
-check_and_define_tp test_mincore
-echo always > /sys/kernel/mm/transparent_hugepage/enabled
-
-kill_test_programs_mincore() {
-    pkill -9 -f $test_mincore
-    return 0
-}
 
 prepare_mincore() {
+	echo always > /sys/kernel/mm/transparent_hugepage/enabled
     dd if=/dev/zero of=${TMPF}.holefile bs=4096 count=2 > /dev/null 2>&1
     dd if=/dev/zero of=${TMPF}.holefile bs=4096 count=2 seek=2046 > /dev/null 2>&1
     # hugetlb_empty_check
     set_and_check_hugetlb_pool 1000 || return 1
-    prepare_system_default
-    kill_test_programs_mincore
-}
-
-__cleanup_mincore() {
-    kill_test_programs_mincore
-    cleanup_system_default
-}
-
-cleanup_mincore() {
-    sysctl vm.nr_hugepages=0
-    hugetlb_empty_check
-    __cleanup_mincore
 }
 
 control_mincore() {

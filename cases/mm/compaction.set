@@ -1,0 +1,78 @@
+#!1 THP_SPLIT_METHOD: base
+
+# NEED: khugepaged focused setting
+
+. $TRDIR/setup_mmgeneric.sh
+
+EACH_BUFSIZE_IN_PAGE=$[512*10]
+
+TEST_PROGRAM="$test_memory_compaction"
+EXPECTED_RETURN_CODE="START EXIT"
+
+_prepare() {
+	pkill -9 -P $$ -f $test_memory_compaction
+	# pkill -9 memhog
+    # dd if=/dev/zero of=$WDIR/testfile bs=4096 count=$EACH_BUFSIZE_IN_PAGE > /dev/null 2>&1
+    # [ $? -ne 0 ] && echo "failed to create $swapfile" && return 1
+	# set_and_check_hugetlb_pool 100
+	prepare_system_default
+	# free
+	# echo "set_khpd_pages_to_scan $[4096 * 10]"
+	# set_khpd_pages_to_scan $[4096 * 10]
+	# echo "set_khpd_scan_sleep_millisecs 0"
+	# set_khpd_scan_sleep_millisecs 0
+	# echo "set_khpd_alloc_sleep_millisecs 0"
+	# set_khpd_alloc_sleep_millisecs 0
+	set_thp_always
+	show_current_tuning_parameters
+	show_current_tuning_parameters_compact
+}
+
+_cleanup() {
+	cleanup_system_default
+	set_and_check_hugetlb_pool 0
+    rm -rf $WDIR/testfile
+	pkill -9 -P $$ -f $test_memory_compaction
+	pkill -9 memhog
+	default_tuning_parameters
+}
+
+_control() {
+    local pid="$1"
+    local line="$2"
+
+    echo "$line" | tee -a $OFILE
+    case "$line" in
+        "test_memory_compaction start")
+			show_current_tuning_parameters_compact
+			grep -e comp -e thp /proc/vmstat
+			show_stat_thp
+            kill -SIGUSR1 $pid
+            ;;
+        "test_memory_compaction exit")
+            set_return_code "EXIT"
+            kill -SIGUSR1 $pid
+			return 0
+            ;;
+        "busyloop")
+			for i in $(seq 12) ; do
+				sleep 1
+				$PAGETYPES -r -p $pid -a 0x700000000+$EACH_BUFSIZE_IN_PAGE -Nl
+			done
+            kill -SIGUSR1 $pid
+            ;;
+        "referenced")
+			$PAGETYPES -r -p $pid -a 0x700000000+$EACH_BUFSIZE_IN_PAGE -Nl
+			grep -e comp -e thp /proc/vmstat
+			show_stat_thp
+            kill -SIGUSR1 $pid
+            ;;
+        *)
+            ;;
+    esac
+    return 1
+}
+
+_check() {
+	true
+}

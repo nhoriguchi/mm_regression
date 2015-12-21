@@ -13,199 +13,9 @@
 #include <getopt.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include "test_core/lib/include.h"
-#include "test_core/lib/hugepage.h"
+#include "include.h"
 
-#define ADDR_INPUT 0x700000000000
-
-/* for multi_backend operation */
-void *allocate_base = (void *)ADDR_INPUT;
-
-int flag = 1;
-
-void sig_handle(int signo) { ; }
-void sig_handle_flag(int signo) { flag = 0; }
-
-#define BUFNR 0x10000 /* 65536 */
-#define CHUNKSIZE 0x1000 /* 4096 pages */
-
-int mapflag = MAP_ANONYMOUS|MAP_PRIVATE;
-int protflag = PROT_READ|PROT_WRITE;
-
-int nr_p = 512;
-int nr_chunk = 1;
-int busyloop = 0;
-
-char *workdir;
-char *file;
-int fd;
-int hugetlbfd;
-
-int *shmids;
-
-enum {
-	OT_MAPPING_ITERATION,
-	OT_ALLOCATE_ONCE,
-	OT_MEMORY_ERROR_INJECTION,
-	OT_ALLOC_EXIT,
-	OT_MULTI_BACKEND,
-	NR_OPERATION_TYPES,
-};
-int operation_type;
-
-enum {
-	MCE_SRAO,
-	SYSFS_HARD,
-	SYSFS_SOFT,
-	MADV_HARD,
-	MADV_SOFT,
-	NR_INJECTION_TYPES,
-};
-int injection_type = -1;
-int access_after_injection;
-
-enum {
-	PAGECACHE,
-	ANONYMOUS,
-	THP,
-	HUGETLB_ANON,
-	HUGETLB_SHMEM,
-	HUGETLB_FILE,
-	KSM,
-	ZERO,
-	HUGE_ZERO,
-	NR_BACKEND_TYPES,
-};
-int backend_type;
-
-/*
- * @i is current chunk index. In the last chunk mmaped size will be truncated.
- */
-static int get_size_of_chunked_mmap_area(int i) {
-	if (i == nr_chunk - 1)
-		return ((nr_p - 1) % CHUNKSIZE + 1) * PS;
-	else
-		return CHUNKSIZE * PS;
-}
-
-static void *prepare_memory(void *baseaddr, int size) {
-	char *p;
-	unsigned long offset;
-	int index;
-
-	switch (backend_type) {
-	case PAGECACHE:
-		offset = (unsigned long)(baseaddr - allocate_base);
-		/* printf("open, fd %d, offset %lx\n", fd, offset); */
-		p = checked_mmap(baseaddr, size, protflag, MAP_SHARED, fd, offset);
-		break;
-	case ANONYMOUS:
-		/* printf("base:0x%lx, size:%lx\n", baseaddr, size); */
-		p = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0);
-		madvise(p, size, MADV_NOHUGEPAGE);
-		break;
-	case THP:
-		p = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0);
-		madvise(p, size, MADV_HUGEPAGE);
-		break;
-	case HUGETLB_ANON:
-		p = checked_mmap(baseaddr, size, protflag, mapflag|MAP_HUGETLB, -1, 0);
-		madvise(p, size, MADV_DONTNEED);
-		break;
-	case HUGETLB_SHMEM:
-		/* printf("size %lx\n", size); */
-		/*
-		 * TODO: currently alloc_shm_hugepage is not designed to be called
-		 * multiple times, so controlling script must cleanup shmems after
-		 * running the testcase.
-		 */
-		p = alloc_shm_hugepage(size);
-		break;
-	case HUGETLB_FILE:
-		offset = (unsigned long)(baseaddr - allocate_base);
-		/* printf("open, hugetlbfd %d, offset %lx\n", hugetlbfd, offset); */
-		p = checked_mmap(baseaddr, size, protflag, MAP_SHARED, hugetlbfd, offset);
-		break;
-	case KSM:
-		p = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0);
-		set_mergeable(p, size);
-		break;
-	case ZERO:
-		p = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0);
-		madvise(p, size, MADV_NOHUGEPAGE);
-		break;
-	case HUGE_ZERO:
-		p = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0);
-		madvise(p, size, MADV_HUGEPAGE);
-		break;
-	}
-
-	return p;
-}
-
-static void cleanup_memory(void *baseaddr, int size) {
-	;
-}
-
-static void read_memory(char *p, int size) {
-	int i;
-	char c;
-
-	for (i = 0; i < size; i += PS) {
-		c = p[i];
-	}
-}
-
-static void mmap_all(char **p) {
-	int i;
-	int size;
-	void *baseaddr = allocate_base;
-
-	for (i = 0; i < nr_chunk; i++) {
-		size = get_size_of_chunked_mmap_area(i);
-
-		/* printf("base:0x%lx, size:%lx\n", baseaddr, size); */
-		/* p[i] = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0); */
-		p[i] = prepare_memory(baseaddr, size);
-		/* printf("p[%d]:%p + 0x%lx\n", i, p[i], size); */
-		/* TODO: generalization, making this configurable */
-		if (backend_type == ZERO || backend_type == HUGE_ZERO)
-			read_memory(p[i], size);
-		else
-			memset(p[i], 'a', size);
-		baseaddr += size;
-	}
-}
-
-static void munmap_all(char **p) {
-	int i;
-	int size;
-	void *baseaddr = allocate_base;
-
-	for (i = 0; i < nr_chunk; i++) {
-		size = get_size_of_chunked_mmap_area(i);
-		/* cleanup_memory(p[i], size); */
-		checked_munmap(p[i], size);
-		baseaddr += size;
-	}
-}
-
-static void access_all(char **p) {
-	int i;
-	int size;
-	void *baseaddr = allocate_base;
-
-	for (i = 0; i < nr_chunk; i++) {
-		size = get_size_of_chunked_mmap_area(i);
-		if (backend_type == ZERO || backend_type == HUGE_ZERO)
-			read_memory(p[i], size);
-		else
-			memset(p[i], 'b', size);
-		baseaddr += size;
-	}
-}
-
-static void do_normal_allocation(void) {
+void do_normal_allocation(void) {
 	char *p[BUFNR];
 
 	mmap_all(p);
@@ -220,7 +30,7 @@ static void do_normal_allocation(void) {
 	munmap_all(p);
 }
 
-static void do_mmap_munmap_iteration(void) {
+void do_mmap_munmap_iteration(void) {
 	char *p[BUFNR];
 
 	while (flag) {
@@ -231,7 +41,7 @@ static void do_mmap_munmap_iteration(void) {
 	}
 }
 
-static void do_injection(char **p) {
+void do_injection(char **p) {
 	char rbuf[256];
 	unsigned long offset = 0;
 
@@ -267,7 +77,7 @@ static void do_injection(char **p) {
 	pause();
 }
 
-static void do_memory_error_injection(void) {
+void do_memory_error_injection(void) {
 	char *p[BUFNR];
 
 	mmap_all(p);
@@ -275,7 +85,7 @@ static void do_memory_error_injection(void) {
 	munmap_all(p);
 }
 
-static void do_alloc_exit(void) {
+void do_alloc_exit(void) {
 	char *p[BUFNR];
 
 	mmap_all(p);
@@ -283,7 +93,7 @@ static void do_alloc_exit(void) {
 	munmap_all(p);
 }
 
-static __do_madv_stress(char **p, int backend) {
+static void __do_madv_stress(char **p, int backend) {
 	int ret;
 	int i;
 	int madv = (injection_type == MADV_HARD ? MADV_HWPOISON : MADV_SOFT_OFFLINE);
@@ -297,7 +107,7 @@ static __do_madv_stress(char **p, int backend) {
 	}
 }
 
-static void do_multi_backend(void) {
+void do_multi_backend(void) {
 	int i;
 	char *p[NR_BACKEND_TYPES][BUFNR];
 
@@ -331,42 +141,19 @@ static void do_multi_backend(void) {
 	}
 }
 
-static void create_regular_file(void) {
-	int i;
-	char fpath[256];
-	char buf[PS];
-
-	sprintf(fpath, "%s/testfile", workdir);
-	fd = open(fpath, O_CREAT|O_RDWR, 0755);
-	if (fd == -1)
-		err("open");
-	memset(buf, 'a', PS);
-	for (i = 0; i < nr_p; i++)
-		write(fd, buf, PS);
-	fsync(fd);
-}
-
-/*
- * Assuming that hugetlbfs is mounted on @workdir/hugetlbfs. And cleanup is
- * supposed to be done by control scripts.
- */
-static void create_hugetlbfs_file(void) {
-	int i;
-	char fpath[256];
-	char buf[PS];
-
-	sprintf(fpath, "%s/hugetlbfs/testfile", workdir);
-	hugetlbfd = open(fpath, O_CREAT|O_RDWR, 0755);
-	if (hugetlbfd == -1)
-		err("open");
-	memset(buf, 'a', PS);
-	for (i = 0; i < nr_p; i++)
-		write(hugetlbfd, buf, PS);
-	fsync(hugetlbfd);
-}
-
 /* TODO: validation options' combination more */
 static void setup(void) {
+	nr_nodes = numa_max_node() + 1;
+	nodemask = (1UL << nr_nodes) - 1; /* all nodes in default */
+	if (operation_type == OT_PAGE_MIGRATION) {
+		nr_nodes = numa_max_node() + 1;
+		if (nr_nodes < 2)
+			errmsg("A minimum of 2 nodes is required for this test.\n");
+	}
+
+	signal(SIGUSR1, sig_handle);
+	signal(SIGUSR2, sig_handle_flag);
+
 	if (backend_type == PAGECACHE || operation_type == OT_MULTI_BACKEND) {
 		if (!workdir)
 			err("you must set workdir with -d option to allocate pagecache");
@@ -382,19 +169,13 @@ static void setup(void) {
 	if (access_after_injection && injection_type == -1)
 		err("-A is set, but -e is not set, which is meaningless.");
 
-	/* depends on busyloop flag */
-	signal(SIGUSR1, sig_handle_flag);
-	/* signal(SIGUSR1, sig_handle); */
-
 	nr_chunk = (nr_p - 1) / CHUNKSIZE + 1;
 }
 
 int main(int argc, char *argv[]) {
 	char c;
-        unsigned long nr_nodes = numa_max_node() + 1;
-        unsigned long nodemask = (1UL << nr_nodes) - 1; /* all nodes in default */
 
-	while ((c = getopt(argc, argv, "vp:n:bm:io:e:B:Af:d:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:io:e:PB:Af:d:M:s:R")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -411,14 +192,26 @@ int main(int argc, char *argv[]) {
 		case 'n':
 			nr_p = strtoul(optarg, NULL, 0);
 			break;
+		case 'N':
+			nr_p = strtoul(optarg, NULL, 0) * 512;
+			break;
 		case 'b':
 			busyloop = 1;
 			break;
 		case 'm':
-			nodemask = strtoul(optarg, NULL, 0);
-			printf("%lx\n", nodemask);
-			if (set_mempolicy(MPOL_BIND, &nodemask, nr_nodes) == -1)
-				err("set_mempolicy");
+			/* TODO: fix dirty hack */
+			if (!strcmp(optarg, "private")) {
+				mapflag |= MAP_PRIVATE;
+				mapflag &= ~MAP_SHARED;
+			} else if (!strcmp(optarg, "shared")) {
+				mapflag &= ~MAP_PRIVATE;
+				mapflag |= MAP_SHARED;
+			} else {
+				nodemask = strtoul(optarg, NULL, 0);
+				printf("%lx\n", nodemask);
+				if (set_mempolicy(MPOL_BIND, &nodemask, nr_nodes) == -1)
+					err("set_mempolicy");
+			}
 			break;
 		case 'i':
 			operation_type = OT_MAPPING_ITERATION;
@@ -434,6 +227,8 @@ int main(int argc, char *argv[]) {
 				operation_type = OT_ALLOC_EXIT;
 			else if (!strcmp(optarg, "multi_backend"))
 				operation_type = OT_MULTI_BACKEND;
+			else if (!strcmp(optarg, "page_migration"))
+				operation_type = OT_PAGE_MIGRATION;
 			else
 				operation_type = strtoul(optarg, NULL, 0);
 			break;
@@ -450,6 +245,9 @@ int main(int argc, char *argv[]) {
 				injection_type = MADV_SOFT;
 			else
 				injection_type = strtoul(optarg, NULL, 0);
+			break;
+		case 'P': /* partial mbind() */
+			partialmbind = 1;
 			break;
 		case 'B':
 			if (!strcmp(optarg, "pagecache"))
@@ -484,6 +282,26 @@ int main(int argc, char *argv[]) {
 		case 'd': /* tmpdir/workdir */
 			workdir = optarg;
 			break;
+		case 'M':
+			parse_bits_mask(optarg);
+			break;
+		case 's':
+			if (!strcmp(optarg, "migratepages"))
+				migration_src = MS_MIGRATEPAGES;
+			else if (!strcmp(optarg, "mbind"))
+				migration_src = MS_MBIND;
+			else if (!strcmp(optarg, "move_pages"))
+				migration_src = MS_MOVE_PAGES;
+			else if (!strcmp(optarg, "hotremove"))
+				migration_src = MS_HOTREMOTE;
+			else if (!strcmp(optarg, "madv_soft"))
+				migration_src = MS_MADV_SOFT;
+			else
+				errmsg("invalid optarg for -s\n");
+			break;
+		case 'R':
+			mapflag |= MAP_NORESERVE;
+			break;
 		default:
 			errmsg("invalid option\n");
 			break;
@@ -492,10 +310,7 @@ int main(int argc, char *argv[]) {
 
 	setup();
 
-	Dprintf("nr_p %lx, nr_chunk %lx\n", nr_p, nr_chunk);
-	Dprintf("operation:%lx, backend:%lx, injection:%lx\n",
-		operation_type, backend_type, injection_type);
-
+	/* TODO: shmem hugetlb full support */
 	if (backend_type == HUGETLB_SHMEM) {
 		shmids = malloc(sizeof(int) * nr_chunk);
 	}
@@ -515,6 +330,11 @@ int main(int argc, char *argv[]) {
 		break;
 	case OT_MULTI_BACKEND:
 		do_multi_backend();
+		break;
+	case OT_PAGE_MIGRATION:
+		pprintf("just started\n");
+		pause();
+		do_page_migration();
 		break;
 	}
 }

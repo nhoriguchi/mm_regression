@@ -1,9 +1,11 @@
 #!/bin/bash
 
-if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
-    echo "$BASH_SOURCE should be included from another script, not directly called."
-    exit 1
-fi
+. $TCDIR/lib/mm.sh
+. $TCDIR/lib/numa.sh
+. $TCDIR/lib/mce.sh
+. $TCDIR/lib/kvm.sh
+
+SSH_OPT="-o ConnectTimeout=5"
 
 [ ! "$VM" ] && echo "You must give VM name in recipe file" && exit 1
 [ ! "$VMIP" ] && echo "You must give VM IP address in recipe file" && exit 1
@@ -59,7 +61,7 @@ get_gpa_guest_memeater() {
         cmd="$cmd -a $[line/4096]+256"
     done < /tmp/mapping
     echo $cmd
-    ssh $VMIP $cmd | grep -v offset | tr '\t' ' ' | tr -s ' ' > ${TMPF}.guest-page-types
+    ssh $VMIP "$cmd" | grep -v offset | tr '\t' ' ' | tr -s ' ' > ${TMPF}.guest-page-types
     local lines=`wc -l ${TMPF}.guest-page-types | cut -f1 -d' '`
     [ "$lines" -eq 0 ] && echo "Page on pid:$GUESTMEMEATERPID not found." >&2 && return 1
     [ "$lines" -gt 2 ] && lines=`ruby -e "p rand($lines) + 1"`
@@ -102,7 +104,6 @@ prepare_test() {
     send_helper_to_guest
 
     save_nr_corrupted_before
-    get_kernel_message_before
     get_guest_kernel_message_before
     run_vm_serial_monitor
 }
@@ -110,14 +111,12 @@ prepare_test() {
 cleanup_test() {
     save_nr_corrupted_inject
     all_unpoison
-    save_nr_corrupted_unpoison
     rm -f /tmp/mapping
     stop_guest_memeater
-    get_kernel_message_after
-    get_kernel_message_diff | tee -a ${OFILE}
     vm_ssh_connectable && get_guest_kernel_message_after
     get_guest_kernel_message | tee -a ${OFILE}
     stop_vm_serial_monitor
+    save_nr_corrupted_unpoison
 }
 
 check_guest_state() {
@@ -182,13 +181,16 @@ check_page_migrated() {
 control_kvm() {
     run_guest_memeater || return 1
     sleep 0.2
+	echo "get_hpa"
     get_hpa "$TARGET_PAGETYPES" || return 1
     set_return_code "GOT_HPA"
+    echo "${MCEINJECT} -e $ERROR_TYPE -a ${TARGETHPA}"
     ${MCEINJECT} -e "$ERROR_TYPE" -a "${TARGETHPA}"
     check_guest_state
 }
 
 control_kvm_panic() {
+	echo "start $FUNCNAME"
     run_guest_memeater || return 1
     get_hpa "$TARGET_PAGETYPES" || return 1
     set_return_code "GOT_HPA"
@@ -233,4 +235,23 @@ control_kvm_inject_mce_on_qemu_page() {
 check_kvm_inject_mce_on_qemu_page() {
     check_kernel_message "${TARGETHPA}"
     check_kernel_message_nobug
+}
+
+#
+# Default definition. You can overwrite in each recipe
+#
+_control() {
+	control_mce_kvm "$1" "$2"
+}
+
+_prepare() {
+	prepare_test || return 1
+}
+
+_cleanup() {
+	cleanup_test
+}
+
+_check() {
+	check_mce_kvm
 }

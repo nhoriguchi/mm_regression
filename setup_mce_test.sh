@@ -2,14 +2,10 @@
 
 . $TCDIR/lib/mm.sh
 . $TCDIR/lib/numa.sh
-. $TCDIR/lib/setup_mce_tools.sh
-. $TRDIR/setup_mce_capability_check.sh
-
-. $TCDIR/lib/setup_hugetlb_base.sh
-. $TCDIR/lib/setup_thp_base.sh
-. $TCDIR/lib/setup_ksm_base.sh
-
-SYSFS_MCHECK=/sys/devices/system/machinecheck
+. $TCDIR/lib/mce.sh
+. $TCDIR/lib/hugetlb.sh
+. $TCDIR/lib/thp.sh
+. $TCDIR/lib/ksm.sh
 
 set_monarch_timeout() {
     local value=$1

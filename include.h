@@ -1,7 +1,19 @@
+#include "test_core/lib/include.h"
+#include "test_core/lib/hugepage.h"
+#include "test_core/lib/pfn.h"
+
+int flag = 1;
+
+void sig_handle(int signo) { ; }
+void sig_handle_flag(int signo) { flag = 0; }
+
 #define ADDR_INPUT 0x700000000000
 
 /* for multi_backend operation */
 void *allocate_base = (void *)ADDR_INPUT;
+
+unsigned long nr_nodes;
+unsigned long nodemask;
 
 #define BUFNR 0x10000 /* 65536 */
 #define CHUNKSIZE 0x1000 /* 4096 pages */
@@ -26,6 +38,7 @@ enum {
 	OT_MEMORY_ERROR_INJECTION,
 	OT_ALLOC_EXIT,
 	OT_MULTI_BACKEND,
+	OT_PAGE_MIGRATION,
 	NR_OPERATION_TYPES,
 };
 int operation_type = -1;
@@ -43,6 +56,27 @@ enum {
 	NR_BACKEND_TYPES,
 };
 int backend_type = -1;
+
+enum {
+	MS_MIGRATEPAGES,
+	MS_MBIND,
+	MS_MOVE_PAGES,
+	MS_HOTREMOTE,
+	MS_MADV_SOFT,
+	NR_MIGRATION_SRCS,
+};
+int migration_src = -1;
+
+enum {
+	MCE_SRAO,
+	SYSFS_HARD,
+	SYSFS_SOFT,
+	MADV_HARD,
+	MADV_SOFT,
+	NR_INJECTION_TYPES,
+};
+int injection_type = -1;
+int access_after_injection;
 
 /*
  * @i is current chunk index. In the last chunk mmaped size will be truncated.
@@ -205,7 +239,7 @@ static void create_hugetlbfs_file(void) {
 }
 
 int do_work_memory(char **p, int (*func)(char *p, int size, void *arg), void *args) {
-	int i; 
+	int i;
 	int ret = 0;
 	int size;
 	void *baseaddr = allocate_base;
@@ -218,4 +252,277 @@ int do_work_memory(char **p, int (*func)(char *p, int size, void *arg), void *ar
 		baseaddr += size;
 	}
 	return ret;
+}
+
+extern void do_alloc_exit(void);
+extern void do_memory_error_injection(void);
+extern void do_injection(char **p);
+extern void do_mmap_munmap_iteration(void);
+extern void do_normal_allocation(void);
+extern void do_multi_backend(void);
+extern void do_page_migration(void);
+
+
+
+int partialmbind;
+
+/*
+ * Memory block size is 128MB (1 << 27) = 32k pages (1 << 15)
+ */
+#define MEMBLK_ORDER	15
+#define MEMBLK_SIZE	(1 << MEMBLK_ORDER)
+#define MAX_MEMBLK	1024
+
+static int set_mempolicy_node(int mode, unsigned long nid) {
+	/* Assuming that max node number is < 64 */
+	unsigned long nodemask = 1UL << nid;
+	if (mode == MPOL_DEFAULT)
+		set_mempolicy(mode, NULL, nr_nodes);
+	else
+		set_mempolicy(mode, &nodemask, nr_nodes);
+}
+
+static void do_migratepages(char **p) {
+	pprintf("entering busy loop\n");
+	if (busyloop)
+		while (flag)
+			access_all(p);
+	else
+		pause();
+}
+
+struct mbind_arg {
+	int mode;
+	unsigned flags;
+	struct bitmask *new_nodes;
+};
+
+static int __mbind_chunk(char *p, int size, void *args) {
+	int i;
+	struct mbind_arg *mbind_arg = (struct mbind_arg *)args;
+
+	if (partialmbind) {
+		for (i = 0; i < (size - 1) / 512 + 1; i++)
+			mbind(p + i * HPS, PS,
+			      mbind_arg->mode, mbind_arg->new_nodes->maskp,
+			      mbind_arg->new_nodes->size + 1, mbind_arg->flags);
+	} else
+		mbind(p, size,
+		      mbind_arg->mode, mbind_arg->new_nodes->maskp,
+		      mbind_arg->new_nodes->size + 1, mbind_arg->flags);
+}
+
+static void do_mbind(char **p) {
+	int i;
+	int ret;
+	struct mbind_arg mbind_arg = {
+		.mode = MPOL_BIND,
+		.flags = MPOL_MF_MOVE|MPOL_MF_STRICT,
+	};
+
+	mbind_arg.new_nodes = numa_bitmask_alloc(nr_nodes);
+	numa_bitmask_setbit(mbind_arg.new_nodes, 1);
+
+	/* TODO: more race consideration, chunk, busyloop case? */
+	pprintf("call mbind\n");
+	ret = do_work_memory(p, __mbind_chunk, (void *)&mbind_arg);
+	if (ret == -1) {
+		perror("mbind");
+		pprintf("mbind failed\n");
+		pause();
+		/* return; */
+	}
+
+	pprintf("entering busy loop\n");
+	if (busyloop)
+		while (flag)
+			access_all(p);
+	else
+		pause();
+}
+
+static int __move_pages_chunk(char *p, int size, void *args) {
+	int i;
+	void *__move_pages_addrs[CHUNKSIZE + 1];
+	int __move_pages_status[CHUNKSIZE + 1];
+	int __move_pages_nodes[CHUNKSIZE + 1];
+
+	for (i = 0; i < size / PS; i++) {
+		__move_pages_addrs[i] = p + i * PS;
+		__move_pages_nodes[i] = 1;
+		__move_pages_status[i] = 0;
+	}
+	numa_move_pages(0, size / PS, __move_pages_addrs, __move_pages_nodes,
+			__move_pages_status, MPOL_MF_MOVE_ALL);
+}
+
+static void do_move_pages(char **p) {
+	int ret;
+
+	pprintf("call move_pages()\n");
+	ret = do_work_memory(p, __move_pages_chunk, NULL);
+	if (ret == -1) {
+		perror("move_pages");
+		pprintf("move_pages failed\n");
+		pause();
+		/* return; */
+	}
+
+	signal(SIGUSR1, sig_handle_flag);
+	pprintf("entering busy loop\n");
+	if (busyloop)
+		while (flag)
+			access_all(p);
+	else
+		pause();
+}
+
+static int get_max_memblock(void) {
+	FILE *f;
+	char str[256];
+	int spanned;
+	int start_pfn;
+	int mb;
+
+	f = fopen("/proc/zoneinfo", "r");
+	while (fgets(str, 256, f)) {
+		sscanf(str, " spanned %d", &spanned);
+		sscanf(str, " start_pfn: %d", &start_pfn);
+	}
+	fclose(f);
+	return (spanned + start_pfn) >> MEMBLK_ORDER;
+}
+
+/* Assuming that */
+static int check_compound(void) {
+	return !!(opt_bits[0] & BIT(COMPOUND_HEAD));
+}
+
+/* find memblock preferred to be hotremoved */
+static int memblock_check(char **p) {
+	int i, j;
+	int ret;
+	int max_memblock = get_max_memblock();
+	uint64_t pageflags[MEMBLK_SIZE];
+	int pmemblk = 0;
+	int max_matched_pages = 0;
+	int compound = check_compound();
+
+	kpageflags_fd = open("/proc/kpageflags", O_RDONLY);
+	for (i = 0; i < max_memblock; i++) {
+		int pfn = i * MEMBLK_SIZE;
+		int matched = 0;
+
+		ret = kpageflags_read(pageflags, pfn, MEMBLK_SIZE);
+		for (j = 0; j < MEMBLK_SIZE; j++) {
+			if (bit_mask_ok(pageflags[j])) {
+				if (compound)
+					matched += 512;
+				else
+					matched++;
+			}
+		}
+		Dprintf("memblock:%d, readret:%d matched:%d (%d%), 1:%lx, 2:%lx\n",
+		       i, ret, matched, matched*100/MEMBLK_SIZE,
+		       pageflags[0], pageflags[1]);
+		if (max_matched_pages < matched) {
+			max_matched_pages = matched;
+			pmemblk = i;
+		}
+	}
+	close(kpageflags_fd);
+
+	return pmemblk;
+}
+
+static void do_hotremove(char **p) {
+	int pmemblk; /* preferred memory block for hotremove */
+
+	if (set_mempolicy_node(MPOL_PREFERRED, 1) == -1)
+		err("set_mempolicy(MPOL_PREFERRED) to 1");
+
+	pmemblk = memblock_check(p);
+
+	/* pass pmemblk into control script */
+	pprintf("before memory_hotremove: %d\n", pmemblk);
+	pause();
+
+	pprintf("entering busy loop\n");
+	if (busyloop)
+		while (flag)
+			access_all(p);
+	else
+		pause();
+}
+
+static int __madv_soft_chunk(char *p, int size, void *args) {
+	int i;
+	int ret;
+
+	for (i = 0; i < size / HPS; i++) {
+		ret = madvise(p + i * HPS, 4096, MADV_SOFT_OFFLINE);
+		if (ret)
+			break;
+	}
+	return ret;
+}
+
+static void do_madv_soft(char **p) {
+	int ret;
+	int loop = 10;
+	int do_unpoison = 1;
+
+	pprintf("call madvise(MADV_SOFT_OFFLINE)\n");
+	ret = do_work_memory(p, __madv_soft_chunk, NULL);
+	if (ret == -1) {
+		perror("madvise(MADV_SOFT_OFFLINE)");
+		pprintf("madvise(MADV_SOFT_OFFLINE) failed\n");
+		pause();
+		/* return; */
+	}
+
+	signal(SIGUSR1, sig_handle_flag);
+	pprintf("entering busy loop\n");
+	if (busyloop)
+		while (flag)
+			access_all(p);
+	else
+		pause();
+}
+
+void do_page_migration(void) {
+	char *p[BUFNR];
+
+	/* node 0 is preferred */
+	if (set_mempolicy_node(MPOL_PREFERRED, 0) == -1)
+		err("set_mempolicy(MPOL_PREFERRED) to 0");
+
+	mmap_all(p);
+
+	if (set_mempolicy_node(MPOL_DEFAULT, 0) == -1)
+		err("set_mempolicy to MPOL_DEFAULT");
+
+	pprintf("page_fault_done\n");
+	pause();
+
+	switch (migration_src) {
+	case MS_MIGRATEPAGES:
+		do_migratepages(p);
+		break;
+	case MS_MBIND:
+		do_mbind(p);
+		break;
+	case MS_MOVE_PAGES:
+		do_move_pages(p);
+		break;
+	case MS_HOTREMOTE:
+		do_hotremove(p);
+		break;
+	case MS_MADV_SOFT:
+		do_madv_soft(p);
+		break;
+	}
+
+	pprintf("exited busy loop\n");
+	pause();
 }
