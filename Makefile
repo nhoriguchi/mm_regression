@@ -3,7 +3,7 @@ CC=gcc
 CFLAGS=-g # -Wall -Wextra
 TESTCASE_FILTER=
 
-src=test_mbind.c test_mbind_fuzz.c test_mbind_unmap_race.c test_malloc_madv_willneed.c test_mincore.c test_mbind_bug_reproducer.c test_vma_vm_pfnmap.c test_swap_shmem.c test_thp_double_mapping.c test_idle_page_tracking.c mark_idle_all.c test_memory_compaction.c test_alloc.c test_mbind_hm.c test_move_pages.c test_memory_hotremove.c hog_hugepages.c iterate_numa_move_pages.c iterate_hugepage_mmap_fault_munmap.c test_hugetlb_hotremove.c test_alloc_thp.c test_mlock_on_shared_thp.c test_mprotect_on_shared_thp.c madvise_hwpoison_hugepages.c hugepage_pingpong.c test_thp_migration_race_with_gup.c test_process_vm_access.c iterate_mmap_fault_munmap.c test_thp.c test_ksm.c test_hugetlb.c memeater.c memeater_multithread.c test_base_madv_simple_stress.c test_thp_on_pcplist.c test_thp_small.c test_soft_offline_unpoison_stress.c memeater_hugetlb.c test_zero_page.c memeater_thp.c memeater_random.c test_fill_zone.c test_thp_justalloc.c test_alloc_generic.c
+src=test_mbind.c test_mbind_fuzz.c test_mbind_unmap_race.c test_malloc_madv_willneed.c test_mincore.c test_vma_vm_pfnmap.c test_swap_shmem.c test_thp_double_mapping.c test_idle_page_tracking.c mark_idle_all.c test_memory_compaction.c hog_hugepages.c iterate_numa_move_pages.c iterate_hugepage_mmap_fault_munmap.c hugepage_pingpong.c memeater.c test_alloc_generic.c
 exe=$(src:.c=)
 srcdir=.
 dstdir=/usr/local/bin
@@ -64,9 +64,13 @@ test3: all
 	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/page_migration/hugetlb/mbind_private_reserved
 
 test4: all
-	@bash test_core/run-test-new.sh -v $(addprefix '-f ',$(TESTCASE_FILTER)) $(addprefix '-r ',$(RECIPES)) ${DEVEL:+-D} ${RUNNAME:+-t $(RUNNAME)}
+	bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
+
+test42: all
+	@echo $(shell readlink -f $(RECIPES) 2> /dev/null)
+	@echo $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null))
 
 page_migration: all
-	@bash test_core/run-test-new.sh -v $(addprefix '-f ',$(TESTCASE_FILTER)) $(addprefix '-r ',$(RECIPES)) ${DEVEL:+-D} ${RUNNAME:+-t $(RUNNAME)}
+	@bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(RECIPES)) $(addprefix -t ,$(RUNNAME))
 
 -include test_core/make.include

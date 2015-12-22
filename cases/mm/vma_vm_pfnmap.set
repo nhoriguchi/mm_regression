@@ -12,7 +12,7 @@ if [ "$FLAVOR" == simple ] ; then
 elif [ "$FLAVOR" == process ] ; then
 	_control() {
 		echo_log "Walk through processes with vma(VM_PFNMAP) and check pagemap/maps/smaps/numa_maps" | tee -a $OFILE
-		TMPF=$TMPF PAGETYPES=$PAGETYPES bash $TRDIR/find_vma_vm_pfnmap.sh
+		TMPD=$TMPD PAGETYPES=$PAGETYPES bash $TRDIR/find_vma_vm_pfnmap.sh
 		echo_log "done"
 		set_return_code EXIT
 	}

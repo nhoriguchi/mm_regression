@@ -169,13 +169,19 @@ static void setup(void) {
 	if (access_after_injection && injection_type == -1)
 		err("-A is set, but -e is not set, which is meaningless.");
 
+	if (!(backend_type == THP || backend_type == HUGETLB_ANON ||
+	      backend_type == HUGETLB_SHMEM || backend_type == HUGETLB_FILE ||
+	      backend_type == HUGE_ZERO) && hp_partial) {
+		err("hp_partial (-P) option is useful only for hugepages");
+	}
+
 	nr_chunk = (nr_p - 1) / CHUNKSIZE + 1;
 }
 
 int main(int argc, char *argv[]) {
 	char c;
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:io:e:PB:Af:d:M:s:R")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:io:e:PB:Af:d:M:s:RF")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -229,6 +235,12 @@ int main(int argc, char *argv[]) {
 				operation_type = OT_MULTI_BACKEND;
 			else if (!strcmp(optarg, "page_migration"))
 				operation_type = OT_PAGE_MIGRATION;
+			else if (!strcmp(optarg, "process_vm_access"))
+				operation_type = OT_PROCESS_VM_ACCESS;
+			else if (!strcmp(optarg, "mlock"))
+				operation_type = OT_MLOCK;
+			else if (!strcmp(optarg, "mprotect"))
+				operation_type = OT_MPROTECT;
 			else
 				operation_type = strtoul(optarg, NULL, 0);
 			break;
@@ -246,8 +258,8 @@ int main(int argc, char *argv[]) {
 			else
 				injection_type = strtoul(optarg, NULL, 0);
 			break;
-		case 'P': /* partial mbind() */
-			partialmbind = 1;
+		case 'P': /* do the operation for hugepage partially */
+			hp_partial = 1;
 			break;
 		case 'B':
 			if (!strcmp(optarg, "pagecache"))
@@ -296,11 +308,18 @@ int main(int argc, char *argv[]) {
 				migration_src = MS_HOTREMOTE;
 			else if (!strcmp(optarg, "madv_soft"))
 				migration_src = MS_MADV_SOFT;
+			else if (!strcmp(optarg, "auto_numa"))
+				migration_src = MS_AUTO_NUMA;
+			else if (!strcmp(optarg, "change_cpuset"))
+				migration_src = MS_CHANGE_CPUSET;
 			else
 				errmsg("invalid optarg for -s\n");
 			break;
 		case 'R':
 			mapflag |= MAP_NORESERVE;
+			break;
+		case 'F':
+			forkflag = 1;
 			break;
 		default:
 			errmsg("invalid option\n");
@@ -335,6 +354,15 @@ int main(int argc, char *argv[]) {
 		pprintf("just started\n");
 		pause();
 		do_page_migration();
+		break;
+	case OT_PROCESS_VM_ACCESS:
+		do_process_vm_access();
+		break;
+	case OT_MLOCK:
+		do_mlock();
+		break;
+	case OT_MPROTECT:
+		do_mprotect();
 		break;
 	}
 }

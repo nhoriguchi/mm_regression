@@ -1,0 +1,23 @@
+#!1 FLAVOR: simple
+
+. $TRDIR/setup_page_migration.sh
+
+NUMA_NODE=2
+THP=10
+
+FLAVOR=__MARK_FLAVOR
+
+EXPECTED_RETURN_CODE="START  CGCLASSIFY_PASS MIGRATION_PASSED EXIT"
+
+CGROUP=cpu,cpuset,memory:test1
+MIGRATE_SRC=change_cpuset
+
+_prepare() {
+    prepare_hugepage_migration || return 1
+	cgset -r cpuset.memory_migrate=1 test1
+	# TODO: set cpus from NUMA setting (sometimes CPUs are split into 0,2 and 1,3)
+	cgset -r cpuset.cpus=0 test1
+	cgset -r cpuset.mems=0 test1
+}
+
+TEST_PROGRAM="$test_alloc_generic -o page_migration -s $MIGRATE_SRC -m private -B thp -N $THP -b"

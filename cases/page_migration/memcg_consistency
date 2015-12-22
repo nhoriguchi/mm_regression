@@ -16,8 +16,7 @@ _control() {
 
 _prepare() {
     prepare_hugepage_migration || return 1
-
-    echo 1 > $MEMCGDIR/test1/memory.move_charge_at_immigrate || return 1
+	cgset -r memory.move_charge_at_immigrate=1 test1
 }
 
 _cleanup() {

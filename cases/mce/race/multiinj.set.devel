@@ -1,0 +1,37 @@
+##! BACKEND: buddy hugetlb_free anonymous pagecache hugetlb_anon hugetlb_shmem hugetlb_file ksm thp zero huge_zero
+#! BACKEND: anonymous pagecache hugetlb_anon hugetlb_shmem hugetlb_file ksm thp zero huge_zero
+##! BACKEND: buddy free_hugetlb anon pagecache active_hugetlb shm_hugetlb thp thp_doublemap zero huge_zero
+#! INJECT_TYPE: mce-srao hard-offline soft-offline hard-soft
+#! DIFFERENT_PFNS: samepfn diffpfn
+
+. $TRDIR/setup_mce_test.sh
+
+TARGET_PAGEFLAG=$(get_backend_pageflags __MARK_BACKEND)
+
+TESTFILE="$WDIR/testfile"
+HUGETLB=300
+HUGETLB_MOUNT=$WDIR/hugetlbfs
+HUGETLB_FILE=$HUGETLB_MOUNT/testfile
+
+THP=true
+
+case "$BACKEND" in
+	buddy|hugetlb_free)
+		EXPECTED_RETURN_CODE="START EXIT"
+		;;
+    *)
+		TEST_PROGRAM="$test_alloc_generic -o multi_backend -d work -b -n 4096"
+		EXPECTED_RETURN_CODE="START EXIT"
+        ;;
+esac
+
+NR_THREAD=4
+DEFAULT_MONARCH_TIMEOUT=1000000
+MONARCH_TIMEOUT=20000000
+MULTIINJ_ITERATIONS=1
+INJECT_TYPE=__MARK_INJECT_TYPE
+if [ __MARK_DIFFERENT_PFNS == diffpfn ] ; then
+	DIFFERENT_PFNS=true
+fi
+
+# PIPETIMEOUT=30

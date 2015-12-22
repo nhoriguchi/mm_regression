@@ -1,31 +1,13 @@
 #!/bin/bash
 
 . $TCDIR/lib/mm.sh
-. $TCDIR/lib/numa.sh
-. $TCDIR/lib/hugetlb.sh
 
 _control() { control_mbind "$1" "$2"; }
 _prepare() { prepare_mbind; }
 _cleanup() { cleanup_mbind; }
-_check() { check_mbind; }
 
 prepare_mbind() {
-	if [ "$NUMA_NODE" ] ; then
-		numa_check || return 1
-	fi
-
-	if [ "$HUGETLB_MOUNT" ] ; then
-		rm -rf $HUGETLB_MOUNT/* 2>&1 > /dev/null
-		umount -f $HUGETLB_MOUNT 2>&1 > /dev/null
-	fi
-
-	if [ "$HUGETLB" ] ; then
-		hugetlb_support_check || return 1
-		if [ "$HUGEPAGESIZE" ] ; then
-			hugepage_size_support_check || return 1
-		fi
-		set_and_check_hugetlb_pool $HUGETLB || return 1
-	fi
+	prepare_mm_generic || return 1
 
 	if [ "$TESTFILE" ] ; then
 		dd if=/dev/urandom of=$TESTFILE bs=4096 count=$[512*10]
@@ -33,18 +15,7 @@ prepare_mbind() {
 }
 
 cleanup_mbind() {
-    ipcrm --all
-    echo 3 > /proc/sys/vm/drop_caches
-    sync
-
-	if [ "$HUGETLB_MOUNT" ] ; then
-		rm -rf $HUGETLB_MOUNT/* 2>&1 > /dev/null
-		umount -f $HUGETLB_MOUNT 2>&1 > /dev/null
-	fi
-
-	if [ "$HUGETLB" ] ; then
-		set_and_check_hugetlb_pool 0
-	fi
+	cleanup_mm_generic
 }
 
 control_mbind() {
@@ -54,8 +25,8 @@ control_mbind() {
     echo_log "$line"
     case "$line" in
         "before mbind")
-            ${PAGETYPES} -p ${pid} -a 0x700000000+0x2000 -Nrl >> ${OFILE}
-            cat /proc/${pid}/numa_maps | grep "^70" > $TMPD/numa_maps1
+            $PAGETYPES -p $pid -a 0x700000000+0x2000 -Nrl >> ${OFILE}
+            cat /proc/$pid/numa_maps | grep "^70" > $TMPD/numa_maps1
             kill -SIGUSR1 $pid
             ;;
         "entering busy loop")
@@ -63,10 +34,10 @@ control_mbind() {
             kill -SIGUSR1 $pid
             ;;
         "mbind exit")
-            ${PAGETYPES} -p ${pid} -a 0x700000000+0x2000 -Nrl >> ${OFILE}
-            cat /proc/${pid}/numa_maps | grep "^70" > $TMPD/numa_maps2
+            $PAGETYPES -p $pid -a 0x700000000+0x2000 -Nrl >> ${OFILE}
+            cat /proc/$pid/numa_maps | grep "^70" > $TMPD/numa_maps2
             kill -SIGUSR1 $pid
-            set_return_code "EXIT"
+            set_return_code EXIT
             return 0
             ;;
         *)
@@ -126,8 +97,8 @@ control_mbind_fuzz_normal_heavy() {
         $test_mbind_fuzz -f $TESTFILE -n $MBIND_FUZZ_NR_PG \
 						 -t $MBIND_FUZZ_TYPE > $TMPD/fuz.out 2>&1 &
     done
-    echo_log "$nr processes / $threads threads running"
-    echo_log "..."
+
+    echo_log "... (running $MBIND_FUZZ_DURATION secs)"
     sleep $MBIND_FUZZ_DURATION
     echo_log "Done, kill the processes"
     pkill -SIGUSR1 -f $test_mbind_fuzz
@@ -135,19 +106,15 @@ control_mbind_fuzz_normal_heavy() {
 }
 
 control_mbind_unmap_race() {
-    echo "start mbind_unmap_race" | tee -a ${OFILE}
-    local threads=10
-    local nr=1000
-    local type=0x80
-    for i in $(seq $threads) ; do
-        ${test_mbind_unmap_race} -f ${TESTFILE} -n $nr -N 2 -t $type > $TMPD/fuz.out 2>&1 &
+    echo_log "start mbind_unmap_race"
+    for i in $(seq $MBIND_FUZZ_THREADS) ; do
+        $test_mbind_unmap_race -f $TESTFILE -n $MBIND_FUZZ_NR_PG \
+						 -t $MBIND_FUZZ_TYPE -N 2 > $TMPD/fuz.out 2>&1 &
     done
-    echo "$nr processes / $threads threads running" | tee -a $OFILE
-    ps | head -n10 | tee -a $OFILE
-    echo "..." | tee -a $OFILE
-    sleep 10
-    echo "Done, kill the processes" | tee -a $OFILE
-    pkill -SIGUSR1 -f ${test_mbind_unmap_race}
+
+    echo_log "... (running $MBIND_FUZZ_DURATION secs)"
+    sleep $MBIND_FUZZ_DURATION
+    echo_log "Done, kill the processes"
+    pkill -SIGUSR1 -f $test_mbind_unmap_race
     set_return_code EXIT
 }
-

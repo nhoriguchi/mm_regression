@@ -12,8 +12,8 @@ PINGPONG_NR_HPS=10
 PINGPONG_ALLOC_TYPES=0xff
 PINGPONG_DURATION=100
 
-NUMA_MAPS_READER=${TMPF}.read_numa_maps.sh
-cat <<EOF > ${NUMA_MAPS_READER}
+NUMA_MAPS_READER=$TMPD/read_numa_maps.sh
+cat <<EOF > $NUMA_MAPS_READER
 for pid in \$@ true ; do
     cat /proc/\$pid/numa_maps > /dev/null 2>&1
 done

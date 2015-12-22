@@ -61,12 +61,12 @@ get_gpa_guest_memeater() {
         cmd="$cmd -a $[line/4096]+256"
     done < /tmp/mapping
     echo $cmd
-    ssh $VMIP "$cmd" | grep -v offset | tr '\t' ' ' | tr -s ' ' > ${TMPF}.guest-page-types
-    local lines=`wc -l ${TMPF}.guest-page-types | cut -f1 -d' '`
+    ssh $VMIP "$cmd" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest-page-types
+    local lines=`wc -l $TMPD/guest-page-types | cut -f1 -d' '`
     [ "$lines" -eq 0 ] && echo "Page on pid:$GUESTMEMEATERPID not found." >&2 && return 1
     [ "$lines" -gt 2 ] && lines=`ruby -e "p rand($lines) + 1"`
-    TARGETGVA=0x`cat ${TMPF}.guest-page-types | sed -n ${lines}p | cut -f1 -d ' '`
-    TARGETGPA=0x`cat ${TMPF}.guest-page-types | sed -n ${lines}p | cut -f2 -d ' '`
+    TARGETGVA=0x`cat $TMPD/guest-page-types | sed -n ${lines}p | cut -f1 -d ' '`
+    TARGETGPA=0x`cat $TMPD/guest-page-types | sed -n ${lines}p | cut -f2 -d ' '`
     return 0
 }
 

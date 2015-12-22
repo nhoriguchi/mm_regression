@@ -17,6 +17,7 @@ TESTFILE=$WDIR/testfile
 if [ "$FLAVOR" == simple ] ; then
 	TEST_PROGRAM="$test_mbind"
 	EXPECTED_RETURN_CODE="START EXIT"
+	_check() { control_mbind; }
 elif [ "$FLAVOR" == fuzz ] ; then
 	MBIND_FUZZ_THREADS=1
 	MBIND_FUZZ_NR_PG=10
@@ -33,6 +34,10 @@ elif [ "$FLAVOR" == fuzz_heavy ] ; then
 	MBIND_FUZZ_TYPE=0x80
 	MBIND_FUZZ_DURATION=30
 	_control() { control_mbind_fuzz_normal_heavy; }
-elif [ "$FLAVOR" == fuzz_race_unmap ] ; then
+elif [ "$FLAVOR" == race_unmap ] ; then
+	MBIND_FUZZ_THREADS=10
+	MBIND_FUZZ_NR_PG=1000
+	MBIND_FUZZ_TYPE=0x80
+	MBIND_FUZZ_DURATION=30
 	_control() { control_mbind_unmap_race; }
 fi

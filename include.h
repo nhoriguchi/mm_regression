@@ -1,3 +1,4 @@
+#include <sys/uio.h>
 #include "test_core/lib/include.h"
 #include "test_core/lib/hugepage.h"
 #include "test_core/lib/pfn.h"
@@ -32,6 +33,8 @@ int hugetlbfd;
 
 int *shmids;
 
+int forkflag;
+
 enum {
 	OT_MAPPING_ITERATION,
 	OT_ALLOCATE_ONCE,
@@ -39,6 +42,9 @@ enum {
 	OT_ALLOC_EXIT,
 	OT_MULTI_BACKEND,
 	OT_PAGE_MIGRATION,
+	OT_PROCESS_VM_ACCESS,
+	OT_MLOCK,
+	OT_MPROTECT,
 	NR_OPERATION_TYPES,
 };
 int operation_type = -1;
@@ -63,6 +69,8 @@ enum {
 	MS_MOVE_PAGES,
 	MS_HOTREMOTE,
 	MS_MADV_SOFT,
+	MS_AUTO_NUMA,
+	MS_CHANGE_CPUSET,
 	NR_MIGRATION_SRCS,
 };
 int migration_src = -1;
@@ -106,7 +114,10 @@ static void *prepare_memory(void *baseaddr, int size) {
 		break;
 	case THP:
 		p = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0);
-		madvise(p, size, MADV_HUGEPAGE);
+		if (madvise(p, size, MADV_HUGEPAGE) == -1) {
+			printf("p %p, size %lx\n", p, size);
+			err("madvise");
+		}
 		break;
 	case HUGETLB_ANON:
 		p = checked_mmap(baseaddr, size, protflag, mapflag|MAP_HUGETLB, -1, 0);
@@ -260,11 +271,9 @@ extern void do_injection(char **p);
 extern void do_mmap_munmap_iteration(void);
 extern void do_normal_allocation(void);
 extern void do_multi_backend(void);
-extern void do_page_migration(void);
 
 
-
-int partialmbind;
+int hp_partial;
 
 /*
  * Memory block size is 128MB (1 << 27) = 32k pages (1 << 15)
@@ -301,7 +310,7 @@ static int __mbind_chunk(char *p, int size, void *args) {
 	int i;
 	struct mbind_arg *mbind_arg = (struct mbind_arg *)args;
 
-	if (partialmbind) {
+	if (hp_partial) {
 		for (i = 0; i < (size - 1) / 512 + 1; i++)
 			mbind(p + i * HPS, PS,
 			      mbind_arg->mode, mbind_arg->new_nodes->maskp,
@@ -368,7 +377,6 @@ static void do_move_pages(char **p) {
 		/* return; */
 	}
 
-	signal(SIGUSR1, sig_handle_flag);
 	pprintf("entering busy loop\n");
 	if (busyloop)
 		while (flag)
@@ -481,7 +489,30 @@ static void do_madv_soft(char **p) {
 		/* return; */
 	}
 
-	signal(SIGUSR1, sig_handle_flag);
+	pprintf("entering busy loop\n");
+	if (busyloop)
+		while (flag)
+			access_all(p);
+	else
+		pause();
+}
+
+static void do_auto_numa(char **p) {
+	struct bitmask *new_nodes = numa_bitmask_alloc(nr_nodes);
+
+	numa_bitmask_setbit(new_nodes, 1);
+	numa_sched_setaffinity(0, new_nodes);
+	printf("sched_setaffinity to node 1\n");
+
+	pprintf("entering busy loop\n");
+	if (busyloop)
+		while (flag)
+			access_all(p);
+	else
+		pause();
+}
+
+static void do_change_cpuset(char **p) {
 	pprintf("entering busy loop\n");
 	if (busyloop)
 		while (flag)
@@ -492,6 +523,15 @@ static void do_madv_soft(char **p) {
 
 void do_page_migration(void) {
 	char *p[BUFNR];
+	struct bitmask *init_nodes = numa_bitmask_alloc(nr_nodes);
+
+	/*
+	 * All migration testing assume that data is migrated from node 0
+	 * to node 1, and some testcase like auto numa need to locate running
+	 * CPU to some node, so let's assign affined CPU to node 0 too.
+	 */
+	numa_bitmask_setbit(init_nodes, 0);
+	numa_sched_setaffinity(0, init_nodes);
 
 	/* node 0 is preferred */
 	if (set_mempolicy_node(MPOL_PREFERRED, 0) == -1)
@@ -521,8 +561,148 @@ void do_page_migration(void) {
 	case MS_MADV_SOFT:
 		do_madv_soft(p);
 		break;
+	case MS_AUTO_NUMA:
+		do_auto_numa(p);
+		break;
+	case MS_CHANGE_CPUSET:
+		do_change_cpuset(p);
+		break;
 	}
 
 	pprintf("exited busy loop\n");
 	pause();
+}
+
+void do_process_vm_access(void) {
+	int i;
+	pid_t pid;
+	char *p[BUFNR];
+	struct iovec local[1024];
+	struct iovec remote[1024];
+	ssize_t nread;
+
+	/* node 0 is preferred */
+	if (set_mempolicy_node(MPOL_PREFERRED, 0) == -1)
+		err("set_mempolicy(MPOL_PREFERRED) to 0");
+
+	mmap_all(p);
+
+	pid = fork();
+
+	if (!pid) {
+		/* Expecting COW, but it doesn't happend in zero page */
+		access_all(p);
+		pause();
+		return;
+	}
+
+	pprintf("parepared_for_process_vm_access\n");
+	pause();
+
+	for (i = 0; i < nr_p / 512; i++) {
+		local[i].iov_base = p + i * HPS;
+		local[i].iov_len = HPS;
+		remote[i].iov_base = p + i * HPS;
+		remote[i].iov_len = HPS;
+	}
+	nread = process_vm_readv(pid, local, nr_p / 512, remote, nr_p / 512, 0);
+	printf("0x%lx bytes read, p[0] = %c\n", nread, p[0]);
+
+	pprintf("exit\n");
+	pause();
+	return;
+}
+
+static int __mlock_chunk(char *p, int size, void *args) {
+	int i;
+
+	if (hp_partial) {
+		for (i = 0; i < (size - 1) / 512 + 1; i++)
+			mlock(p + i * HPS, PS);
+	} else
+		mlock(p, size);
+}
+
+void do_mlock(void) {
+	int ret;
+	char *p[BUFNR];
+	pid_t pid;
+
+	mmap_all(p);
+
+	pprintf("page_fault_done\n");
+	pause();
+
+	if (forkflag) {
+		pid = fork();
+
+		if (!pid) {
+			access_all(p);
+			pause();
+			return;
+		}
+		printf("forked\n");
+	}
+
+	ret = do_work_memory(p, __mlock_chunk, NULL);
+	if (ret == -1) {
+		perror("mlock");
+		pprintf("mlock failed\n");
+		pause();
+		/* return; */
+	}
+
+	pprintf("entering busy loop\n");
+	if (busyloop)
+		while (flag)
+			access_all(p);
+	else
+		pause();
+}
+
+static int __mprotect_chunk(char *p, int size, void *args) {
+	int i;
+
+	if (hp_partial) {
+		for (i = 0; i < (size - 1) / 512 + 1; i++)
+			mprotect(p + i * HPS, PS, protflag|PROT_EXEC);
+	} else
+		mprotect(p, size, protflag|PROT_EXEC);
+}
+
+void do_mprotect(void) {
+	int ret;
+	char *p[BUFNR];
+	pid_t pid;
+
+	mmap_all(p);
+
+	pprintf("page_fault_done\n");
+	pause();
+
+	if (forkflag) {
+		pid = fork();
+
+		if (!pid) {
+			access_all(p);
+			pause();
+			return;
+		}
+		printf("forked\n");
+	}
+
+	ret = do_work_memory(p, __mprotect_chunk, NULL);
+	if (ret == -1) {
+		perror("mprotect");
+		pprintf("mprotect failed\n");
+		pause();
+		/* return; */
+	}
+
+	pprintf("entering busy loop\n");
+	if (busyloop)
+		while (flag)
+			access_all(p);
+	else
+		pause();
 }

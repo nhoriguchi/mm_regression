@@ -1,0 +1,27 @@
+# TODO: move to mmgeneric
+
+#!1 OPERATION_TYPE: mlock mprotect
+#!1 FLAVOR: full partial
+#!1 FORK: nofork fork
+
+. $TRDIR/setup_page_migration.sh
+
+NUMA_NODE=2
+THP=10
+
+OPERATION_TYPE=__MARK_OPERATION_TYPE
+FLAVOR=__MARK_FLAVOR
+FORK=__MARK_FORK
+
+EXPECTED_RETURN_CODE="START MLOCKED EXIT"
+
+if [ __MARK_FLAVOR == partial ] ; then
+	PARTIALOPT=-P
+	EXPECTED_RETURN_CODE="START MLOCKED PMD_SPLIT EXIT"
+fi
+
+if [ __MARK_FORK == fork ] ; then
+	FORKOPT=-F
+fi
+
+TEST_PROGRAM="$test_alloc_generic -o $OPERATION_TYPE -m private -B thp -N $THP -b $PARTIALOPT $FORKOPT"

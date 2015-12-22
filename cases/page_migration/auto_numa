@@ -1,0 +1,48 @@
+. $TRDIR/setup_page_migration.sh
+
+NUMA_NODE=2
+THP=30
+
+EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"
+TEST_PROGRAM="$test_alloc_generic -o page_migration -s auto_numa -m private -N $THP -B thp -b"
+
+MIGRATE_SRC=auto_numa
+
+get_numa_maps() { cat /proc/$1/numa_maps; }
+
+_prepare() {
+	prepare_mm_generic || return 1
+
+    # numa balancing should be enabled
+    echo 1 > /proc/sys/kernel/numa_balancing
+    echo 1 > /proc/sys/kernel/numa_balancing_scan_delay_ms
+    echo 100 > /proc/sys/kernel/numa_balancing_scan_period_max_ms
+    echo 100 > /proc/sys/kernel/numa_balancing_scan_period_min_ms
+    echo 1024 > /proc/sys/kernel/numa_balancing_scan_size_mb
+}
+
+_cleanup() {
+	cleanup_mm_generic
+
+    echo $INIT_NUMA_BALANCING > /proc/sys/kernel/numa_balancing
+    echo 1000 > /proc/sys/kernel/numa_balancing_scan_delay_ms
+    echo 60000 > /proc/sys/kernel/numa_balancing_scan_period_max_ms
+    echo 1000 > /proc/sys/kernel/numa_balancing_scan_period_min_ms
+    echo 256 > /proc/sys/kernel/numa_balancing_scan_size_mb
+}
+
+check_numa_maps() {
+    count_testcount "CHECK /proc/pid/numa_maps"
+    local map1=$(grep "^700000000000" $TMPD/numa_maps1 | sed -r 's/.* (N[0-9]*=[0-9]*).*/\1/g')
+    local map2=$(grep "^700000000000" $TMPD/numa_maps2 | sed -r 's/.* (N[0-9]*=[0-9]*).*/\1/g')
+    if [ "$map1" == "$map2" ] ; then
+        count_failure "thp is not migrated."
+        echo "map1=${map1}, map2=${map2}"
+    else
+        count_success "thp is migrated."
+    fi
+}
+
+_check() {
+    check_numa_maps
+}

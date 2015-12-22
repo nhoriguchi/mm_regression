@@ -1,11 +1,6 @@
 #!/bin/bash
 
 . $TCDIR/lib/mm.sh
-. $TCDIR/lib/numa.sh
-. $TCDIR/lib/mce.sh
-. $TCDIR/lib/hugetlb.sh
-. $TCDIR/lib/thp.sh
-. $TCDIR/lib/ksm.sh
 
 set_monarch_timeout() {
     local value=$1
@@ -18,50 +13,10 @@ set_monarch_timeout() {
 }
 
 prepare_mce_test() {
+	prepare_mm_generic || return 1
+
 	if [ "$ERROR_TYPE" = mce-srao ] ; then
         check_mce_capability || return 1 # MCE SRAO not supported
-		check_mce_capability
-		echo "returned $?"
-	fi
-
-	if [ "$NUMA_NODE" ] ; then
-		numa_check || return 1
-	fi
-
-	if [ "$HUGETLB" ] ; then
-		hugetlb_support_check || return 1
-		if [ "$HUGEPAGESIZE" ] ; then
-			hugepage_size_support_check || return 1
-		fi
-		set_and_check_hugetlb_pool $HUGETLB || echo "### Hugetlb pool might not clean, be careful! ###"
-	fi
-
-	if [ "$HUGETLB_MOUNT" ] ; then # && [ "$HUGETLB_FILE" ] ; then
-		rm -rf $HUGETLB_MOUNT/* > /dev/null 2>&1
-		umount -f $HUGETLB_MOUNT > /dev/null 2>&1
-		mkdir -p $HUGETLB_MOUNT > /dev/null 2>&1
-		mount -t hugetlbfs none $HUGETLB_MOUNT || return 1
-	fi
-
-	if [ "$HUGETLB_OVERCOMMIT" ] ; then
-		set_hugetlb_overcommit $HUGETLB_OVERCOMMIT
-		set_return_code SET_OVERCOMMIT
-	fi
-
-	if [ "$THP" ] ; then
-		# TODO: how can we make sure that there's no thp on the test system?
-		set_thp_params_for_testing
-		set_thp_madvise
-		show_stat_thp
-	fi
-
-	if [ "$BACKEND" = ksm ] ; then
-		ksm_on
-		show_ksm_params | tee $TMPD/ksm_params1
-	fi
-
-	if [ "$MEMORY_HOTREMOVE" ] ; then
-		reonline_memblocks
 	fi
 
 	if [ "$TESTFILE" ] && [ "$FILESIZE" ] ; then
@@ -75,44 +30,15 @@ prepare_mce_test() {
 		set_monarch_timeout $MONARCH_TIMEOUT
 	fi
 
-	# TODO: better location?
-	all_unpoison
-	ipcrm --all > /dev/null 2>&1
     save_nr_corrupted_before
 }
 
 cleanup_mce_test() {
-	# TODO: better location?
-    save_nr_corrupted_inject
-	all_unpoison
-	ipcrm --all > /dev/null 2>&1
-
-	if [ "$HUGETLB_MOUNT" ] ; then
-		rm -rf $HUGETLB_MOUNT/* 2>&1 > /dev/null
-		umount -f $HUGETLB_MOUNT 2>&1 > /dev/null
+	# This chech is only meaningful only if test programs are run in sync mode.
+	if [ "$TEST_PROGRAM" ] ; then
+		save_nr_corrupted_inject
 	fi
-
-	if [ "$HUGETLB" ] ; then
-		set_and_check_hugetlb_pool 0
-	fi
-
-	if [ "$HUGETLB_OVERCOMMIT" ] ; then
-		set_hugetlb_overcommit 0
-	fi
-
-	if [ "$THP" ] ; then
-		default_tuning_parameters
-		show_stat_thp
-	fi
-
-	if [ "$BACKEND" = ksm ] ; then
-		show_ksm_params | tee $TMPD/ksm_params2
-		ksm_off
-	fi
-
-	if [ "$MEMORY_HOTREMOVE" ] ; then
-		reonline_memblocks
-	fi
+	cleanup_mm_generic
 
 	if [ "$TESTFILE" ] && [ "$FILESIZE" ] ; then
 		local f
@@ -221,7 +147,7 @@ control_mce_test() {
 				kill -SIGUSR1 $pid
 				;;
 			"writing affected region")
-				set_return_code "ACCESS"
+				set_return_code ACCESS
 				kill -SIGUSR1 $pid
 				sleep 1
 				if ! kill -0 $pid 2> /dev/null ; then
@@ -234,16 +160,18 @@ control_mce_test() {
 			"memory_error_injection_done")
 				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | tee $TMPD/pageflagcheck2 | head
 				kill -SIGUSR1 $pid
-				set_return_code "EXIT"
+				set_return_code EXIT
 				return 0
 				;;
 			"do_multi_backend_busyloop")
 				# TODO: better flag
 				if [ "$MULTIINJ_ITERATIONS" ] ; then
 					echo "do_multi_inject"
-					do_multi_inject
+					do_multi_inject $pid
 				fi
-				kill -SIGUSR1 $pid
+				set_return_code EXIT
+				kill -SIGUSR2 $pid
+				return 0
 				;;
 			*)
 				;;
@@ -253,8 +181,11 @@ control_mce_test() {
 }
 
 do_multi_inject() {
-	local target=$($PAGETYPES -b $TARGET_PAGEFLAG -rNl | grep -v X | grep -v offset | head -n1 | cut -f1)
-	$PAGETYPES -b $TARGET_PAGEFLAG -rNl | grep -v X | head -n10
+	local pid=$1
+	echo_log "multi injection for target page $TARGET_PAGEFLAG"
+	echo "$PAGETYPES -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN,"
+	local target=$($PAGETYPES -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN, | grep -v X | grep -v offset | head -n1 | cut -f2)
+	$PAGETYPES -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN, | grep -v X | head -n10
 	if [ ! "$target" ] ; then
 		echo "No page with $TARGET_PAGEFLAG found"
         set_return_code TARGET_NOT_FOUND
@@ -278,6 +209,8 @@ do_multi_inject() {
             set_return_code INVALID_INJECT_TYPE
             return 1
         fi
+
+		# echo "Start injection thread $i"
 		if [ "$DIFFERENT_PFNS" == true ] ; then
 			# echo_log "$MCEINJECT -e $injtype -a $[0x$target + i]"
 			( while [ -e $TMPD/sync ] ; do true ; done ; $MCEINJECT -e $injtype -a $[0x$target + i] > /dev/null ) &
@@ -288,6 +221,9 @@ do_multi_inject() {
         # echo_log $!
     done
 
+	echo -n "ready ... "
+	sleep 1
+	echo "go!"
     rm $TMPD/sync
     sleep 1
 }

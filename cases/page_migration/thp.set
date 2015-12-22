@@ -1,0 +1,172 @@
+#!2 MIGRATE_SRC: migratepages
+#!2 RACE_SRC: race_with_gup race_with_process_vm_access race_with_map_fault_unmap
+
+#!3 MIGRATE_SRC: mbind
+#!3 OPERATION: partial
+
+. $TRDIR/setup_page_migration.sh
+
+MIGRATE_SRC=__MARK_MIGRATE_SRC
+RACE_SRC=__MARK_RACE_SRC
+
+NUMA_NODE=2
+THP=10
+
+BACKEND=thp
+
+EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"
+
+if [ "$RACE_SRC" == race_with_gup ] ; then
+	TEST_PROGRAM="$test_alloc_generic -o page_migration -s $MIGRATE_SRC -B thp -b -d work -N $THP -M $(get_backend_pageflags $BACKEND)"
+elif [ "$RACE_SRC" == race_with_process_vm_access ] ; then
+	# TODO: really need busyloop flag?
+	TEST_PROGRAM="$test_alloc_generic -o process_vm_access -s $MIGRATE_SRC -B thp -b -d work -N $THP -M $(get_backend_pageflags $BACKEND)"
+	EXPECTED_RETURN_CODE="START EXIT"
+elif [ "$RACE_SRC" == race_with_map_fault_unmap ] ; then
+	_control() {
+		for i in $(seq 5) ; do
+			$test_alloc_generic -o iterate_mapping -N 10 -B thp &
+			local pid=$!
+			sleep 0.3
+			for j in $(seq 100) ; do
+				$PAGETYPES -p $pid -Nl -b thp,compound_head=thp,compound_head | grep -v offset > $TMPF.pagetypes1
+				do_migratepages $pid 0 1
+				$PAGETYPES -p $pid -Nl -b thp,compound_head=thp,compound_head | grep -v offset > $TMPF.pagetypes2
+				do_migratepages $pid 1 0
+				# echo $j
+				# cat $TMPF.pagetypes1 $TMPF.pagetypes2
+				diff -u $TMPF.pagetypes1 $TMPF.pagetypes2 >&2
+			done
+			kill -SIGUSR1 $pid 2> /dev/null
+		done
+		set_return_code EXIT
+	}
+	EXPECTED_RETURN_CODE="START EXIT"
+else
+	# no race mbind/partial case
+	TEST_PROGRAM="$test_alloc_generic -o page_migration -s mbind -B thp -b -P -d work -N $THP -M $(get_backend_pageflags $BACKEND)"
+fi
+
+INIT_NUMA_BALANCING=$(cat /proc/sys/kernel/numa_balancing)
+AUTO_NUMA=
+
+#### _prepare() {
+#### 	prepare_mm_generic || return 1
+####
+####     # numa balancing should be enabled
+####     echo 1 > /proc/sys/kernel/numa_balancing
+####     echo 1 > /proc/sys/kernel/numa_balancing_scan_delay_ms
+####     echo 100 > /proc/sys/kernel/numa_balancing_scan_period_max_ms
+####     echo 100 > /proc/sys/kernel/numa_balancing_scan_period_min_ms
+####     echo 1024 > /proc/sys/kernel/numa_balancing_scan_size_mb
+#### }
+####
+#### _cleanup() {
+#### 	cleanup_mm_generic
+####
+####     echo $INIT_NUMA_BALANCING > /proc/sys/kernel/numa_balancing
+####     echo 1000 > /proc/sys/kernel/numa_balancing_scan_delay_ms
+####     echo 60000 > /proc/sys/kernel/numa_balancing_scan_period_max_ms
+####     echo 1000 > /proc/sys/kernel/numa_balancing_scan_period_min_ms
+####     echo 256 > /proc/sys/kernel/numa_balancing_scan_size_mb
+#### }
+####
+#### _control() {
+####     local pid="$1"
+####     local line="$2"
+####
+####     echo "$line" | tee -a ${OFILE}
+####     case "$line" in
+####         "entering_busy_loop")
+####             $PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
+####             $PAGETYPES -p $pid -r -b anon | grep total
+#### 			grep -A15 ^70000 /proc/$pid/smaps | grep -i anon
+#### 			grep RssAnon /proc/$pid/status
+####             $PAGETYPES -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee -a $OFILE | tee $TMPF.pagetypes1
+#### 			migratepages $pid 0 1
+#### 			# migratepages $pid 1 0
+####             kill -SIGUSR1 $pid
+####             ;;
+####         "exited_busy_loop")
+####             $PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
+####             $PAGETYPES -p $pid -r -b anon | grep total
+#### 			grep -A15 ^70000 /proc/$pid/smaps | grep -i anon
+#### 			grep RssAnon /proc/$pid/status
+####             $PAGETYPES -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee -a $OFILE | tee $TMPF.pagetypes2
+####             kill -SIGUSR1 $pid
+####             set_return_code EXIT
+####             return 0
+####             ;;
+####         *)
+####             ;;
+####     esac
+####     return 1
+#### }
+####
+#### check_numa_maps() {
+####     count_testcount "CHECK /proc/pid/numa_maps"
+####     local map1=$(grep "^700000000000" $TMPD/numa_maps1 | sed -r 's/.* (N[0-9]*=[0-9]*).*/\1/g')
+####     local map2=$(grep "^700000000000" $TMPD/numa_maps2 | sed -r 's/.* (N[0-9]*=[0-9]*).*/\1/g')
+####     if [ "$map1" == "$map2" ] ; then
+####         count_failure "thp is not migrated."
+####         echo "map1=${map1}, map2=${map2}"
+####     else
+####         count_success "thp is migrated."
+####     fi
+#### }
+####
+#### _check() {
+####     check_numa_maps
+#### }
+
+check_thp_migration() {
+	check_system_default
+	check_thp_migrated
+}
+
+check_thp_migration_partial() {
+	check_system_default
+	check_thp_split_migrated
+}
+
+check_thp_migrated() {
+	local before_head=$(sed -ne 1p $TMPF.pagetypes1 | cut -f2)
+	local before_tail=$(sed -ne 2p $TMPF.pagetypes1 | cut -f2)
+	local after_head=$(sed -ne 1p $TMPF.pagetypes2 | cut -f2)
+	local after_tail=$(sed -ne 2p $TMPF.pagetypes2 | cut -f2)
+
+	count_testcount "thp migration check"
+	echo "$before_head/$before_tail => $after_head/$after_tail"
+	if [ "$before_head" = "$after_head" ] ; then
+		count_failure "thp not migrated (stay in a place)"
+	else
+		local ah16=$(printf "%d" 0x$after_head)
+		local at16=$(printf "%d" 0x$after_tail)
+		if [ "$[$ah16 + 1]" -eq "$at16" ] ; then
+			count_success "thp migrated"
+		else
+			count_failure "maybe raw page migrated"
+		fi
+	fi
+}
+
+check_thp_split_migrated() {
+	local before_head=$(sed -ne 1p $TMPF.pagetypes1 | cut -f2)
+	local before_tail=$(sed -ne 2p $TMPF.pagetypes1 | cut -f2)
+	local before_flag=$(sed -ne 1p $TMPF.pagetypes1 | cut -f4)
+	local after_head=$(sed -ne 1p $TMPF.pagetypes2 | cut -f2)
+	local after_tail=$(sed -ne 2p $TMPF.pagetypes2 | cut -f2)
+	local after_flag=$(sed -ne 1p $TMPF.pagetypes2 | cut -f4)
+
+ 	count_testcount "thp split/migration check"
+ 	echo "$before_head/$before_tail => $after_head/$after_tail"
+ 	if ! [[ "$before_flag" =~ t ]] ; then
+ 		count_failure "Initial state is not a thp"
+	elif [[ "$after_flag" =~ t ]] ; then
+ 		count_failure "The thp didn't split"
+ 	elif [ "$before_head" = "$after_head" ] || [ "$before_tail" = "$after_tail" ] ; then
+ 		count_failure "split raw pages did not migrated (stay in a place)"
+	else
+		count_success "thp split and migrated"
+ 	fi
+}

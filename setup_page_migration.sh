@@ -1,39 +1,11 @@
 #!/bin/bash
 
 . $TCDIR/lib/mm.sh
-. $TCDIR/lib/numa.sh
-. $TCDIR/lib/mce.sh
-. $TCDIR/lib/hugetlb.sh
-. $TCDIR/lib/memcg.sh
+
+get_vma_protection() { grep -A 2 700000000000 /proc/$pid/maps; }
 
 prepare_hugepage_migration() {
-	if [ "$NUMA_NODE" ] ; then
-		numa_check || return 1
-	fi
-
-	if [ "$HUGETLB" ] ; then
-		hugetlb_support_check || return 1
-		if [ "$HUGEPAGESIZE" ] ; then
-			hugepage_size_support_check || return 1
-		fi
-		set_and_check_hugetlb_pool $HUGETLB || return 1
-	fi
-
-	if [ "$HUGETLB_MOUNT" ] ; then # && [ "$HUGETLB_FILE" ] ; then
-		rm -rf $HUGETLB_MOUNT/* > /dev/null 2>&1
-		umount -f $HUGETLB_MOUNT > /dev/null 2>&1
-		mkdir -p $HUGETLB_MOUNT > /dev/null 2>&1
-		mount -t hugetlbfs none $HUGETLB_MOUNT || return 1
-	fi
-
-	if [ "$HUGETLB_OVERCOMMIT" ] ; then
-		set_hugetlb_overcommit $HUGETLB_OVERCOMMIT
-		set_return_code SET_OVERCOMMIT
-	fi
-
-	# TODO: better location?
-	all_unpoison
-	ipcrm --all > /dev/null 2>&1
+	prepare_mm_generic || return 1
 
 	if [ "$RESERVE_HUGEPAGE" ] ; then
 		$hog_hugepages -m private -n $RESERVE_HUGEPAGE -r &
@@ -51,56 +23,29 @@ prepare_hugepage_migration() {
 		reonline_memblocks
 	fi
 
-	if [ "$CGROUP" ] ; then
-		cgdelete $CGROUP 2> /dev/null
-		cgcreate -g $CGROUP || return 1
-		echo 1 > $MEMCGDIR/test1/memory.move_charge_at_immigrate || return 1
-	fi
-
 	return 0
 }
 
 cleanup_hugepage_migration() {
-	# TODO: better location?
-	all_unpoison
-	ipcrm --all > /dev/null 2>&1
-    echo 3 > /proc/sys/vm/drop_caches
-    sync
-
-	if [ "$HUGETLB_MOUNT" ] ; then
-		rm -rf $HUGETLB_MOUNT/* 2>&1 > /dev/null
-		umount -f $HUGETLB_MOUNT 2>&1 > /dev/null
-	fi
-
-	if [ "$HUGETLB" ] ; then
-		set_and_check_hugetlb_pool 0
-	fi
-
-	if [ "$HUGETLB_OVERCOMMIT" ] ; then
-		set_hugetlb_overcommit 0
-	fi
+	cleanup_mm_generic
 
 	if [ "$MIGRATE_TYPE" = hotremove ] ; then
 		reonline_memblocks
-	fi
-
-	if [ "$CGROUP" ] ; then
-		cgdelete $CGROUP 2> /dev/null
 	fi
 }
 
 check_hugepage_migration() {
 	# migration from madv_soft allows page migration within the same node,
 	# so it's meaningless to compare node statistics.
-	if [[ "$EXPECTED_RETURN_CODE" =~ " MIGRATION_PASSED" ]] && \
+	if [ "$HUGETLB" ] && [[ "$EXPECTED_RETURN_CODE" =~ " MIGRATION_PASSED" ]] && \
 		   [ -s $TMPD/numa_maps2 ] && [ "$MIGRATE_SRC" != "madv_soft" ] ; then
 		check_numa_maps
 	fi
 
 	if [ "$CGROUP" ] && [ -s $TMPD/memcg2 ] ; then
 		# TODO: meaningful check/
-		diff -u $TMPD/memcg0 $TMPD/memcg1
-		diff -u $TMPD/memcg1 $TMPD/memcg2
+		diff -u $TMPD/memcg0 $TMPD/memcg1 | grep -e ^+ -e ^-
+		diff -u $TMPD/memcg1 $TMPD/memcg2 | grep -e ^+ -e ^-
 	fi
 }
 
@@ -144,6 +89,31 @@ control_hugepage_migration() {
 				cat /sys/devices/system/node/node0/hugepages/hugepages-2048kB/free_hugepages
 				cat /sys/devices/system/node/node1/hugepages/hugepages-2048kB/free_hugepages
 				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -NrL | grep -v offset | cut -f1,2 > $TMPD/mig1
+
+				# TODO: better condition check
+				if [ "$RACE_SRC" == "race_with_gup" ] ; then
+					$PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
+					$PAGETYPES -p $pid -r -b anon | grep total
+					ps ax | grep thp
+					grep -A15 ^70000 /proc/$pid/smaps | grep -i anon
+					( for i in $(seq 10) ; do migratepages $pid 0 1 ; migratepages $pid 1 0 ; done ) &
+				fi
+
+				if [ "$MIGRATE_SRC" = change_cpuset ] ; then
+					cgclassify -g cpu,cpuset,memory:test1 $pid
+					[ $? -eq 0 ] && set_return_code CGCLASSIFY_PASS || set_return_code CGCLASSIFY_FAIL
+					echo "cat /sys/fs/cgroup/memory/test1/tasks"
+					cat /sys/fs/cgroup/memory/test1/tasks
+					ls /sys/fs/cgroup/memory/test1/tasks
+					cgget -r cpuset.mems -r cpuset.cpus -r cpuset.memory_migrate test1
+					# $PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
+					$PAGETYPES -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee -a $OFILE | tee $TMPD/pagetypes1
+
+					cgset -r cpuset.mems=0 test1
+					cgset -r cpuset.mems=1 test1
+					cgget -r cpuset.mems -r cpuset.cpus -r cpuset.memory_migrate test1
+				fi
+
 				kill -SIGUSR1 $pid
 				;;
 			"entering busy loop")
@@ -175,13 +145,44 @@ control_hugepage_migration() {
 					fi
 				fi
 
+				if [ "$OPERATION_TYPE" == mlock ] ; then
+					$PAGETYPES -p $pid -Nrl -a 0x700000000+$[THP * 512] | head
+				fi
+
+				if [ "$OPERATION_TYPE" == mprotect ] ; then
+					get_vma_protection
+					$PAGETYPES -p $pid -Nrl -a 0x700000000+$[THP * 512] | head
+				fi
+
+				if [ "$MIGRATE_SRC" = auto_numa ] ; then
+					# Current CPU/Memory should be NUMA non-optimal to kick
+					# auto NUMA.
+					echo "current CPU: $(ps -o psr= $pid)"
+					get_numa_maps $pid | grep ^70000 | tee $TMPD/numa_maps1
+					# get_numa_maps ${pid}
+					$PAGETYPES -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
+					# expecting numa balancing migration
+					sleep 2
+					echo "current CPU: $(ps -o psr= $pid)"
+					get_numa_maps $pid | grep ^70000 | tee $TMPD/numa_maps2
+					$PAGETYPES -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
+					kill -SIGUSR1 $pid
+				fi
+
+				if [ "$MIGRATE_SRC" = change_cpuset ] ; then
+					$PAGETYPES -p $pid -r -b anon | grep total
+					grep -A15 ^70000 /proc/$pid/smaps | grep -i anon
+					grep RssAnon /proc/$pid/status
+					$PAGETYPES -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee -a $OFILE | tee $TMPD/pagetypes2
+				fi
+
 				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -NrL | grep -v offset | cut -f1,2 > $TMPD/mig2
 				# count diff stats
 				diff -u0 $TMPD/mig1 $TMPD/mig2 > $TMPD/mig3
 				diffsize=$(grep -c -e ^+ -e ^- $TMPD/mig3)
 				if [ "$diffsize" -eq 0 ] ; then
 					set_return_code MIGRATION_FAILED
-					echo "do_migratepages failed."
+					echo "page migration failed."
 				else
 					echo "pfn/vaddr shows $diffsize diff lines"
 					set_return_code MIGRATION_PASSED
@@ -231,6 +232,20 @@ control_hugepage_migration() {
 				run_background_migration $pid &
 				BG_MIGRATION_PID=$!
 				kill -SIGUSR2 $pid
+				;;
+			"parepared_for_process_vm_access")
+				local cpid=$(pgrep -P $pid .)
+				echo "$PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head -Nl"
+				$PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head -Nl
+				echo "$PAGETYPES -p $cpid -r -b thp,compound_head=thp,compound_head -Nl"
+				$PAGETYPES -p $cpid -r -b thp,compound_head=thp,compound_head -Nl
+				( for i in $(seq 20) ; do
+						migratepages $pid 0 1  2> /dev/null
+						migratepages $pid 1 0  2> /dev/null
+						migratepages $cpid 0 1 2> /dev/null
+						migratepages $cpid 1 0 2> /dev/null
+						done ) &
+				kill -SIGUSR1 $pid
 				;;
 			"exit")
 				kill -SIGUSR1 $pid

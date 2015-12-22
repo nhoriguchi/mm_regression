@@ -68,6 +68,7 @@ _control() {
     local pid_poison=$!
     random_unpoison $pid &
     local pid_unpoison=$!
+	echo "Running poison/unpoison threads for $TIMEOUT seconds ..."
 	sleep $TIMEOUT
 	kill -9 $pid_poison $pid_unpoison
     kill -SIGUSR1 $pid
