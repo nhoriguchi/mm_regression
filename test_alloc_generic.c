@@ -118,6 +118,7 @@ void do_multi_backend(void) {
 		backend_type = i;
 		allocate_base = (void *)ADDR_INPUT + i * nr_p * PS;
 		mmap_all(p[i]);
+		printf("p[%d] = %p\n", i, *p[i]);
 	}
 
 	if (injection_type == MADV_HARD || injection_type == MADV_SOFT) {
@@ -154,15 +155,18 @@ static void setup(void) {
 	signal(SIGUSR1, sig_handle);
 	signal(SIGUSR2, sig_handle_flag);
 
+printf("b %d %d, o %d %d\n", backend_type, PAGECACHE, operation_type, OT_MULTI_BACKEND);
 	if (backend_type == PAGECACHE || operation_type == OT_MULTI_BACKEND) {
 		if (!workdir)
 			err("you must set workdir with -d option to allocate pagecache");
+		printf("create regular file\n");
 		create_regular_file();
 	}
 
 	if (backend_type == HUGETLB_FILE || operation_type == OT_MULTI_BACKEND) {
 		if (!workdir)
 			err("you must set workdir with -d option to allocate hugetlbfs file");
+		printf("create hugetlbfs file\n");
 		create_hugetlbfs_file();
 	}
 
@@ -176,6 +180,7 @@ static void setup(void) {
 	}
 
 	nr_chunk = (nr_p - 1) / CHUNKSIZE + 1;
+	printf("%lx\n", nr_chunk);
 }
 
 int main(int argc, char *argv[]) {
@@ -256,7 +261,7 @@ int main(int argc, char *argv[]) {
 			else if (!strcmp(optarg, "madv_soft"))
 				injection_type = MADV_SOFT;
 			else
-				injection_type = strtoul(optarg, NULL, 0);
+				errmsg("invalid -e option %s\n", optarg);
 			break;
 		case 'P': /* do the operation for hugepage partially */
 			hp_partial = 1;
@@ -280,8 +285,10 @@ int main(int argc, char *argv[]) {
 				backend_type = ZERO;
 			else if (!strcmp(optarg, "huge_zero"))
 				backend_type = HUGE_ZERO;
+			else if (!strcmp(optarg, "normal_shmem"))
+				backend_type = NORMAL_SHMEM;
 			else
-				backend_type = strtoul(optarg, NULL, 0);
+				errmsg("invalid -B option %s\n", optarg);
 			break;
 		case 'A':
 			access_after_injection = 1;
@@ -313,7 +320,7 @@ int main(int argc, char *argv[]) {
 			else if (!strcmp(optarg, "change_cpuset"))
 				migration_src = MS_CHANGE_CPUSET;
 			else
-				errmsg("invalid optarg for -s\n");
+				errmsg("invalid -s option %s\n", optarg);
 			break;
 		case 'R':
 			mapflag |= MAP_NORESERVE;

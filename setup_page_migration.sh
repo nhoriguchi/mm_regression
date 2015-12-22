@@ -99,6 +99,11 @@ control_hugepage_migration() {
 					( for i in $(seq 10) ; do migratepages $pid 0 1 ; migratepages $pid 1 0 ; done ) &
 				fi
 
+				if [ "$MIGRATE_SRC" = auto_numa ] ; then
+					echo "current CPU: $(ps -o psr= $pid)"
+					taskset -p $pid
+				fi
+
 				if [ "$MIGRATE_SRC" = change_cpuset ] ; then
 					cgclassify -g cpu,cpuset,memory:test1 $pid
 					[ $? -eq 0 ] && set_return_code CGCLASSIFY_PASS || set_return_code CGCLASSIFY_FAIL
@@ -158,14 +163,18 @@ control_hugepage_migration() {
 					# Current CPU/Memory should be NUMA non-optimal to kick
 					# auto NUMA.
 					echo "current CPU: $(ps -o psr= $pid)"
-					get_numa_maps $pid | grep ^70000 | tee $TMPD/numa_maps1
+					taskset -p $pid
+					get_numa_maps $pid | tee $TMPD/numa_maps1 | grep ^70000
 					# get_numa_maps ${pid}
 					$PAGETYPES -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
+					grep numa_hint_faults /proc/vmstat
 					# expecting numa balancing migration
-					sleep 2
+					sleep 3
 					echo "current CPU: $(ps -o psr= $pid)"
-					get_numa_maps $pid | grep ^70000 | tee $TMPD/numa_maps2
+					taskset -p $pid
+					get_numa_maps $pid | tee $TMPD/numa_maps2 | grep ^70000
 					$PAGETYPES -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
+					grep numa_hint_faults /proc/vmstat
 					kill -SIGUSR1 $pid
 				fi
 

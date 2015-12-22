@@ -35,6 +35,11 @@ int *shmids;
 
 int forkflag;
 
+struct mem_chunk {
+	int mem_type;
+	char *p;
+}
+
 enum {
 	OT_MAPPING_ITERATION,
 	OT_ALLOCATE_ONCE,
@@ -59,6 +64,7 @@ enum {
 	KSM,
 	ZERO,
 	HUGE_ZERO,
+	NORMAL_SHMEM,
 	NR_BACKEND_TYPES,
 };
 int backend_type = -1;
@@ -96,6 +102,38 @@ static int get_size_of_chunked_mmap_area(int i) {
 		return CHUNKSIZE * PS;
 }
 
+/*
+ * don't care shmid after allocation, which means that the allocated shmem
+ * will remain after this test program finish. So test controller must remove
+ * it if needed.
+ */
+static void *alloc_shmem(int size, void *exp_addr) {
+	void *addr;
+	int shmid;
+
+	if ((shmid = shmget(shmkey, size, IPC_CREAT | SHM_R | SHM_W)) < 0) {
+		perror("shmget");
+		return NULL;
+	}
+	addr = shmat(shmid, exp_addr, 0);
+	if (addr == (char *)-1) {
+		perror("Shared memory attach failure");
+		shmctl(shmid, IPC_RMID, NULL);
+		err("shmat failed");
+		return NULL;
+	}
+	if (addr != exp_addr) {
+		printf("Shared memory not attached to expected address (%p -> %p) %lx %lx\n", exp_addr, addr, SHMLBA, SHM_RND);
+		shmctl(shmid, IPC_RMID, NULL);
+		err("shmat failed");
+		return NULL;
+	}
+
+	shmkey = shmid;
+	return addr;
+}
+
+#include <sys/shm.h>
 static void *prepare_memory(void *baseaddr, int size) {
 	char *p;
 	unsigned long offset;
@@ -109,44 +147,52 @@ static void *prepare_memory(void *baseaddr, int size) {
 		break;
 	case ANONYMOUS:
 		/* printf("base:0x%lx, size:%lx\n", baseaddr, size); */
-		p = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0);
+		p = checked_mmap(baseaddr, size, protflag,
+				 MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 		madvise(p, size, MADV_NOHUGEPAGE);
 		break;
 	case THP:
-		p = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0);
+		p = checked_mmap(baseaddr, size, protflag,
+				 MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 		if (madvise(p, size, MADV_HUGEPAGE) == -1) {
 			printf("p %p, size %lx\n", p, size);
 			err("madvise");
 		}
 		break;
 	case HUGETLB_ANON:
-		p = checked_mmap(baseaddr, size, protflag, mapflag|MAP_HUGETLB, -1, 0);
+		p = checked_mmap(baseaddr, size, protflag,
+				 MAP_PRIVATE|MAP_ANONYMOUS|MAP_HUGETLB, -1, 0);
 		madvise(p, size, MADV_DONTNEED);
 		break;
 	case HUGETLB_SHMEM:
-		/* printf("size %lx\n", size); */
 		/*
 		 * TODO: currently alloc_shm_hugepage is not designed to be called
 		 * multiple times, so controlling script must cleanup shmems after
 		 * running the testcase.
 		 */
-		p = alloc_shm_hugepage(size);
+		p = alloc_shm_hugepage2(size, baseaddr);
 		break;
 	case HUGETLB_FILE:
 		offset = (unsigned long)(baseaddr - allocate_base);
-		p = checked_mmap(baseaddr, size, protflag, mapflag, hugetlbfd, offset);
+		p = checked_mmap(baseaddr, size, protflag, MAP_SHARED, hugetlbfd, offset);
 		break;
 	case KSM:
-		p = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0);
+		p = checked_mmap(baseaddr, size, protflag,
+				 MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 		set_mergeable(p, size);
 		break;
 	case ZERO:
-		p = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0);
+		p = checked_mmap(baseaddr, size, protflag,
+				 MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 		madvise(p, size, MADV_NOHUGEPAGE);
 		break;
 	case HUGE_ZERO:
-		p = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0);
+		p = checked_mmap(baseaddr, size, protflag,
+				 MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 		madvise(p, size, MADV_HUGEPAGE);
+		break;
+	case NORMAL_SHMEM:
+		p = alloc_shmem(size, baseaddr);
 		break;
 	}
 
@@ -177,7 +223,7 @@ static void mmap_all(char **p) {
 		/* printf("base:0x%lx, size:%lx\n", baseaddr, size); */
 		/* p[i] = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0); */
 		p[i] = prepare_memory(baseaddr, size);
-		/* printf("p[%d]:%p + 0x%lx\n", i, p[i], size); */
+		printf("p[%d]:%p + 0x%lx, btype %d\n", i, p[i], size, backend_type);
 		/* TODO: generalization, making this configurable */
 		if (backend_type == ZERO || backend_type == HUGE_ZERO)
 			read_memory(p[i], size);
@@ -238,15 +284,17 @@ static void create_hugetlbfs_file(void) {
 	int i;
 	char fpath[256];
 	char buf[PS];
+	char *phugetlb;
 
 	sprintf(fpath, "%s/hugetlbfs/testfile", workdir);
 	hugetlbfd = open(fpath, O_CREAT|O_RDWR, 0755);
 	if (hugetlbfd == -1)
 		err("open");
-	memset(buf, 'a', PS);
-	for (i = 0; i < nr_p; i++)
-		write(hugetlbfd, buf, PS);
-	fsync(hugetlbfd);
+	phugetlb = checked_mmap(NULL, nr_p * PS, protflag, MAP_SHARED,
+				hugetlbfd, 0);
+	/* printf("phugetlb %p\n", phugetlb); */
+	memset(phugetlb, 'a', nr_p * PS);
+	munmap(phugetlb, nr_p * PS);
 }
 
 int do_work_memory(char **p, int (*func)(char *p, int size, void *arg), void *args) {
@@ -498,10 +546,14 @@ static void do_madv_soft(char **p) {
 }
 
 static void do_auto_numa(char **p) {
-	struct bitmask *new_nodes = numa_bitmask_alloc(nr_nodes);
+	int ret;
+	struct bitmask *new_cpus = numa_bitmask_alloc(numa_num_configured_cpus());
 
-	numa_bitmask_setbit(new_nodes, 1);
-	numa_sched_setaffinity(0, new_nodes);
+	if (numa_node_to_cpus(1, new_cpus))
+		err("numa_node_to_cpus");
+
+	if (numa_sched_setaffinity(0, new_cpus))
+		err("numa_sched_setaffinity");
 	printf("sched_setaffinity to node 1\n");
 
 	pprintf("entering busy loop\n");
@@ -523,15 +575,18 @@ static void do_change_cpuset(char **p) {
 
 void do_page_migration(void) {
 	char *p[BUFNR];
-	struct bitmask *init_nodes = numa_bitmask_alloc(nr_nodes);
+	struct bitmask *init_cpus = numa_bitmask_alloc(numa_num_configured_cpus());
 
 	/*
 	 * All migration testing assume that data is migrated from node 0
 	 * to node 1, and some testcase like auto numa need to locate running
 	 * CPU to some node, so let's assign affined CPU to node 0 too.
 	 */
-	numa_bitmask_setbit(init_nodes, 0);
-	numa_sched_setaffinity(0, init_nodes);
+	if (numa_node_to_cpus(0, init_cpus))
+		err("numa_node_to_cpus");
+
+	if (numa_sched_setaffinity(0, init_cpus))
+		err("numa_sched_setaffinity");
 
 	/* node 0 is preferred */
 	if (set_mempolicy_node(MPOL_PREFERRED, 0) == -1)

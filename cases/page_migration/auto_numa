@@ -10,6 +10,8 @@ MIGRATE_SRC=auto_numa
 
 get_numa_maps() { cat /proc/$1/numa_maps; }
 
+INIT_NUMA_BALANCING=$(cat /proc/sys/kernel/numa_balancing)
+
 _prepare() {
 	prepare_mm_generic || return 1
 
