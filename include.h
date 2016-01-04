@@ -72,6 +72,7 @@ enum {
 	OT_MREMAP_STRESS,
 	OT_MBIND_FUZZ,
 	OT_MADV_WILLNEED,
+	OT_ALLOCATE_MORE,
 	NR_OPERATION_TYPES,
 };
 int operation_type = -1;

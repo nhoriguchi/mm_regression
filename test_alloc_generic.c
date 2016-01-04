@@ -168,6 +168,17 @@ static void do_madv_willneed(void) {
 	munmap_all_chunks();
 }
 
+static void __do_allocate_more(void) {
+	char *panon;
+	int size = nr_p * PS;
+
+	panon = checked_mmap((void *)(ADDR_INPUT + size), size, MMAP_PROT,
+			MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	/* should cause swap out with external cgroup setting */
+	pprintf("anonymous address starts at %p\n", panon);
+	memset(panon, 'a', size);
+}
+
 static int need_numa() {
 	if ((operation_type == OT_PAGE_MIGRATION) ||
 	    (operation_type == OT_PAGE_MIGRATION)) {
@@ -257,6 +268,9 @@ static void do_operation(void) {
 		break;
 	case OT_MADV_WILLNEED:
 		__do_madv_willneed();
+		break;
+	case OT_ALLOCATE_MORE:
+		__do_allocate_more();
 		break;
 	}
 }
@@ -395,6 +409,8 @@ int main(int argc, char *argv[]) {
 				operation_type = OT_MBIND_FUZZ;
 			else if (!strcmp(optarg, "madv_willneed")) {
 				operation_type = OT_MADV_WILLNEED;
+			} else if (!strcmp(optarg, "allocate_more")) {
+				operation_type = OT_ALLOCATE_MORE;
 			} else
 				operation_type = strtoul(optarg, NULL, 0);
 			break;
