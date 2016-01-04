@@ -179,6 +179,55 @@ static void __do_allocate_more(void) {
 	memset(panon, 'a', size);
 }
 
+static void allocate_transhuge(void *ptr)
+{
+	uint64_t ent[2];
+	int i;
+
+	/* drop pmd */
+	if (mmap(ptr, THPS, PROT_READ | PROT_WRITE,
+		 MAP_FIXED | MAP_ANONYMOUS | MAP_NORESERVE | MAP_PRIVATE, -1, 0) != ptr)
+		err("mmap transhuge");
+
+	if (madvise(ptr, THPS, MADV_HUGEPAGE))
+		err("MADV_HUGEPAGE");
+
+	/* allocate transparent huge page */
+	for (i = 0; i < (1 << (THP_SHIFT - PAGE_SHIFT)); i++) {
+		*(volatile void **)(ptr + i * PAGE_SIZE) = ptr;
+	}
+}
+
+static void do_memory_compaction(void) {
+	size_t ram, len;
+	void *ptr, *p;
+
+	ram = sysconf(_SC_PHYS_PAGES);
+	if (ram > SIZE_MAX / sysconf(_SC_PAGESIZE) / 4)
+		ram = SIZE_MAX / 4;
+	else
+		ram *= sysconf(_SC_PAGESIZE);
+	Dprintf("===> %lx\n", ram);
+	len = ram;
+	Dprintf("===> %lx\n", len);
+	len -= len % THPS;
+	ptr = mmap((void *)ADDR_INPUT, len + THPS, PROT_READ | PROT_WRITE,
+			MAP_ANONYMOUS | MAP_NORESERVE | MAP_PRIVATE, -1, 0);
+
+	if (madvise(ptr, len, MADV_HUGEPAGE))
+		err("MADV_HUGEPAGE");
+
+	pprintf("entering busy loop\n");
+	while (flag) {
+		for (p = ptr; p < ptr + len; p += THPS) {
+			allocate_transhuge(p);
+			/* split transhuge page, keep last page */
+			if (madvise(p, THPS - PAGE_SIZE, MADV_DONTNEED))
+				err("MADV_DONTNEED");
+		}
+	}
+}
+
 static int need_numa() {
 	if ((operation_type == OT_PAGE_MIGRATION) ||
 	    (operation_type == OT_PAGE_MIGRATION)) {
@@ -411,6 +460,8 @@ int main(int argc, char *argv[]) {
 				operation_type = OT_MADV_WILLNEED;
 			} else if (!strcmp(optarg, "allocate_more")) {
 				operation_type = OT_ALLOCATE_MORE;
+			} else if (!strcmp(optarg, "memory_compaction")) {
+				operation_type = OT_MEMORY_COMPACTION;
 			} else
 				operation_type = strtoul(optarg, NULL, 0);
 			break;
@@ -586,6 +637,13 @@ int main(int argc, char *argv[]) {
 			break;
 		case OT_MBIND_FUZZ:
 			do_mbind_fuzz();
+			break;
+		case OT_MEMORY_COMPACTION:
+			if (wait_start)
+				pprintf_wait(SIGUSR1, "just started\n");
+			do_memory_compaction();
+			if (wait_exit)
+				pprintf_wait(SIGUSR1, "just before exit\n");
 			break;
 		}
 	}
