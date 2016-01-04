@@ -12,24 +12,13 @@ PINGPONG_DURATION=10
 _control() {
     echo_log "start hugepage_pingpong"
 	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate1
-    $hugepage_pingpong -n 10 -t 0xff > $TMPD/fuz.out 2>&1 &
+    echo "$test_alloc_generic -v -a allocate_exit -o mbind_pingpong -N 10 -d work -B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem > $TMPD/fuz.out 2>&1 &"
+    $test_alloc_generic -a allocate_exit -o mbind_pingpong -N 10 -d work -B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem > $TMPD/fuz.out 2>&1 &
     local pid=$!
     echo_log "pid $pid"
     sleep $PINGPONG_DURATION
 	ps ax | grep $pid
-    pkill -SIGUSR1 $pid
+    pkill -SIGUSR2 $pid
 	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate2
     set_return_code EXIT
-}
-
-_prepare() {
-    prepare_hugepage_migration || return 1
-}
-
-_cleanup() {
-    cleanup_hugepage_migration
-}
-
-_check() {
-    check_hugepage_migration
 }

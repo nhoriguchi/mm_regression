@@ -228,6 +228,62 @@ static void do_memory_compaction(void) {
 	}
 }
 
+static void __do_mbind_pingpong(void) {
+	int ret;
+	int node;
+	struct mbind_arg mbind_arg = {
+		.mode = MPOL_BIND,
+		.flags = MPOL_MF_MOVE|MPOL_MF_STRICT,
+	};
+
+	mbind_arg.new_nodes = numa_bitmask_alloc(nr_nodes);
+
+	while (flag) {
+		numa_bitmask_clearall(mbind_arg.new_nodes);
+		numa_bitmask_setbit(mbind_arg.new_nodes, 1);
+
+		ret = do_work_memory2(__mbind_chunk, &mbind_arg);
+		if (ret == -1) {
+			perror("mbind");
+		/* 	pprintf("mbind failed\n"); */
+		/* 	pause(); */
+		}
+
+		numa_bitmask_clearall(mbind_arg.new_nodes);
+		numa_bitmask_setbit(mbind_arg.new_nodes, 0);
+
+		ret = do_work_memory2(__mbind_chunk, &mbind_arg);
+		if (ret == -1) {
+			perror("mbind");
+		/* 	pprintf("mbind failed\n"); */
+		/* 	pause(); */
+		}
+	}
+}
+
+static void __do_move_pages_pingpong(void) {
+	int ret;
+	int node;
+
+	while (flag) {
+		node = 1;
+		ret = do_work_memory2(__move_pages_chunk, &node);
+		if (ret == -1) {
+			perror("move_pages");
+			pprintf("move_pages failed\n");
+			pause();
+		}
+
+		node = 0;
+		ret = do_work_memory2(__move_pages_chunk, &node);
+		if (ret == -1) {
+			perror("move_pages");
+			pprintf("move_pages failed\n");
+			pause();
+		}
+	}
+}
+
 static int need_numa() {
 	if ((operation_type == OT_PAGE_MIGRATION) ||
 	    (operation_type == OT_PAGE_MIGRATION)) {
@@ -321,6 +377,15 @@ static void do_operation(void) {
 	case OT_ALLOCATE_MORE:
 		__do_allocate_more();
 		break;
+	case OT_MOVE_PAGES_PINGPONG:
+		__do_move_pages_pingpong();
+		break;
+	case OT_MBIND_PINGPONG:
+		__do_mbind_pingpong();
+		break;
+	case OT_PAGE_MIGRATION_PINGPONG:
+		/* __do_page_migration_pingpong(); */
+		break;
 	}
 }
 
@@ -372,7 +437,7 @@ static void operate_with_numa_prepared(void) {
 int main(int argc, char *argv[]) {
 	char c;
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:io:e:PB:Af:d:M:s:RFa:w:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:io:e:PB:Af:d:M:s:RFa:w:O:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -462,6 +527,12 @@ int main(int argc, char *argv[]) {
 				operation_type = OT_ALLOCATE_MORE;
 			} else if (!strcmp(optarg, "memory_compaction")) {
 				operation_type = OT_MEMORY_COMPACTION;
+			} else if (!strcmp(optarg, "move_pages_pingpong")) {
+				operation_type = OT_MOVE_PAGES_PINGPONG;
+			} else if (!strcmp(optarg, "mbind_pingpong")) {
+				operation_type = OT_MBIND_PINGPONG;
+			} else if (!strcmp(optarg, "page_migration_pingpong")) {
+				operation_type = OT_PAGE_MIGRATION_PINGPONG;
 			} else
 				operation_type = strtoul(optarg, NULL, 0);
 			break;
@@ -564,6 +635,9 @@ int main(int argc, char *argv[]) {
 				waitpoint_mask |= strtoul(optarg, NULL, 0);
 				printf("waitpoint_mask %lx\n", waitpoint_mask);
 			}
+			break;
+		case 'O':
+			preferred_node = strtoul(optarg, NULL, 0);
 			break;
 		default:
 			errmsg("invalid option\n");

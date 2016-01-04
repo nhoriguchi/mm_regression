@@ -8,51 +8,34 @@ HUGETLB_FILE=$HUGETLB_MOUNT/testfile
 EXPECTED_RETURN_CODE="START EXIT"
 
 PINGPONG_NR_PROC=4
-PINGPONG_NR_HPS=10
-PINGPONG_ALLOC_TYPES=0xff
-PINGPONG_DURATION=100
+PINGPONG_DURATION=10
 
 NUMA_MAPS_READER=$TMPD/read_numa_maps.sh
 cat <<EOF > $NUMA_MAPS_READER
-for pid in \$@ true ; do
-    cat /proc/\$pid/numa_maps > /dev/null 2>&1
+while true ; do
+	for pid in \$@ true ; do
+	    cat /proc/\$pid/numa_maps > /dev/null 2>&1
+	done
 done
 EOF
 
 _control() {
-    local nr_proc=$PINGPONG_NR_PROC
-    local nr_hps=$PINGPONG_NR_HPS
-    local type=$PINGPONG_ALLOC_TYPES
-    [ ! "$nr_proc" ] && echo "you must give PINGPONG_NR_PROC= in recipe" && return 1
-    [ ! "$nr_hps" ] && echo "you must give PINGPONG_NR_HPS= in recipe" && return 1
-    [ ! "$type" ] && echo "you must give PINGPONG_ALLOC_TYPES= in recipe" && return 1
     local i=0
     local cmd="bash ${NUMA_MAPS_READER}"
     local pids=""
     local reader_pid=
-    echo_log "start $nr_proc hugepage_pingpong processes"
+    echo_log "start $PINGPONG_NR_PROC hugepage_pingpong processes"
 	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate1
-    for i in $(seq $nr_proc) ; do
-        $hugepage_pingpong -n $nr_hps -t $type > $TMPD/fuz.out$i 2>&1 &
+    for i in $(seq $PINGPONG_NR_PROC) ; do
+		echo "$test_alloc_generic -v -a allocate_exit -o mbind_pingpong -N 10 -d work -B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem > $TMPD/fuz.out$i 2>&1 &"
+		$test_alloc_generic -a allocate_exit -o mbind_pingpong -N 10 -d work -B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem > $TMPD/fuz.out$i 2>&1 &
         pids="$pids $!"
     done
-    # eval "$cmd $pids" &
-    # reader_pid=$!
-    sleep 10
-    # kill -SIGKILL $reader_pid
-    kill -SIGUSR1 $pids
+    eval "$cmd $pids" &
+    reader_pid=$!
+    sleep $PINGPONG_DURATION
+    kill -SIGKILL $reader_pid
+    kill -SIGUSR2 $pids
 	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate2
     set_return_code EXIT
-}
-
-_prepare() {
-    prepare_hugepage_migration || return 1
-}
-
-_cleanup() {
-    cleanup_hugepage_migration
-}
-
-_check() {
-    check_hugepage_migration
 }

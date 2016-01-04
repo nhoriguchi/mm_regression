@@ -74,6 +74,9 @@ enum {
 	OT_MADV_WILLNEED,
 	OT_ALLOCATE_MORE,
 	OT_MEMORY_COMPACTION,
+	OT_MOVE_PAGES_PINGPONG,
+	OT_MBIND_PINGPONG,
+	OT_PAGE_MIGRATION_PINGPONG,
 	NR_OPERATION_TYPES,
 };
 int operation_type = -1;
@@ -562,13 +565,14 @@ static void do_mbind_fuzz(void) {
 
 static int __move_pages_chunk(char *p, int size, void *args) {
 	int i;
+	int node = *(int *)args;
 	void *__move_pages_addrs[CHUNKSIZE + 1];
 	int __move_pages_status[CHUNKSIZE + 1];
 	int __move_pages_nodes[CHUNKSIZE + 1];
 
 	for (i = 0; i < size / PS; i++) {
 		__move_pages_addrs[i] = p + i * PS;
-		__move_pages_nodes[i] = 1;
+		__move_pages_nodes[i] = node;
 		__move_pages_status[i] = 0;
 	}
 	numa_move_pages(0, size / PS, __move_pages_addrs, __move_pages_nodes,
@@ -577,9 +581,10 @@ static int __move_pages_chunk(char *p, int size, void *args) {
 
 static void do_move_pages(void) {
 	int ret;
+	int node = 1;
 
 	pprintf("call move_pages()\n");
-	ret = do_work_memory2(__move_pages_chunk, NULL);
+	ret = do_work_memory2(__move_pages_chunk, &node);
 	if (ret == -1) {
 		perror("move_pages");
 		pprintf("move_pages failed\n");
@@ -710,6 +715,7 @@ static void do_change_cpuset(void) {
 	__busyloop();
 }
 
+int preferred_node = 0;
 static void mmap_all_chunks_numa(void) {
 	struct bitmask *init_cpus = numa_bitmask_alloc(numa_num_configured_cpus());
 
@@ -718,15 +724,16 @@ static void mmap_all_chunks_numa(void) {
 	 * to node 1, and some testcase like auto numa need to locate running
 	 * CPU to some node, so let's assign affined CPU to node 0 too.
 	 */
-	if (numa_node_to_cpus(0, init_cpus))
+	if (numa_node_to_cpus(preferred_node, init_cpus))
 		err("numa_node_to_cpus");
 
 	if (numa_sched_setaffinity(0, init_cpus))
 		err("numa_sched_setaffinity");
 
 	/* node 0 is preferred */
-	if (set_mempolicy_node(mpol_mode_for_page_migration, 0) == -1)
-		errmsg("set_mempolicy(%lx) to 0", mpol_mode_for_page_migration);
+	if (set_mempolicy_node(mpol_mode_for_page_migration, preferred_node) == -1)
+		errmsg("set_mempolicy(%lx) to %d",
+		       mpol_mode_for_page_migration, preferred_node);
 
 	mmap_all_chunks();
 
