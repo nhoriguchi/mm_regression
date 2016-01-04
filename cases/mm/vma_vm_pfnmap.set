@@ -5,7 +5,7 @@
 FLAVOR=__MARK_FLAVOR
 
 if [ "$FLAVOR" == simple ] ; then
-	TEST_PROGRAM="$test_vma_vm_pfnmap -n1"
+	TEST_PROGRAM="$test_alloc_generic -a allocate_wait -B devmem -n1"
 	EXPECTED_RETURN_CODE="START EXIT"
 	_control() { control_vma_vm_pfnmap "$1" "$2"; }
 	_check() { check_vma_vm_pfnmap; }

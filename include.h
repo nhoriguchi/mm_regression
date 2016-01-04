@@ -87,19 +87,21 @@ enum {
 	ZERO,
 	HUGE_ZERO,
 	NORMAL_SHMEM,
+	DEVMEM,
 	NR_BACKEND_TYPES,
 };
 
-#define BE_PAGECACHE		0x00001
-#define BE_ANONYMOUS		0x00002
-#define BE_THP			0x00004
-#define BE_HUGETLB_ANON		0x00008
-#define BE_HUGETLB_SHMEM	0x00010
-#define BE_HUGETLB_FILE		0x00020
-#define BE_KSM			0x00040
-#define BE_ZERO			0x00080
-#define BE_HUGE_ZERO		0x00100
-#define BE_NORMAL_SHMEM		0x00200
+#define BE_PAGECACHE		(1UL << PAGECACHE)
+#define BE_ANONYMOUS		(1UL << ANONYMOUS)
+#define BE_THP			(1UL << THP)
+#define BE_HUGETLB_ANON		(1UL << HUGETLB_ANON)
+#define BE_HUGETLB_SHMEM	(1UL << HUGETLB_SHMEM)
+#define BE_HUGETLB_FILE		(1UL << HUGETLB_FILE)
+#define BE_KSM			(1UL << KSM)
+#define BE_ZERO			(1UL << ZERO)
+#define BE_HUGE_ZERO		(1UL << HUGE_ZERO)
+#define BE_NORMAL_SHMEM		(1UL << NORMAL_SHMEM)
+#define BE_DEVMEM		(1UL << DEVMEM)
 unsigned long backend_bitmap = 0;
 
 #define BE_HUGEPAGE	\
@@ -262,6 +264,8 @@ static void free_shmem2(struct mem_chunk *mc) {
 
 static void prepare_memory2(struct mem_chunk *mc, void *baseaddr,
 			     unsigned long offset) {
+	int dev_mem_fd;
+
 	switch (mc->mem_type) {
 	case PAGECACHE:
 		/* printf("open, fd %d, offset %lx\n", fd, offset); */
@@ -317,13 +321,26 @@ static void prepare_memory2(struct mem_chunk *mc, void *baseaddr,
 	case NORMAL_SHMEM:
 		mc->p = alloc_shmem2(mc, baseaddr, 0);
 		break;
+	case DEVMEM:
+		/* Assuming that -n 1 is given */
+		dev_mem_fd = checked_open("/dev/mem", O_RDWR);
+		mc->p = checked_mmap(baseaddr, PS, protflag,
+				     MAP_PRIVATE|MAP_ANONYMOUS, dev_mem_fd, 0);
+		checked_mmap(baseaddr + PS, PS, PROT_READ,
+				     MAP_SHARED, dev_mem_fd, 0xf0000);
+		checked_mmap(baseaddr + 2 * PS, PS, protflag,
+				     MAP_PRIVATE|MAP_ANONYMOUS, dev_mem_fd, 0);
+		break;
 	}
 }
 
 static void access_memory2(struct mem_chunk *mc) {
 	if (mc->mem_type == ZERO || mc->mem_type == HUGE_ZERO)
 		read_memory(mc->p, mc->chunk_size);
-	else
+	else if (mc->mem_type == DEVMEM) {
+		memset(mc->p, 'a', PS);
+		memset(mc->p + 2 * PS, 'a', PS);
+	} else
 		memset(mc->p, 'a', mc->chunk_size);
 }
 
@@ -354,7 +371,9 @@ static void mmap_all_chunks(void) {
 static void munmap_memory2(struct mem_chunk *mc) {
 	if (mc->mem_type == HUGETLB_SHMEM || mc->mem_type == NORMAL_SHMEM)
 		free_shmem2(mc);
-	else
+	else if (mc->mem_type == DEVMEM) {
+		checked_munmap(mc->p, 3 * PS);
+	} else
 		checked_munmap(mc->p, mc->chunk_size);
 }
 

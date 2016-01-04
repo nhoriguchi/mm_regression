@@ -200,6 +200,14 @@ static void setup(void) {
 		create_hugetlbfs_file();
 	}
 
+	if (backend_bitmap & BE_DEVMEM) {
+		if (backend_bitmap & ~BE_DEVMEM) {
+			errmsg("-B devmem shouldn't be used with other backend type\n");
+		}
+
+		nr_p = 1; /* -n option shouldn't work */
+	}
+
 	if (access_after_injection && injection_type == -1)
 		err("-A is set, but -e is not set, which is meaningless.");
 
@@ -428,6 +436,8 @@ int main(int argc, char *argv[]) {
 				backend_bitmap |= BE_HUGE_ZERO;
 			} else if (!strcmp(optarg, "normal_shmem")) {
 				backend_bitmap |= BE_NORMAL_SHMEM;
+			} else if (!strcmp(optarg, "devmem")) {
+				backend_bitmap |= BE_DEVMEM;
 			} else {
 				int i;
 				backend_bitmap |= strtoul(optarg, NULL, 0);
