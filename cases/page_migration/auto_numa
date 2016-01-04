@@ -1,7 +1,7 @@
 . $TRDIR/setup_page_migration.sh
 
 NUMA_NODE=2
-THP=30
+THP=1
 
 EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"
 TEST_PROGRAM="$test_alloc_generic -o page_migration -s auto_numa -m private -N $THP -B thp -b"
@@ -14,6 +14,8 @@ INIT_NUMA_BALANCING=$(cat /proc/sys/kernel/numa_balancing)
 
 _prepare() {
 	prepare_mm_generic || return 1
+
+	khpd_off
 
     # numa balancing should be enabled
     echo 1 > /proc/sys/kernel/numa_balancing

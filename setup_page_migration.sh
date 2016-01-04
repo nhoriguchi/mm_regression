@@ -84,14 +84,23 @@ control_hugepage_migration() {
 				;;
 			"page_fault_done")
 				grep ^Huge /proc/meminfo
-				get_numa_maps $pid | tee $TMPD/numa_maps1 | grep ^700000
-				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -Nrl | grep -v offset | tee $TMPD/pagetypes1 | head
+				get_numa_maps $pid | tee $TMPD/numa_maps1 | grep ^700000 | tee -a $OFILE
+				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -Nrl | grep -v offset | tee $TMPD/pagetypes1 | head -n30
 				cat /sys/devices/system/node/node0/hugepages/hugepages-2048kB/free_hugepages
 				cat /sys/devices/system/node/node1/hugepages/hugepages-2048kB/free_hugepages
 				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -NrL | grep -v offset | cut -f1,2 > $TMPD/mig1
 
 				# TODO: better condition check
 				if [ "$RACE_SRC" == "race_with_gup" ] ; then
+					$PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
+					$PAGETYPES -p $pid -r -b anon | grep total
+					ps ax | grep thp
+					grep -A15 ^70000 /proc/$pid/smaps | grep -i anon
+					( for i in $(seq 10) ; do migratepages $pid 0 1 ; migratepages $pid 1 0 ; done ) &
+				fi
+
+				# TODO: better condition check
+				if [ "$RACE_SRC" == "race_with_fork" ] ; then
 					$PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
 					$PAGETYPES -p $pid -r -b anon | grep total
 					ps ax | grep thp
@@ -175,7 +184,6 @@ control_hugepage_migration() {
 					get_numa_maps $pid | tee $TMPD/numa_maps2 | grep ^70000
 					$PAGETYPES -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
 					grep numa_hint_faults /proc/vmstat
-					kill -SIGUSR1 $pid
 				fi
 
 				if [ "$MIGRATE_SRC" = change_cpuset ] ; then
@@ -200,7 +208,7 @@ control_hugepage_migration() {
 				kill -SIGUSR2 $pid
 				;;
 			"exited busy loop")
-				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -Nrl | grep -v offset | tee $TMPD/pagetypes2 | head
+				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -Nrl | grep -v offset | tee $TMPD/pagetypes2 | head -n 30
 				get_numa_maps $pid   > $TMPD/numa_maps2
 
 				if [ "$CGROUP" ] ; then

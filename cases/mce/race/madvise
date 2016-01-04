@@ -10,11 +10,16 @@ HUGETLB_FILE=$HUGETLB_MOUNT/testfile
 
 _control() {
     local i=
+
+	ps ax | grep test_alloc
+
     for i in $(seq 10) ; do
-		$test_alloc_generic -o multi_backend -d work -e madv_hard | tee -a $OFILE
-		$test_alloc_generic -o multi_backend -d work -e madv_soft | tee -a $OFILE
-		$test_alloc_generic -o multi_backend -d work -e madv_hard -A | tee -a $OFILE
-		$test_alloc_generic -o multi_backend -d work -e madv_soft -A | tee -a $OFILE
+		echo i
+		$test_alloc_generic -o madv_stress -B 0xffffffff -d work -e madv_hard
+		$test_alloc_generic -o madv_stress -B 0xffffffff -d work -e madv_soft
+		$test_alloc_generic -o madv_stress -B 0xffffffff -d work -e madv_hard -A
+		$test_alloc_generic -o madv_stress -B 0xffffffff -d work -e madv_soft -A
     done
+	ps ax | grep test_alloc
     set_return_code EXIT
 }

@@ -2,7 +2,6 @@
 
 . $TRDIR/setup_mmgeneric.sh
 
-TEST_PROGRAM="$test_malloc_madv_willneed -n 0x3800"
 EXPECTED_RETURN_CODE="START MOVE_PASS EXIT"
 
 __prepare_memcg() {

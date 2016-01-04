@@ -49,20 +49,14 @@ elif [[ "$BACKEND" =~ thp ]] ; then
 	THP=true
 fi
 
-TEST_PROGRAM="$test_alloc_generic -o page_migration -s $MIGRATE_SRC -B $BACKEND -d work -N 30 $NORESERVEFLAG $BUSYOPT"
-
-append_expected_retcode() {
-	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE $@"
-}
-
-EXPECTED_RETURN_CODE="START"
+TEST_PROGRAM="$test_alloc_generic -o page_migration -s $MIGRATE_SRC -B $BACKEND -d work -N 2 $NORESERVEFLAG $BUSYOPT"
 
 if [ "$BACKGROUND" == reserve ] ; then
 	RESERVE_HUGEPAGE=$[HUGETLB - 2]
 	if [ __MARK_OVERCOMMIT == overcommit ] ; then
-		append_expected_retcode SET_OVERCOMMIT RESERVE MIGRATION_PASSED
+		EXPECTED_RETURN_CODE="SET_OVERCOMMIT RESERVE START MIGRATION_PASSED EXIT"
 	else
-		append_expected_retcode RESERVE MIGRATION_FAILED
+		EXPECTED_RETURN_CODE="RESERVE START MIGRATION_FAILED EXIT"
 	fi
 elif [ "$BACKGROUND" == allocate0 ] ; then
 	ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
@@ -74,23 +68,24 @@ elif [ "$BACKGROUND" == allocate0 ] ; then
 		# is enabled.
 		# ... but mbind somehow succeed in such case :(, let's make it
 		# failed until situation is understood.
-		append_expected_retcode SET_OVERCOMMIT ALLOCATE MIGRATION_FAILED
+		EXPECTED_RETURN_CODE="SET_OVERCOMMIT ALLOCATE START MIGRATION_FAILED EXIT"
 	else
-		append_expected_retcode ALLOCATE MIGRATION_FAILED
+		EXPECTED_RETURN_CODE="ALLOCATE START MIGRATION_FAILED EXIT"
 	fi
 elif [ "$BACKGROUND" == allocate1 ] ; then
 	ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
 	ALLOCATE_NODE=1
 	if [ __MARK_OVERCOMMIT == overcommit ] ; then
-		append_expected_retcode SET_OVERCOMMIT ALLOCATE MIGRATION_PASSED
+		EXPECTED_RETURN_CODE="SET_OVERCOMMIT ALLOCATE START MIGRATION_PASSED EXIT"
 	else
-		append_expected_retcode ALLOCATE MIGRATION_FAILED
+		EXPECTED_RETURN_CODE="ALLOCATE START MIGRATION_FAILED EXIT"
 	fi
 else
 	if [ __MARK_OVERCOMMIT == overcommit ] ; then
-		append_expected_retcode SET_OVERCOMMIT
+		EXPECTED_RETURN_CODE="SET_OVERCOMMIT START MIGRATION_PASSED EXIT"
+	else
+		EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"
 	fi
-	append_expected_retcode MIGRATION_PASSED
 fi
 
 if [ "$MIGRATE_SRC" == hotremove ] ; then
@@ -105,5 +100,3 @@ if [ "$MIGRATE_SRC" == hotremove ] ; then
 		TEST_PROGRAM="$test_alloc_generic -o page_migration -s $MIGRATE_SRC -B $BACKEND -d work -N $THP_ALLOCATED -M $(get_backend_pageflags $BACKEND) $BUSYOPT"
 	fi
 fi
-
-append_expected_retcode EXIT

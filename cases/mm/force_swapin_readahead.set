@@ -2,7 +2,8 @@
 
 . $TRDIR/setup_mmgeneric.sh
 
-TEST_PROGRAM="$test_malloc_madv_willneed -n 0x3800"
+# TEST_PROGRAM="$test_malloc_madv_willneed -n 0x3800"
+TEST_PROGRAM="$test_alloc_generic -a allocate_exit -o madv_willneed -B anonymous -n 0x3800 -w start -w exit -w after_allocate -w before_free"
 EXPECTED_RETURN_CODE="START EXIT"
 
 __prepare_memcg() {
@@ -56,11 +57,13 @@ _control() {
 
     echo_log "$line"
     case "$line" in
-        "malloc_madv_willneed start")
+        # "malloc_madv_willneed start")
+        "just started")
             cgclassify -g cpu,memory:test1 $pid || set_return_code CGCLASSIFY_FAIL
             kill -SIGUSR1 $pid
             ;;
-        "call madvise with MADV_WILLNEED")
+        # "call madvise with MADV_WILLNEED")
+        "page_fault_done")
             echo 3 > /proc/sys/vm/drop_caches
             gawk '
                 BEGIN {gate=0;}
@@ -78,7 +81,8 @@ _control() {
             cgset -r memory.limit_in_bytes=0x8000000 test1 || set_return_code CGSET_FAIL
             kill -SIGUSR1 $pid
             ;;
-        "malloc_madv_willneed exit")
+        # "malloc_madv_willneed exit")
+        "before_free")
             gawk '
                 BEGIN {gate=0;}
                 /^[0-9]/ {
@@ -93,7 +97,10 @@ _control() {
             cp /proc/meminfo $TMPD/meminfo_after
             $PAGETYPES -r -p $pid -a 0x700000000,0x700003800 > $TMPD/page-types.2
             kill -SIGUSR1 $pid
-            set_return_code "EXIT"
+			;;
+		"just before exit")
+            kill -SIGUSR1 $pid
+            set_return_code EXIT
             return 0
             ;;
         *)

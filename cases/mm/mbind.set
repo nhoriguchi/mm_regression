@@ -1,4 +1,4 @@
-#!1 FLAVOR: simple fuzz fuzz_devel fuzz_heavy race_unmap
+#!1 FLAVOR: simple fuzz fuzz_heavy
 
 . $TRDIR/setup_mbind.sh
 
@@ -15,29 +15,19 @@ MBIND_FUZZ_HP_NR=10
 TESTFILE=$WDIR/testfile
 
 if [ "$FLAVOR" == simple ] ; then
-	TEST_PROGRAM="$test_mbind"
+	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s mbind -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -w exit -w after_allocate -w start"
 	EXPECTED_RETURN_CODE="START EXIT"
-	_check() { control_mbind; }
+	_check() { check_mbind; }
 elif [ "$FLAVOR" == fuzz ] ; then
+	# FUZZ_CMD="$test_alloc_generic -o mbind_fuzz -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 10"
+	FUZZ_CMD="$test_alloc_generic -a allocate_wait -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 10"
 	MBIND_FUZZ_THREADS=1
-	MBIND_FUZZ_NR_PG=10
-	MBIND_FUZZ_TYPE=0x02
 	MBIND_FUZZ_DURATION=10
 	_control() { control_mbind_fuzz_normal_heavy; }
-	# _control() { control_mbind_fuzz; }
-elif [ "$FLAVOR" == fuzz_devel ] ; then
-	MBIND_FUZZ_TYPE=0xff
-	_control() { control_mbind_fuzz; }
 elif [ "$FLAVOR" == fuzz_heavy ] ; then
+	# FUZZ_CMD="$test_alloc_generic -o mbind_fuzz -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 1000"
+	FUZZ_CMD="$test_alloc_generic -a allocate_wait -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 1000"
 	MBIND_FUZZ_THREADS=100
-	MBIND_FUZZ_NR_PG=1000
-	MBIND_FUZZ_TYPE=0x80
 	MBIND_FUZZ_DURATION=30
 	_control() { control_mbind_fuzz_normal_heavy; }
-elif [ "$FLAVOR" == race_unmap ] ; then
-	MBIND_FUZZ_THREADS=10
-	MBIND_FUZZ_NR_PG=1000
-	MBIND_FUZZ_TYPE=0x80
-	MBIND_FUZZ_DURATION=30
-	_control() { control_mbind_unmap_race; }
 fi

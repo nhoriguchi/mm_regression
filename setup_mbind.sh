@@ -24,7 +24,16 @@ control_mbind() {
 
     echo_log "$line"
     case "$line" in
-        "before mbind")
+		"just started")
+            kill -SIGUSR1 $pid
+            ;;
+		"exited busy loop")
+            kill -SIGUSR2 $pid
+            ;;
+		"mbind failed")
+            kill -SIGUSR1 $pid
+            ;;
+        "page_fault_done")
             $PAGETYPES -p $pid -a 0x700000000+0x2000 -Nrl >> ${OFILE}
             cat /proc/$pid/numa_maps | grep "^70" > $TMPD/numa_maps1
             kill -SIGUSR1 $pid
@@ -33,7 +42,7 @@ control_mbind() {
             sleep 0.5
             kill -SIGUSR1 $pid
             ;;
-        "mbind exit")
+        "just before exit")
             $PAGETYPES -p $pid -a 0x700000000+0x2000 -Nrl >> ${OFILE}
             cat /proc/$pid/numa_maps | grep "^70" > $TMPD/numa_maps2
             kill -SIGUSR1 $pid
@@ -78,43 +87,17 @@ check_mbind_numa_maps() {
     fi
 }
 
-control_mbind_fuzz() {
-    echo_log "start mbind_fuzz"
-    eval ${test_mbind_fuzz} -f $TESTFILE -n 10 -N $MBIND_FUZZ_HP_NR -t $MBIND_FUZZ_TYPE > $TMPD/fuz.out 2>&1 &
-    local pid=$!
-    echo_log "10 processes running"
-    sleep $MBIND_FUZZ_DURATION
-    grep -i ^huge /proc/meminfo
-    pkill -SIGUSR1 $pid
-    grep -i ^huge /proc/meminfo
-    echo_log "Done, kill the processes"
-    set_return_code EXIT
-}
-
 control_mbind_fuzz_normal_heavy() {
     echo_log "start mbind_$FLAVOR"
     for i in $(seq $MBIND_FUZZ_THREADS) ; do
-        $test_mbind_fuzz -f $TESTFILE -n $MBIND_FUZZ_NR_PG \
-						 -t $MBIND_FUZZ_TYPE > $TMPD/fuz.out 2>&1 &
+		$FUZZ_CMD > $TMPD/fuz.out 2>&1 &
+        # $test_mbind_fuzz -f $TESTFILE -n $MBIND_FUZZ_NR_PG \
+		# 				 -t $MBIND_FUZZ_TYPE > $TMPD/fuz.out 2>&1 &
     done
 
     echo_log "... (running $MBIND_FUZZ_DURATION secs)"
     sleep $MBIND_FUZZ_DURATION
     echo_log "Done, kill the processes"
-    pkill -SIGUSR1 -f $test_mbind_fuzz
-    set_return_code EXIT
-}
-
-control_mbind_unmap_race() {
-    echo_log "start mbind_unmap_race"
-    for i in $(seq $MBIND_FUZZ_THREADS) ; do
-        $test_mbind_unmap_race -f $TESTFILE -n $MBIND_FUZZ_NR_PG \
-						 -t $MBIND_FUZZ_TYPE -N 2 > $TMPD/fuz.out 2>&1 &
-    done
-
-    echo_log "... (running $MBIND_FUZZ_DURATION secs)"
-    sleep $MBIND_FUZZ_DURATION
-    echo_log "Done, kill the processes"
-    pkill -SIGUSR1 -f $test_mbind_unmap_race
+    pkill -SIGUSR1 -f $test_alloc_generic
     set_return_code EXIT
 }

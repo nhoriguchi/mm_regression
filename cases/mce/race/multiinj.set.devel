@@ -20,7 +20,7 @@ case "$BACKEND" in
 		EXPECTED_RETURN_CODE="START EXIT"
 		;;
     *)
-		TEST_PROGRAM="$test_alloc_generic -o multi_backend -d work -b -n 4096"
+		TEST_PROGRAM="$test_alloc_generic -o allocate_once -B 0xffffffff -d work -b -n 4096"
 		EXPECTED_RETURN_CODE="START EXIT"
         ;;
 esac

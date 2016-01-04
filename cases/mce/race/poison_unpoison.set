@@ -1,4 +1,3 @@
-##! BACKEND: buddy hugetlb_free anonymous pagecache hugetlb_anon hugetlb_shmem hugetlb_file ksm thp zero huge_zero
 #! BACKEND: buddy hugetlb_free anonymous pagecache hugetlb_anon hugetlb_shmem hugetlb_file ksm thp zero huge_zero
 #! ERROR_TYPE: mce-srao hard-offline soft-offline
 
@@ -26,7 +25,7 @@ esac
 TESTFILE="$WDIR/testfile"
 
 POISON_ITERATION=100
-TIMEOUT=30
+TIMEOUT=5
 
 random_poison() {
     local i=
@@ -61,7 +60,7 @@ random_unpoison() {
 _control() {
     local pid=
 
-	$test_alloc_generic -o multi_backend -d work -b -n 4096 &
+	$test_alloc_generic -o allocate_once -B 0xfffffff -d work -b -n 4096 &
     pid=$!
 
     random_poison $pid &
@@ -73,16 +72,4 @@ _control() {
 	kill -9 $pid_poison $pid_unpoison
     kill -SIGUSR1 $pid
     set_return_code EXIT
-}
-
-_prepare() {
-	prepare_mce_test || return 1
-}
-
-_cleanup() {
-	cleanup_mce_test
-}
-
-_check() {
-	check_mce_test
 }

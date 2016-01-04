@@ -3,7 +3,7 @@ CC=gcc
 CFLAGS=-g # -Wall -Wextra
 TESTCASE_FILTER=
 
-src=test_mbind.c test_mbind_fuzz.c test_mbind_unmap_race.c test_malloc_madv_willneed.c test_mincore.c test_vma_vm_pfnmap.c test_swap_shmem.c test_thp_double_mapping.c test_idle_page_tracking.c mark_idle_all.c test_memory_compaction.c hog_hugepages.c iterate_numa_move_pages.c iterate_hugepage_mmap_fault_munmap.c hugepage_pingpong.c memeater.c test_alloc_generic.c
+src=test_mincore.c test_vma_vm_pfnmap.c test_swap_shmem.c test_thp_double_mapping.c test_idle_page_tracking.c mark_idle_all.c test_memory_compaction.c hog_hugepages.c iterate_numa_move_pages.c iterate_hugepage_mmap_fault_munmap.c hugepage_pingpong.c memeater.c test_alloc_generic.c
 exe=$(src:.c=)
 srcdir=.
 dstdir=/usr/local/bin

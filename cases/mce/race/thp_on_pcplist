@@ -25,15 +25,3 @@ _control() {
     kill -9 $backpid
     set_return_code EXIT
 }
-
-_prepare() {
-	prepare_mce_test || return 1
-}
-
-_cleanup() {
-	cleanup_mce_test
-}
-
-_check() {
-	check_mce_test
-}
