@@ -34,3 +34,5 @@ reonline_memblocks() {
         echo online > /sys/devices/system/memory/memory${mb}/state
     done
 }
+
+yum install -y numactl* > /dev/null

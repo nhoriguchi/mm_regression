@@ -1,3 +1,6 @@
+#ifndef _TEST_CORE_LIB_INCLUDE_H
+#define _TEST_CORE_LIB_INCLUDE_H
+
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
@@ -20,7 +23,11 @@
 #define errmsg(x, ...) fprintf(stderr, x, ##__VA_ARGS__),exit(EXIT_FAILURE)
 #define PSIZE 4096UL
 #define PS PSIZE
+#define PAGE_SIZE PSIZE
+#define PAGE_SHIFT 12
 #define THPS 0x200000UL
+#define THP_SHIFT 21
+#define THP_SIZE THPS
 #define strpair(x) x, strlen(x)
 
 /* Control early_kill/late_kill */
@@ -309,3 +316,5 @@ void validate_hugepage_size(unsigned long hpsize) {
 		errmsg(buf);
 	}
 }
+
+#endif /* _TEST_CORE_LIB_INCLUDE_H */

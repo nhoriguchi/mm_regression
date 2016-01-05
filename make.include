@@ -1,0 +1,15 @@
+split_recipes: get_test_core
+	@ruby test_core/lib/split_recipe.rb
+
+cleanup_recipes: get_test_core
+	@find cases -type f -name *.auto | xargs rm
+	@true
+
+update_recipes: get_test_core
+	@make cleanup_recipes > /dev/null || true
+	@make split_recipes > /dev/null || true
+	@true
+
+summary:
+	@ruby test_core/lib/test_summar.rb
+	@true

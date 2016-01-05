@@ -1,3 +1,6 @@
+#ifndef _TEST_CORE_LIB_HUGEPAGE_H
+#define _TEST_CORE_LIB_HUGEPAGE_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -135,6 +138,34 @@ void *alloc_shm_hugepage(int size)
 	return addr;
 }
 
+void *alloc_shm_hugepage2(int size, void *exp_addr)
+{
+	void *addr;
+	int shmid;
+	if ((shmid = shmget(shmkey, size,
+			    SHM_HUGETLB | IPC_CREAT | SHM_R | SHM_W)) < 0) {
+		perror("shmget");
+		return NULL;
+	}
+	/* addr = shmat(shmid, exp_addr, SHM_RND); */
+	addr = shmat(shmid, exp_addr, 0);
+	if (addr == (char *)-1) {
+		perror("Shared memory attach failure");
+		shmctl(shmid, IPC_RMID, NULL);
+		err("shmat failed");
+		return NULL;
+	}
+	if (addr != exp_addr) {
+		printf("Shared memory not attached to expected address (%p -> %p) %lx %lx\n", exp_addr, addr, SHMLBA, SHM_RND);
+		shmctl(shmid, IPC_RMID, NULL);
+		err("shmat failed");
+		return NULL;
+	}
+
+	shmkey = shmid;
+	return addr;
+}
+
 void *alloc_anonymous_hugepage(int size, int private, void *exp_addr)
 {
 	void *addr;
@@ -246,3 +277,5 @@ int free_hugepage(void *addr, int hptype, int size)
 			exit(2);
 	}
 }
+
+#endif /* _TEST_CORE_LIB_HUGEPAGE_H */

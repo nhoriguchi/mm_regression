@@ -39,8 +39,35 @@ get_hugepage_surplus() {
     awk '/^HugePages_Surp:/ {print $2}' /proc/meminfo
 }
 
+get_available_pool_size() {
+	find /sys/devices/system/ -type d | grep hugepages- | cut -f2 -d'-' | sort -ur -k1n
+}
+
+get_hugepage_total_node() {
+	cat /sys/devices/system/node/node$1/hugepages/hugepages-$2/nr_hugepages
+}
+
+get_hugepage_free_node() {
+	cat /sys/devices/system/node/node$1/hugepages/hugepages-$2/free_hugepages
+}
+
+get_hugepage_surplus_node() {
+	cat /sys/devices/system/node/node$1/hugepages/hugepages-$2/surplus_hugepages
+}
+
+get_hugepage_inuse_node() {
+	echo $[$(get_hugepage_total_node $1 $2) + $(get_hugepage_surplus_node $1 $2) - $(get_hugepage_free_node $1 $2)]
+}
+
 show_hugetlb_pool() {
     echo "hugetlb pool (total/free/rsvd/surp): $(get_hugepage_total)/$(get_hugepage_free)/$(get_hugepage_reserved)/$(get_hugepage_surplus)"
+	if [ "$NUMNODE" ] ; then
+		for size in $(get_available_pool_size) ; do
+			for i in $(seq 0 $[NUMNODE - 1]) ; do
+				echo "node:$i, size:$size (total/free/inuse/surp): $(get_hugepage_total_node $i $size)/$(get_hugepage_free_node $i $size)/$(get_hugepage_inuse_node $i $size)/$(get_hugepage_surplus_node $i $size)"
+			done
+		done
+	fi
 }
 
 # make sure that hugetlb pool is empty at the beginning/ending of the testcase

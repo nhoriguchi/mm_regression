@@ -1,3 +1,6 @@
+#ifndef _TEST_CORE_LIB_PFN_H
+#define _TEST_CORE_LIB_PFN_H
+
 #include <stdio.h>
 #include <sys/types.h> /* for getpid, getpagesize */
 #include <unistd.h>
@@ -498,3 +501,5 @@ int check_kpflags(char *vaddr, unsigned long kpf) {
 	printf("pfn %lx, flags %x, ret %lx\n", pfn, kpflags, kpflags & (1 << kpf));
         return kpflags & (1 << kpf);
 }
+
+#endif /* _TEST_CORE_LIB_PFN_H */

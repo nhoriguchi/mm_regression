@@ -1,12 +1,5 @@
 #!/bin/bash
 
-if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
-    echo "$BASH_SOURCE should be included from another script, not directly called."
-    exit 1
-fi
-
-SSH_OPT="-o ConnectTimeout=5"
-
 vm_running() {
     [ "$(virsh domstate ${VM})" = "running" ] && return 0 || return 1
 }

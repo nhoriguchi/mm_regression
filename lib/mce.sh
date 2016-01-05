@@ -1,33 +1,51 @@
-#!/bin/bash
-
-if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
-    echo "$BASH_SOURCE should be included from another script, not directly called."
-    exit 1
-fi
-
-PAGETYPES=$KERNEL_SRC/tools/vm/page-types
-if [ ! -x "${PAGETYPES}" ] || [ ! -s "${PAGETYPES}" ] ; then
-    make clean -C $KERNEL_SRC/tools > /dev/null 2>&1
-    echo -n "build KERNEL_SRC/tools ... "
-    make vm -C $KERNEL_SRC/tools > /dev/null 2>&1 && echo "done" || echo "failed"
-fi
-[ ! -x "${PAGETYPES}" ] && echo "${PAGETYPES} not found." >&2 && exit 1
+#!/bin/bashp
 
 GUESTPAGETYPES=/usr/local/bin/page-types
 MCEINJECT=$(dirname $(readlink -f $BASH_SOURCE))/mceinj.sh
 
+SYSFS_MCHECK=/sys/devices/system/machinecheck
+
 all_unpoison() { $PAGETYPES -b hwpoison -x -N; }
 
 get_HWCorrupted() { grep "HardwareCorrupted" /proc/meminfo | tr -s ' ' | cut -f2 -d' '; }
-save_nr_corrupted_before() { get_HWCorrupted   > ${TMPF}.hwcorrupted1; }
-save_nr_corrupted_inject() { get_HWCorrupted   > ${TMPF}.hwcorrupted2; }
-save_nr_corrupted_unpoison() { get_HWCorrupted > ${TMPF}.hwcorrupted3; }
-save_nr_corrupted() { get_HWCorrupted > ${TMPF}.hwcorrupted"$1"; }
+save_nr_corrupted_before() { get_HWCorrupted   > $TMPD/hwcorrupted1; }
+save_nr_corrupted_inject() { get_HWCorrupted   > $TMPD/hwcorrupted2; }
+save_nr_corrupted_unpoison() { get_HWCorrupted > $TMPD/hwcorrupted3; }
+save_nr_corrupted() { get_HWCorrupted > $TMPD/hwcorrupted"$1"; }
 show_nr_corrupted() {
-    if [ -e ${TMPF}.hwcorrupted"$1" ] ; then
-        cat ${TMPF}.hwcorrupted"$1" | tr -d '\n'
+    if [ -e $TMPD/hwcorrupted"$1" ] ; then
+        cat $TMPD/hwcorrupted"$1" | tr -d '\n'
     else
         echo -n 0
+    fi
+}
+
+check_mce_capability() {
+	# If user explicitly said the system support MCE_SER, let's believe it.
+	if [ "$MCE_SER_SUPPORTED" ] ; then
+		return 0
+	else
+		echo "If you really do mce-srao testcase, please define environment"
+		echo "variable MCE_SER_SUPPORTED"
+		return 1
+	fi
+
+	# TODO: need more elegant solution
+    if [ ! -e check_mce_capability.ko ] ; then
+        stap -p4 -g -m check_mce_capability.ko check_mce_capability.stp
+        if [ $? -ne 0 ] ; then
+            echo "Failed to build stap script" >&2
+            return 1
+        fi
+    fi
+    local cap=$(staprun check_mce_capability.ko | cut -f2 -d' ')
+    [ ! "$cap" ] && echo "Failed to retrieve MCE CAPABILITY info. SKIPPED." && return 1
+    # check 1 << 24 (MCG_SER_P)
+    if [ $[ $cap & 16777216 ] -eq 16777216 ] ; then
+        return 0
+    else
+        echo "MCE_SER_P is cleared in the current system."
+        return 1
     fi
 }
 
@@ -55,7 +73,7 @@ __check_nr_hwcorrupted_consistent() {
 }
 
 check_nr_hwcorrupted() {
-	if [ "${TMPF}.hwcorrupted2" ] ; then
+	if [ -s "$TMPD/hwcorrupted2" ] ; then
 		__check_nr_hwcorrupted
 	else
 		__check_nr_hwcorrupted_consistent

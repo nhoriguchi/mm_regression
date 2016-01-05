@@ -1,20 +1,20 @@
 #!/bin/bash
 
-export PIPE=${GTMPD}/pipe
+export PIPE=$GTMPD/pipe
 mkfifo ${PIPE} 2> /dev/null
 [ ! -p ${PIPE} ] && echo_log "Fail to create pipe." >&2 && exit 1
 chmod a+x ${PIPE}
 export PIPETIMEOUT=5
 
-get_kernel_message_before() { dmesg > ${GTMPD}/dmesg_before; }
-get_kernel_message_after() { dmesg > ${GTMPD}/dmesg_after; }
+get_kernel_message_before() { dmesg > $TMPD/_dmesg_before; }
+get_kernel_message_after() { dmesg > $TMPD/_dmesg_after; }
 
 get_kernel_message_diff() {
     echo "####### DMESG #######"
-    diff ${GTMPD}/dmesg_before ${GTMPD}/dmesg_after 2> /dev/null | grep -v '^< ' | \
-        tee ${GTMPD}/dmesg_diff
+    diff $TMPD/_dmesg_before $TMPD/_dmesg_after 2> /dev/null | grep -v '^< ' | \
+        tee $TMPD/_dmesg_diff
     echo "####### DMESG END #######"
-	rm ${GTMPD}/dmesg_before ${GTMPD}/dmesg_after 2> /dev/null
+	rm $TMPD/_dmesg_before $TMPD/_dmesg_after 2> /dev/null
 }
 
 # Confirm that kernel message does contain the specified words
@@ -24,7 +24,7 @@ check_kernel_message() {
     local word="$1"
     if [ "$word" ] ; then
         count_testcount
-        grep "$word" ${GTMPD}/dmesg_diff > /dev/null 2>&1
+        grep "$word" $TMPD/_dmesg_diff > /dev/null 2>&1
         if [ $? -eq 0 ] ; then
             if [ "$inverse" ] ; then
                 count_failure "kernel message shows unexpected word '$word'."
@@ -43,7 +43,7 @@ check_kernel_message() {
 
 check_kernel_message_nobug() {
     count_testcount
-    grep -e "BUG:" -e "WARNING:" ${GTMPD}/dmesg_diff > /dev/null 2>&1
+    grep -e "BUG:" -e "WARNING:" $TMPD/_dmesg_diff > /dev/null 2>&1
     if [ $? -eq 0 ] ; then
         count_failure "Kernel 'BUG:'/'WARNING:' message"
     else
@@ -56,7 +56,7 @@ check_console_output() {
     local word="$1"
     if [ "$word" ] ; then
         count_testcount
-        grep "$word" ${GTMPD}/dmesgafterinjectdiff > /dev/null 2>&1
+        grep "$word" $GTMPD/dmesgafterinjectdiff > /dev/null 2>&1
         if [ $? -eq 0 ] ; then
             if [ "$inverse" ] ; then
                 count_failure "host kernel message shows unexpected word '$word'."
@@ -74,22 +74,22 @@ check_console_output() {
 }
 
 init_return_code() {
-    rm -f ${GTMPD}/return_code* ${TMPD}/return_code*
+    rm -f $GTMPD/_return_code* $TMPD/_return_code*
 }
 
 get_return_code() {
-    cat ${TMPD}/return_code
+    cat $TMPD/_return_code
 }
 
 get_return_code_seq() {
-    cat ${TMPD}/return_code_seq | tr '\n' ' ' | sed 's/ *$//g'
+    cat $TMPD/_return_code_seq | tr '\n' ' ' | sed 's/ *$//g'
 }
 
 set_return_code() {
-    echo "$@" > ${GTMPD}/return_code
-    echo "$@" >> ${GTMPD}/return_code_seq
+    echo "$@" > $GTMPD/_return_code
+    echo "$@" >> $GTMPD/_return_code_seq
 	if [ "$GTMPD" != "$TMPD" ] ; then
-		echo "$@" >> ${TMPD}/return_code_seq
+		echo "$@" >> $TMPD/_return_code_seq
 	fi
 }
 
@@ -104,19 +104,30 @@ check_return_code() {
     fi
 }
 
+check_testcase_already_run() {
+	[ "$AGAIN" ] && return 1
+	grep START $TMPD/_return_code_seq
+	grep -q -x START $TMPD/_return_code_seq 2> /dev/null
+}
+
 prepare_system_default() {
     get_kernel_message_before
+}
+
+cleanup_unimportant_temporal_files() {
+	find $TMPD/ -name ".*" | xargs rm -rf
 }
 
 cleanup_system_default() {
     get_kernel_message_after
     get_kernel_message_diff | tee -a $OFILE
+	cleanup_unimportant_temporal_files
 }
 
 check_system_default() {
     check_kernel_message_nobug
 	if [ "$EXPECTED_RETURN_CODE" ] ; then
-		check_return_code "${EXPECTED_RETURN_CODE}"
+		check_return_code "$(echo $EXPECTED_RETURN_CODE | tr -s ' ')"
 	fi
 }
 
@@ -271,7 +282,7 @@ check_inclusion_of_fixedby_patch() {
     echo_log "  Subject:"
     local subject=
     while read subject ; do
-        if ! grep "$subject" ${GTMPD}/patches > /dev/null ; then
+        if ! grep "$subject" $GTMPD/patches > /dev/null ; then
             echo_log "    $subject"
         fi
     done <<<"$(echo $FIXEDBY_SUBJECT | tr '|' '\n')"
@@ -293,13 +304,13 @@ __do_test() {
     local line=
 
     init_return_code
-    set_return_code "START"
 
     prepare
     if [ $? -ne 0 ] ; then
         cleanup
         return 1
     fi
+    set_return_code "START"
     [ "$VERBOSE" ] && echo_log "$cmd"
 
     exec 2> >( tee -a ${OFILE} )
@@ -355,7 +366,7 @@ do_test() {
             skipped=true
             break
         fi
-        if [ "$(cat ${TMPD}/failure)" -gt 0 ] ; then
+        if [ "$(cat $TMPD/_failure)" -gt 0 ] ; then
             if [ ! "$TEST_RETRYABLE" ] ; then
                 # don't care about retry.
                 break
@@ -377,12 +388,12 @@ do_test() {
 
 __do_test_async() {
     init_return_code
-    set_return_code "START"
     prepare
     if [ $? -ne 0 ] ; then
         cleanup
         return 1
     fi
+    set_return_code "START"
     run_controller
     cleanup
     check
@@ -409,7 +420,7 @@ do_test_async() {
             skipped=true
             break
         fi
-        if [ "$(cat ${TMPD}/failure)" -gt 0 ] ; then
+        if [ "$(cat $TMPD/_failure)" -gt 0 ] ; then
             if [ ! "$TEST_RETRYABLE" ] ; then
                 # don't care about retry.
                 break
