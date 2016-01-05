@@ -1,4 +1,5 @@
 #include <sys/uio.h>
+#include <sys/time.h>
 #include "test_core/lib/include.h"
 #include "test_core/lib/hugepage.h"
 #include "test_core/lib/pfn.h"
@@ -50,6 +51,8 @@ enum {
 	AT_ALLOCATE_WAIT,
 	AT_ALLOCATE_BUSYLOOP,
 	AT_NUMA_PREPARED,
+	AT_NONE,
+
 	AT_SIMPLE,
 	AT_ACCESS_LOOP,
 	AT_ALLOC_EXIT,
@@ -77,6 +80,8 @@ enum {
 	OT_MOVE_PAGES_PINGPONG,
 	OT_MBIND_PINGPONG,
 	OT_PAGE_MIGRATION_PINGPONG,
+	OT_NOOP,
+	OT_BUSYLOOP,
 	NR_OPERATION_TYPES,
 };
 int operation_type = -1;
@@ -465,7 +470,7 @@ static int set_mempolicy_node(int mode, unsigned long nid) {
 }
 
 static void do_migratepages(void) {
-	__busyloop();
+	pprintf_wait(SIGUSR1, "waiting for migratepages\n");
 }
 
 struct mbind_arg {
@@ -506,11 +511,8 @@ static void do_mbind(void) {
 	if (ret == -1) {
 		perror("mbind");
 		pprintf("mbind failed\n");
-		pause();
 		/* return; */
 	}
-
-	__busyloop();
 }
 
 static void initialize_random(void) {
@@ -588,11 +590,7 @@ static void do_move_pages(void) {
 	if (ret == -1) {
 		perror("move_pages");
 		pprintf("move_pages failed\n");
-		pause();
-		/* return; */
 	}
-
-	__busyloop();
 }
 
 static int get_max_memblock(void) {
@@ -662,10 +660,8 @@ static void do_hotremove(void) {
 	pmemblk = memblock_check();
 
 	/* pass pmemblk into control script */
-	pprintf("before memory_hotremove: %d\n", pmemblk);
+	pprintf("waiting for memory_hotremove: %d\n", pmemblk);
 	pause();
-
-	__busyloop();
 }
 
 static int __madv_soft_chunk(char *p, int size, void *args) {
@@ -680,6 +676,7 @@ static int __madv_soft_chunk(char *p, int size, void *args) {
 	return ret;
 }
 
+/* unpoison option? */
 static void do_madv_soft(void) {
 	int ret;
 	int loop = 10;
@@ -690,11 +687,8 @@ static void do_madv_soft(void) {
 	if (ret == -1) {
 		perror("madvise(MADV_SOFT_OFFLINE)");
 		pprintf("madvise(MADV_SOFT_OFFLINE) failed\n");
-		pause();
 		/* return; */
 	}
-
-	__busyloop();
 }
 
 static void do_auto_numa(void) {
@@ -708,11 +702,13 @@ static void do_auto_numa(void) {
 		err("numa_sched_setaffinity");
 	printf("sched_setaffinity to node 1\n");
 
-	__busyloop();
+	pprintf("waiting for auto_numa\n");
+	while (flag)
+		access_all_chunks();
 }
 
 static void do_change_cpuset(void) {
-	__busyloop();
+	pprintf_wait(SIGUSR1, "waiting for change_cpuset\n");
 }
 
 int preferred_node = 0;
@@ -742,6 +738,7 @@ static void mmap_all_chunks_numa(void) {
 }
 
 void __do_page_migration(void) {
+	printf("%s %x\n", __func__, migration_src);
 	switch (migration_src) {
 	case MS_MIGRATEPAGES:
 		do_migratepages();
@@ -772,6 +769,7 @@ void do_page_migration(void) {
 	pprintf("page_fault_done\n");
 	pause();
 	__do_page_migration();
+	__busyloop();
 	pprintf("exited busy loop\n");
 	pause();
 	munmap_all_chunks();
@@ -811,19 +809,14 @@ void __do_process_vm_access(void) {
 		return;
 	}
 
-	pprintf("parepared_for_process_vm_access\n");
-	pause();
+	pprintf_wait(SIGUSR1, "waiting for process_vm_access\n");
 
 	ret = do_work_memory2(__process_vm_access_chunk, &pid);
 	if (ret == -1) {
 		perror("mlock");
 		pprintf("mlock failed\n");
-		pause();
 		/* return; */
 	}
-
-	pprintf("exit\n");
-	pause();
 }
 
 void do_process_vm_access(void) {
@@ -846,9 +839,6 @@ void __do_mlock(void) {
 	int ret;
 	pid_t pid;
 
-	pprintf("page_fault_done\n");
-	pause();
-
 	if (forkflag) {
 		pid = fork();
 
@@ -864,21 +854,16 @@ void __do_mlock(void) {
 	if (ret == -1) {
 		perror("mlock");
 		pprintf("mlock failed\n");
-		pause();
 		/* return; */
 	}
-
-	pprintf("entering busy loop\n");
-	if (busyloop)
-		while (flag)
-			access_all_chunks();
-	else
-		pause();
 }
 
 void do_mlock(void) {
 	mmap_all_chunks();
+	pprintf("page_fault_done\n");
+	pause();
 	__do_mlock();
+	__busyloop();
 	munmap_all_chunks();
 }
 
@@ -896,9 +881,6 @@ void __do_mprotect(void) {
 	int ret;
 	pid_t pid;
 
-	pprintf("page_fault_done\n");
-	pause();
-
 	if (forkflag) {
 		pid = fork();
 
@@ -914,16 +896,8 @@ void __do_mprotect(void) {
 	if (ret == -1) {
 		perror("mprotect");
 		pprintf("mprotect failed\n");
-		pause();
 		/* return; */
 	}
-
-	pprintf("entering busy loop\n");
-	if (busyloop)
-		while (flag)
-			access_all_chunks();
-	else
-		pause();
 }
 
 void do_mprotect(void) {
@@ -931,6 +905,9 @@ void do_mprotect(void) {
 	pid_t pid;
 
 	mmap_all_chunks();
+	pprintf("page_fault_done\n");
+	pause();
 	__do_mprotect();
+	__busyloop();
 	munmap_all_chunks();
 }

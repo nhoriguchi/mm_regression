@@ -4,11 +4,11 @@ ERROR_TYPE=hard-offline
 EXPECTED_RETURN_CODE="START EXIT"
 POISON_ITERATION=3
 TARGET_PAGEFLAG="thp,compound_head=thp,compound_head"
-THP=true
+THP=512
 
 background_alloc_exit() {
 	while true ; do
-		$test_alloc_generic -o alloc_exit -B thp -n $[512 * 512 * 4096]
+		$test_alloc_generic -a allocate_exit -o noop -B thp -N $THP
 	done
 }
 

@@ -29,6 +29,7 @@ MIGRATE_SRC=__MARK_MIGRATE_SRC
 BACKEND=__MARK_BACKEND
 BACKGROUND=__MARK_BACKGROUND
 BUSY=__MARK_BUSY
+OPERATION_TYPE=page_migration
 
 if [ "$BUSY" == busy ] ; then
 	BUSYOPT=-b
@@ -37,66 +38,69 @@ fi
 NUMA_NODE=2
 HUGEPAGESIZE=2048 # kB
 
-if [[ "$BACKEND" =~ hugetlb ]] ; then
+EXPECTED_RETURN_CODE=""
+
+if [[ "$BACKEND" =~ hugetlb ]] && [ "$MIGRATE_SRC" != hotremove ] ; then
 	HUGETLB=100
 	if [ __MARK_OVERCOMMIT == overcommit ] ; then
 		HUGETLB_OVERCOMMIT=10
+		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE SET_OVERCOMMIT"
 	fi
-	if [ __MARK_RESERVE == noreserve ] ; then
-		NORESERVEFLAG=-R
-	fi
-elif [[ "$BACKEND" =~ thp ]] ; then
-	THP=true
-fi
 
-TEST_PROGRAM="$test_alloc_generic -o page_migration -s $MIGRATE_SRC -B $BACKEND -d work -N 2 $NORESERVEFLAG $BUSYOPT"
-
-if [ "$BACKGROUND" == reserve ] ; then
-	RESERVE_HUGEPAGE=$[HUGETLB - 2]
-	if [ __MARK_OVERCOMMIT == overcommit ] ; then
-		EXPECTED_RETURN_CODE="SET_OVERCOMMIT RESERVE START MIGRATION_PASSED EXIT"
-	else
-		EXPECTED_RETURN_CODE="RESERVE START MIGRATION_FAILED EXIT"
+	if [ "$BACKGROUND" == reserve ] ; then
+		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE RESERVE"
+		RESERVE_HUGEPAGE=$[HUGETLB - 2]
+	elif [ "$BACKGROUND" == allocate0 ] ; then
+		ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
+		ALLOCATE_NODE=0
+		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ALLOCATE"
+	elif [ "$BACKGROUND" == allocate1 ] ; then
+		ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
+		ALLOCATE_NODE=1
+		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ALLOCATE"
 	fi
-elif [ "$BACKGROUND" == allocate0 ] ; then
-	ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
-	ALLOCATE_NODE=0
-	if [ __MARK_OVERCOMMIT == overcommit ] ; then
+
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE START"
+
+	if [ "$BACKGROUND" == reserve ] ; then
+		if [ __MARK_OVERCOMMIT == overcommit ] ; then
+			EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
+		else
+			EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_FAILED HUGEPAGE_NOT_MIGRATED"
+		fi
+	elif [ "$BACKGROUND" == allocate0 ] ; then
 		# in 2 node system, if background thread eats up all hugepages on
 		# node 0, TEST_PROGRAM cannot help using node 1 before migration.
 		# In such a case, page migration never succeeds, even if overcommit
 		# is enabled.
 		# ... but mbind somehow succeed in such case :(, let's make it
 		# failed until situation is understood.
-		EXPECTED_RETURN_CODE="SET_OVERCOMMIT ALLOCATE START MIGRATION_FAILED EXIT"
+		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_FAILED HUGEPAGE_NOT_MIGRATED"
+	elif [ "$BACKGROUND" == allocate1 ] ; then
+		if [ __MARK_OVERCOMMIT == overcommit ] ; then
+			EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
+		else
+			EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_FAILED HUGEPAGE_NOT_MIGRATED"
+		fi
 	else
-		EXPECTED_RETURN_CODE="ALLOCATE START MIGRATION_FAILED EXIT"
+		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
 	fi
-elif [ "$BACKGROUND" == allocate1 ] ; then
-	ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
-	ALLOCATE_NODE=1
-	if [ __MARK_OVERCOMMIT == overcommit ] ; then
-		EXPECTED_RETURN_CODE="SET_OVERCOMMIT ALLOCATE START MIGRATION_PASSED EXIT"
-	else
-		EXPECTED_RETURN_CODE="ALLOCATE START MIGRATION_FAILED EXIT"
-	fi
-else
-	if [ __MARK_OVERCOMMIT == overcommit ] ; then
-		EXPECTED_RETURN_CODE="SET_OVERCOMMIT START MIGRATION_PASSED EXIT"
-	else
-		EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"
-	fi
-fi
 
-if [ "$MIGRATE_SRC" == hotremove ] ; then
-	if [[ "$BACKEND" =~ hugetlb ]] ; then
-		HUGETLB=$[$MEMTOTAL/$HUGEPAGESIZE/2]
-		HUGETLB_ALLOCATED=$[HUGETLB*4/5]
-		# no pass fail ?
-		TEST_PROGRAM="$test_alloc_generic -o page_migration -s $MIGRATE_SRC -B $BACKEND -d work -N $HUGETLB_ALLOCATED -M $(get_backend_pageflags hugetlb_mapped) $BUSYOPT"
-	elif [[ "$BACKEND" =~ thp ]] ; then
-		THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
-		THP_ALLOCATED=$[THP*4/5]
-		TEST_PROGRAM="$test_alloc_generic -o page_migration -s $MIGRATE_SRC -B $BACKEND -d work -N $THP_ALLOCATED -M $(get_backend_pageflags $BACKEND) $BUSYOPT"
+	if [ __MARK_RESERVE == noreserve ] ; then
+		NORESERVEFLAG=-R
 	fi
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
+
+	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o $OPERATION_TYPE -s $MIGRATE_SRC -B $BACKEND -d work -N 2 $NORESERVEFLAG $BUSYOPT -w start -w after_allocate -w before_free -w exit"
+elif [[ "$BACKEND" =~ hugetlb ]] ; then # hotremove
+	HUGETLB=$[$MEMTOTAL/$HUGEPAGESIZE/2]
+	HUGETLB_ALLOCATED=$[HUGETLB*4/5]
+	# no pass fail ?
+	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
+	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o $OPERATION_TYPE -s $MIGRATE_SRC -B $BACKEND -d work -N $HUGETLB_ALLOCATED -M $(get_backend_pageflags hugetlb_mapped) $BUSYOPT -w start -w after_allocate -w before_free -w exit"
+elif [[ "$BACKEND" =~ thp ]] ; then
+	THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
+	THP_ALLOCATED=$[THP*4/5]
+	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
+	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o $OPERATION_TYPE -s $MIGRATE_SRC -B $BACKEND -d work -N $THP_ALLOCATED -M $(get_backend_pageflags $BACKEND) $BUSYOPT -w start -w after_allocate -w before_free -w exit"
 fi

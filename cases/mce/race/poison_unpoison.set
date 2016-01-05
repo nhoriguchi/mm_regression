@@ -57,10 +57,12 @@ random_unpoison() {
     done
 }
 
+BACKENDOPT="-B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -B hugetlb_file -B ksm -B normal_shmem"
+
 _control() {
     local pid=
 
-	$test_alloc_generic -o allocate_once -B 0xfffffff -d work -b -n 4096 &
+	$test_alloc_generic -a allocate_exit -o busyloop $BACKENDOPT -d work -b -N 8 &
     pid=$!
 
     random_poison $pid &

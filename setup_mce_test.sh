@@ -72,6 +72,12 @@ check_mce_test() {
 	fi
 }
 
+check_process_status() {
+	local pid=$1
+
+	kill -0 $pid 2> /dev/null
+}
+
 BASEVFN=0x700000000
 
 control_mce_test() {
@@ -81,68 +87,60 @@ control_mce_test() {
 	if [ "$pid" ] ; then # sync mode
 		echo_log "=> $line"
 		case "$line" in
+			"just started")
+				kill -SIGUSR1 $pid
+				;;
+			"page_fault_done")
+				show_hugetlb_pool > $TMPD/hugetlb_pool.1
+				get_numa_maps $pid > $TMPD/numa_maps.1
+				get_smaps_block $pid smaps.1 700000 > /dev/null
+				get_pagetypes $pid pagetypes.1 -Nrla 0x700000000+0x10000000
+				get_pagemap $pid mig.1 -NrLa 0x700000000+0x10000000 > /dev/null
+				cp /proc/vmstat $TMPD/vmstat.1
+
+				kill -SIGUSR1 $pid
+				;;
+			"before_free") # dup with "exited busy loop"?
+				show_hugetlb_pool > $TMPD/hugetlb_pool.2
+				get_numa_maps $pid > $TMPD/numa_maps.2
+				get_smaps_block $pid smaps.2 700000 > /dev/null
+				get_pagetypes $pid pagetypes.2 -Nrla 0x700000000+0x10000000
+				get_pagemap $pid mig.2 -NrLa 0x700000000+0x10000000 > /dev/null
+				cp /proc/vmstat $TMPD/vmstat.2
+
+				kill -SIGUSR1 $pid
+				;;
+			"just before exit")
+				kill -SIGUSR1 $pid
+				set_return_code EXIT
+				return 0
+				;;
 			"waiting for injection from outside")
-				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | tee $TMPD/pageflagcheck1 | head -n10
-
-				if [ "$HUGETLB" ] ; then
-					$PAGETYPES -p $pid -a $BASEVFN | grep huge > /dev/null 2>&1
-					if [ $? -ne 0 ] ; then
-						echo_log "Target address is NOT hugepage."
-						set_return_code HUGEPAGE_ALLOC_FAILURE
-						kill -SIGKILL $pid
-						return 0
-					fi
-				fi
-
-				if [ "$THP" ] ; then
-					$PAGETYPES -p $pid -a $BASEVFN | grep thp > /dev/null 2>&1
-					if [ $? -ne 0 ] ; then
-						echo_log "Target address is NOT thp."
-						set_return_code THP_ALLOC_FAILURE
-						kill -SIGKILL $pid
-						return 0
-					fi
-				fi
-
-				if [ "$BACKEND" = zero ] && [ "$BACKEND" = huge_zero ] ; then
-					$PAGETYPES -p $pid -a $BASEVFN | grep zero # > /dev/null 2>&1
-					if [ $? -ne 0 ] ; then
-						echo_log "Target address is NOT zero/huge_zero."
-						set_return_code ZERO_PAGE_ALLOC_FAILURE
-						kill -SIGKILL $pid
-						return 0
-					fi
-				fi
 
 				[ ! "$ERROR_OFFSET" ] && ERROR_OFFSET=0
 				# cat /proc/$pid/numa_maps | tee -a ${OFILE}
-				printf "Inject MCE ($ERROR_TYPE) to %lx.\n" $[BASEVFN + ERROR_OFFSET] | tee -a $OFILE >&2
-				echo "$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]" # 2>&1
-				$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET] # 2>&1
-				# /* TODO: return value? */
-				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | head
-				ps ax | grep $pid
-				if ! kill -0 $pid 2> /dev/null ; then
+				echo_log "$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]"
+				$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]
+				if check_process_status $pid ; then
+					set_return_code INJECT
+				else
 					set_return_code KILLED_IN_INJECTION
 					return 0
-				else
-					set_return_code INJECT
 				fi
 				kill -SIGUSR1 $pid
 				;;
 			"error injection with madvise")
 				# tell cmd the page offset into which error is injected
-				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | tee $TMPD/pageflagcheck1 | head
 				echo $ERROR_OFFSET > $PIPE
 				kill -SIGUSR1 $pid
 				;;
 			"after madvise injection")
 				# TODO: return value?
-				if ! kill -0 $pid 2> /dev/null ; then
+				if check_process_status $pid ; then
+					set_return_code INJECT
+				else
 					set_return_code KILLED_IN_INJECTION
 					return 0
-				else
-					set_return_code INJECT
 				fi
 				kill -SIGUSR1 $pid
 				;;
@@ -150,18 +148,12 @@ control_mce_test() {
 				set_return_code ACCESS
 				kill -SIGUSR1 $pid
 				sleep 1
-				if ! kill -0 $pid 2> /dev/null ; then
+				if check_process_status $pid ; then
+					set_return_code ACCESS_SUCCEEDED
+				else
 					set_return_code KILLED_IN_ACCESS
 					return 0
-				else
-					set_return_code ACCESS_SUCCEEDED
 				fi
-				;;
-			"memory_error_injection_done")
-				$PAGETYPES -p $pid -rlN -a $BASEVFN+1310720 | tee $TMPD/pageflagcheck2 | head
-				kill -SIGUSR1 $pid
-				set_return_code EXIT
-				return 0
 				;;
 			"do_multi_backend_busyloop")
 				# TODO: better flag

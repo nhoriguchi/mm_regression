@@ -8,18 +8,15 @@ HUGETLB=100
 HUGETLB_MOUNT=$WDIR/hugetlbfs
 HUGETLB_FILE=$HUGETLB_MOUNT/testfile
 
+BACKENDOPT="-B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -B hugetlb_file -B ksm -B normal_shmem"
+
 _control() {
-    local i=
-
-	ps ax | grep test_alloc
-
     for i in $(seq 10) ; do
 		echo i
-		$test_alloc_generic -o madv_stress -B 0xffffffff -d work -e madv_hard
-		$test_alloc_generic -o madv_stress -B 0xffffffff -d work -e madv_soft
-		$test_alloc_generic -o madv_stress -B 0xffffffff -d work -e madv_hard -A
-		$test_alloc_generic -o madv_stress -B 0xffffffff -d work -e madv_soft -A
+		$test_alloc_generic -a allocate_exit -o madv_stress $BACKENDOPT -N 8 -d work -e madv_hard
+		$test_alloc_generic -a allocate_exit -o madv_stress $BACKENDOPT -N 8 -d work -e madv_soft
+		$test_alloc_generic -a allocate_exit -o madv_stress $BACKENDOPT -N 8 -d work -e madv_hard -A
+		$test_alloc_generic -a allocate_exit -o madv_stress $BACKENDOPT -N 8 -d work -e madv_soft -A
     done
-	ps ax | grep test_alloc
     set_return_code EXIT
 }

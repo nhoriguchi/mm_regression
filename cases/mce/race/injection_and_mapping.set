@@ -10,11 +10,12 @@ ERROR_TYPE=__MARK_ERROR_TYPE
 TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
 
 RACE_ITERATIONS=10
+MONARCH_TIMEOUT=20000000
 
 # TODO: goto common place
 case "$BACKEND" in
 	thp)
-		THP=100
+		THP=10
 		;;
 	hugetlb_free|hugetlb_anon|hugetlb_shmem|hugetlb_file)
 		HUGETLB=100
@@ -28,14 +29,21 @@ _control() {
     local pid=
 
     for i in $(seq $RACE_ITERATIONS) ; do
-		for j in $(seq 100) ; do
-			$test_alloc_generic -o iterate_mapping -B thp &
-		done
+		$test_alloc_generic -a iterate_mapping -B thp -N 8 &
+		pid=$!
 
-        $PAGETYPES -b "$TARGET_PAGEFLAGS" -rNl | grep -v offset | \
-			cut -f1 | while read line ; do
+		get_pagetypes $pid pagetypes.1 -b "$TARGET_PAGEFLAGS" -Nrla 0x700000000+0x10000000
+		# Too much MCE easyly triggers kernel panic.
+		if [ "$ERROR_TYPE" == mce-srao ] ; then
+			cat $TMPD/pagetypes.1 | cut -f2 | head -n4 | while read line ; do
                 $MCEINJECT -e $ERROR_TYPE -a 0x$line &
             done
+		else
+			cat $TMPD/pagetypes.1 | cut -f2 | while read line ; do
+                $MCEINJECT -e $ERROR_TYPE -a 0x$line &
+            done
+		fi
+
         kill_all_subprograms
     done
     set_return_code EXIT

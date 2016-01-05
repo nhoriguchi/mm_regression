@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include <getopt.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/wait.h>
 #include "include.h"
 
 void do_normal_allocation(void) {
@@ -36,7 +38,7 @@ void do_mmap_munmap_iteration(void) {
 }
 
 /* inject only onto the first page, so allocating big region makes no sense. */
-void do_injection(void) {
+void __do_memory_error_injection(void) {
 	char rbuf[256];
 	unsigned long offset = 0;
 
@@ -67,14 +69,13 @@ void do_injection(void) {
 		pause();
 		access_all_chunks();
 	}
-
-	pprintf("memory_error_injection_done\n");
-	pause();
 }
 
 void do_memory_error_injection(void) {
 	mmap_all_chunks();
-	do_injection();
+	__do_memory_error_injection();
+	pprintf("before_free\n");
+	pause();
 	munmap_all_chunks();
 }
 
@@ -130,15 +131,40 @@ static void do_fork_stress(void) {
 	munmap_all_chunks();
 }
 
+static int __mremap_chunk(char *p, int csize, void *args) {
+	int offset = nr_chunk * CHUNKSIZE * PS;
+	int back = *(int *)args; /* 0: +offset, 1: -offset*/
+
+	if (back) {
+		printf("mremap p:%p+%lx -> %p\n", p + offset, csize, p);
+		return mremap(p + offset, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p);
+	} else {
+		printf("mremap p:%p+%lx -> %p\n", p, csize, p + offset);
+		return mremap(p, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p + offset);
+	}
+}
+
 static void __do_mremap_stress(void) {
+	int ret;
+	int back = 0;
+
 	while (flag) {
-		pid_t pid = fork();
-		if (!pid) {
-			access_all_chunks();
-			return;
-		}
-		/* get status? */
-		waitpid(pid, NULL, 0);
+		back = 0;
+		ret = do_work_memory2(__mremap_chunk, (void *)&back);
+		if (ret == -1) {
+			perror("mremap");
+			/* pprintf("mremap failed\n"); */
+			/* return; */
+		} else
+			pprintf("mremap OK %lx\n", ret);
+		back = 1;
+		ret = do_work_memory2(__mremap_chunk, (void *)&back);
+		if (ret == -1) {
+			perror("mremap");
+			/* pprintf("mremap failed\n"); */
+			/* return; */
+		} else
+			pprintf("mremap OK %lx\n", ret);
 	}
 }
 
@@ -345,9 +371,10 @@ static void do_operation(void) {
 	pprintf("%s: operation_type %d\n", __func__, operation_type);
 	switch (operation_type) {
 	case OT_MEMORY_ERROR_INJECTION:
-		do_injection();
+		__do_memory_error_injection();
 		break;
 	case OT_PAGE_MIGRATION:
+		pprintf("__do_page_migration\n");
 		__do_page_migration();
 		break;
 	case OT_PROCESS_VM_ACCESS:
@@ -385,6 +412,11 @@ static void do_operation(void) {
 		break;
 	case OT_PAGE_MIGRATION_PINGPONG:
 		/* __do_page_migration_pingpong(); */
+		break;
+	case OT_NOOP:
+		break;
+	case OT_BUSYLOOP:
+		__busyloop();
 		break;
 	}
 }
@@ -489,6 +521,8 @@ int main(int argc, char *argv[]) {
 				allocation_type = AT_ALLOCATE_BUSYLOOP;
 			else if (!strcmp(optarg, "numa_prepared"))
 				allocation_type = AT_NUMA_PREPARED;
+			else if (!strcmp(optarg, "none"))
+				allocation_type = AT_NONE;
 			else if (!strcmp(optarg, "access_loop"))
 				allocation_type = AT_ACCESS_LOOP;
 			else if (!strcmp(optarg, "alloc_exit"))
@@ -533,6 +567,10 @@ int main(int argc, char *argv[]) {
 				operation_type = OT_MBIND_PINGPONG;
 			} else if (!strcmp(optarg, "page_migration_pingpong")) {
 				operation_type = OT_PAGE_MIGRATION_PINGPONG;
+			} else if (!strcmp(optarg, "noop")) {
+				operation_type = OT_NOOP;
+			} else if (!strcmp(optarg, "busyloop")) {
+				operation_type = OT_BUSYLOOP;
 			} else
 				operation_type = strtoul(optarg, NULL, 0);
 			break;
@@ -646,7 +684,6 @@ int main(int argc, char *argv[]) {
 	}
 
 	setup();
-	printf("setup done %lx %lx\n", waitpoint_mask, allocation_type);
 
 	if (allocation_type != -1) {
 		if (wait_start)
@@ -666,6 +703,9 @@ int main(int argc, char *argv[]) {
 			operate_with_mapping_iteration();
 			break;
 		case AT_NUMA_PREPARED:
+			operate_with_numa_prepared();
+			break;
+		case AT_NONE:
 			operate_with_numa_prepared();
 			break;
 		}

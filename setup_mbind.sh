@@ -91,8 +91,6 @@ control_mbind_fuzz_normal_heavy() {
     echo_log "start mbind_$FLAVOR"
     for i in $(seq $MBIND_FUZZ_THREADS) ; do
 		$FUZZ_CMD > $TMPD/fuz.out 2>&1 &
-        # $test_mbind_fuzz -f $TESTFILE -n $MBIND_FUZZ_NR_PG \
-		# 				 -t $MBIND_FUZZ_TYPE > $TMPD/fuz.out 2>&1 &
     done
 
     echo_log "... (running $MBIND_FUZZ_DURATION secs)"

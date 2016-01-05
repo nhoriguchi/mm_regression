@@ -3,11 +3,9 @@
 NUMA_NODE=2
 HUGEPAGESIZE=2048 # kB
 HUGETLB=100
-EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"
-TEST_PROGRAM="$test_alloc_generic -o page_migration -s migratepages -m private -N 10 -B hugetlb_anon"
+EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
+TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s migratepages -N 10 -B hugetlb_anon -w start -w after_allocate -w before_free -w exit"
 MIGRATE_SRC=migratepages
-
-BG_MIGRATION_PID=
 
 CGROUP=cpu,memory,hugetlb:test1
 

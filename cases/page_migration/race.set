@@ -1,0 +1,58 @@
+#!1 MIGRATE_SRC: migratepages move_pages
+#!1 RACE_SRC: iterate_mapping gup
+
+#!2 MIGRATE_SRC: migratepages move_pages
+#!2 RACE_SRC: mremap_stress
+
+. $TRDIR/setup_page_migration.sh
+
+MIGRATE_SRC=__MARK_MIGRATE_SRC
+RACE_SRC=__MARK_RACE_SRC
+
+NUMA_NODE=2
+HUGEPAGESIZE=2048 # kB
+HUGETLB=500
+EXPECTED_RETURN_CODE="START EXIT"
+
+ITERATE=10
+WAITSEC=3
+
+run_race_src() {
+	if [ "$RACE_SRC" == iterate_mapping ] ; then
+		$test_alloc_generic -a iterate_mapping -B hugetlb_anon -N 10
+	elif [ "$RACE_SRC" == gup ] ; then
+		$test_alloc_generic -a allocate_exit -o page_migration -s madv_soft -B hugetlb_anon -N 100 -w after_allocate &
+		local mypid=$!
+		sleep 2
+		kill -SIGUSR1 $mypid
+	elif [ "$RACE_SRC" == mremap_stress ] ; then
+		$test_alloc_generic -a allocate_exit -o mremap_stress -B anonymous -N 10 > /dev/null 2>&1
+	fi
+}
+
+run_migrate_src() {
+	if [ "$MIGRATE_SRC" == migratepages ] ; then
+		for j in $(seq 100) ; do
+			do_migratepages $(pgrep -f $test_alloc_generic) 0 1
+			do_migratepages $(pgrep -f $test_alloc_generic) 1 0
+		done
+	elif [ "$MIGRATE_SRC" == move_pages ] ; then
+		$iterate_numa_move_pages 10 $(pgrep -f $test_alloc_generic)
+	fi
+}
+
+_control() {
+	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate1
+	for i in $(seq $ITERATE) ; do
+		run_race_src &
+		local pidhuge=$!
+		echo "run_migrate_src $pidhuge &"
+		run_migrate_src $pidhuge &
+		local pidmove=$!
+		sleep $WAITSEC
+		pkill -SIGUSR1 -f $test_alloc_generic > /dev/null 2>&1
+		kill -SIGUSR1 $pidmove > /dev/null 2>&1
+	done
+	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate2
+	set_return_code EXIT
+}

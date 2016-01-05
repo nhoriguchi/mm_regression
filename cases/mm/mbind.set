@@ -3,14 +3,11 @@
 . $TRDIR/setup_mbind.sh
 
 FLAVOR=__MARK_FLAVOR
-# MBIND_FUZZ_TYPE=0x2
 
 HUGETLB=200
 HUGETLB_MOUNT=$WDIR/mount
 
-MBIND_FUZZ_TYPE=0xff
 MBIND_FUZZ_DURATION=5
-MBIND_FUZZ_HP_NR=10
 
 TESTFILE=$WDIR/testfile
 
@@ -19,13 +16,11 @@ if [ "$FLAVOR" == simple ] ; then
 	EXPECTED_RETURN_CODE="START EXIT"
 	_check() { check_mbind; }
 elif [ "$FLAVOR" == fuzz ] ; then
-	# FUZZ_CMD="$test_alloc_generic -o mbind_fuzz -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 10"
 	FUZZ_CMD="$test_alloc_generic -a allocate_wait -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 10"
 	MBIND_FUZZ_THREADS=1
 	MBIND_FUZZ_DURATION=10
 	_control() { control_mbind_fuzz_normal_heavy; }
 elif [ "$FLAVOR" == fuzz_heavy ] ; then
-	# FUZZ_CMD="$test_alloc_generic -o mbind_fuzz -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 1000"
 	FUZZ_CMD="$test_alloc_generic -a allocate_wait -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 1000"
 	MBIND_FUZZ_THREADS=100
 	MBIND_FUZZ_DURATION=30
