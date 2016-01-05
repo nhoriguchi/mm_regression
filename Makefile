@@ -66,6 +66,9 @@ test3: all
 test4: all
 	bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
 
+test5: all
+	bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell find cases/ -type f | xargs readlink -f 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
+
 test42: all
 	@echo $(shell readlink -f $(RECIPES) 2> /dev/null)
 	@echo $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null))

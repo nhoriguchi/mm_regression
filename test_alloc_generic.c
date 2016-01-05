@@ -633,6 +633,7 @@ int main(int argc, char *argv[]) {
 			workdir = optarg;
 			break;
 		case 'M':
+			/* this filter is used for choosing memblk to be hotremoved */
 			parse_bits_mask(optarg);
 			break;
 		case 's':

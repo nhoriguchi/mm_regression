@@ -40,6 +40,10 @@ HUGEPAGESIZE=2048 # kB
 
 EXPECTED_RETURN_CODE=""
 
+if [ "$MIGRATE_SRC" == hotremove ] ; then
+	PIPETIMEOUT=60
+fi
+
 if [[ "$BACKEND" =~ hugetlb ]] && [ "$MIGRATE_SRC" != hotremove ] ; then
 	HUGETLB=100
 	if [ __MARK_OVERCOMMIT == overcommit ] ; then
@@ -98,9 +102,13 @@ elif [[ "$BACKEND" =~ hugetlb ]] ; then # hotremove
 	# no pass fail ?
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
 	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o $OPERATION_TYPE -s $MIGRATE_SRC -B $BACKEND -d work -N $HUGETLB_ALLOCATED -M $(get_backend_pageflags hugetlb_mapped) $BUSYOPT -w start -w after_allocate -w before_free -w exit"
-elif [[ "$BACKEND" =~ thp ]] ; then
+elif [[ "$BACKEND" =~ thp ]] && [ "$MIGRATE_SRC" == hotremove ] ; then
 	THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
 	THP_ALLOCATED=$[THP*4/5]
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
 	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o $OPERATION_TYPE -s $MIGRATE_SRC -B $BACKEND -d work -N $THP_ALLOCATED -M $(get_backend_pageflags $BACKEND) $BUSYOPT -w start -w after_allocate -w before_free -w exit"
+elif  [[ "$BACKEND" =~ thp ]] ; then
+	THP=10
+	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
+	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o $OPERATION_TYPE -s $MIGRATE_SRC -B $BACKEND -d work -N $THP $BUSYOPT -w start -w after_allocate -w before_free -w exit"
 fi

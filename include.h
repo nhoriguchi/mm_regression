@@ -358,6 +358,7 @@ static void mmap_all_chunks(void) {
 	int i, j = 0, k, backend;
 	void *baseaddr;
 
+	/* printf("backend %lx, nr_chunk %lx\n", backend, nr_chunk); */
 	for_each_backend(backend) {
 		for (i = 0; i < nr_chunk; i++) {
 			k = i + j * nr_chunk;
@@ -367,8 +368,7 @@ static void mmap_all_chunks(void) {
 			chunkset[k].chunk_size = get_size_of_chunked_mmap_area(i);
 			chunkset[k].mem_type = backend;
 
-		/* printf("base:0x%lx, size:%lx\n", baseaddr, size); */
-		/* p[i] = checked_mmap(baseaddr, size, protflag, mapflag, -1, 0); */
+			/* printf("base:0x%lx, size:%lx\n", baseaddr, chunkset[k].chunk_size); */
 			prepare_memory2(&chunkset[k], baseaddr, i * CHUNKSIZE * PS);
 			/* printf("p[%d]:%p + 0x%lx, btype %d\n", i, chunkset[k].p, */
 			/*        chunkset[k].chunk_size, chunkset[k].mem_type); */
@@ -644,6 +644,8 @@ static int memblock_check(void) {
 		if (max_matched_pages < matched) {
 			max_matched_pages = matched;
 			pmemblk = i;
+			if (matched == MEMBLK_SIZE) /* full of target pages */
+				break;
 		}
 	}
 	close(kpageflags_fd);

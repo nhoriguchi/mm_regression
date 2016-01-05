@@ -53,19 +53,19 @@ elif [ "$RACE_SRC" == race_with_fork ] ; then
 			local pid=$!
 			sleep 0.3
 			for j in $(seq 100) ; do
-				$PAGETYPES -p $pid -Nl -b thp,compound_head=thp,compound_head | grep -v offset > $TMPD/pagetypes1
+				get_pagetypes $pid pagetypes.1 -Nrlb thp,compound_head=thp,compound_head > /dev/null
 				do_migratepages $pid 0 1
-				$PAGETYPES -p $pid -Nl -b thp,compound_head=thp,compound_head | grep -v offset > $TMPD/pagetypes2
+				get_pagetypes $pid pagetypes.2 -Nrlb thp,compound_head=thp,compound_head > /dev/null
 				do_migratepages $pid 1 0
-				# echo $j
-				# cat $TMPD/pagetypes1 $TMPD/pagetypes2
-				diff -u $TMPD/pagetypes1 $TMPD/pagetypes2 >&2
+				diff -u $TMPD/pagetypes.1 $TMPD/pagetypes.2 >&2
 			done
 			kill -SIGUSR1 $pid 2> /dev/null
 		done
 		set_return_code EXIT
 	}
 	EXPECTED_RETURN_CODE="START EXIT"
+elif [ "$RACE_SRC" == race_with_mremap ] ; then
+	true
 else
 	# no race mbind/partial case
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_DISAPPEARED PMD_SPLIT EXIT"

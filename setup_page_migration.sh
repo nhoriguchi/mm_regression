@@ -50,10 +50,10 @@ check_hugepage_migration() {
 }
 
 check_migration_pagemap() {
-	diff -u1000000 $TMPD/mig.1 $TMPD/mig.2 > $TMPD/mig.diff
-	local before=$(grep "^-" $TMPD/mig.diff | wc -l)
-	local after=$(grep "^+" $TMPD/mig.diff | wc -l)
-	local unchange=$(grep "^ " $TMPD/mig.diff | wc -l)
+	diff -u1000000 $TMPD/.mig.1 $TMPD/.mig.2 > $TMPD/.mig.diff
+	local before=$(grep "^-" $TMPD/.mig.diff | wc -l)
+	local after=$(grep "^+" $TMPD/.mig.diff | wc -l)
+	local unchange=$(grep "^ " $TMPD/.mig.diff | wc -l)
 
 	echo_log "check pagemap"
 	if [ "$before" -gt 0 ] && [ "$after" -gt 0 ] ; then
@@ -104,15 +104,27 @@ check_thp_split() {
 	local thp_split_after=$(grep "thp_split_page " $TMPD/vmstat.2 | cut -f2 -d' ')
 
 	echo_log "check thp split from /proc/vmstat"
-	if [ "$pmd_split_before" -eq "$pmd_split_after"  ] ; then
-		echo_log "pmd not split"
-		return 2
-	elif [ "$thp_split_before" -eq "$thp_split_before" ] ; then
-		echo_log "pmd split ($pmd_split_before -> $pmd_split_after)"
+
+	if [ ! -e $TMPD/vmstat.1 ] || [ ! -e $TMPD/vmstat.2 ] ; then
+		echo_log "vmstat log not exist."
+		return 3
+	fi
+
+	if [ ! "$pmd_split_before" ] || [ ! "$pmd_split_after" ] ; then
+		echo_log "pmd_split not supported in this kernel ($uname -r)"
+	else
+		if [ "$pmd_split_before" -eq "$pmd_split_after" ] ; then
+			echo_log "pmd not split"
+			return 2
+		else
+			echo_log "pmd split ($pmd_split_before -> $pmd_split_after)"
+		fi
+	fi
+
+	if [ "$thp_split_before" -eq "$thp_split_before" ] ; then
 		echo_log "thp not split"
 		return 1
 	else
-		echo_log "pmd split ($pmd_split_before -> $pmd_split_after)"
 		echo_log "thp split ($thp_split_before -> $thp_split_after)"
 		return 0
 	fi
@@ -141,7 +153,7 @@ control_hugepage_migration() {
 				get_numa_maps $pid > $TMPD/numa_maps.1
 				get_smaps_block $pid smaps.1 700000 > /dev/null
 				get_pagetypes $pid pagetypes.1 -Nrla 0x700000000+0x10000000
-				get_pagemap $pid mig.1 -NrLa 0x700000000+0x10000000 > /dev/null
+				get_pagemap $pid .mig.1 -NrLa 0x700000000+0x10000000 > /dev/null
 				cp /proc/vmstat $TMPD/vmstat.1
 
 				# TODO: better condition check
@@ -193,7 +205,7 @@ control_hugepage_migration() {
 				get_numa_maps $pid > $TMPD/numa_maps.2
 				get_smaps_block $pid smaps.2 700000 > /dev/null
 				get_pagetypes $pid pagetypes.2 -Nrla 0x700000000+0x10000000
-				get_pagemap $pid mig.2 -NrLa 0x700000000+0x10000000 > /dev/null
+				get_pagemap $pid .mig.2 -NrLa 0x700000000+0x10000000 > /dev/null
 				cp /proc/vmstat $TMPD/vmstat.2
 
 				if [ "$CGROUP" ] ; then
@@ -387,10 +399,10 @@ control_hugepage_migration() {
 					$PAGETYPES -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee -a $OFILE | tee $TMPD/pagetypes2
 				fi
 
-				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -NrL | grep -v offset | cut -f1,2 > $TMPD/mig2
+				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -NrL | grep -v offset | cut -f1,2 > $TMPD/.mig2
 				# count diff stats
-				diff -u0 $TMPD/mig1 $TMPD/mig2 > $TMPD/mig3
-				diffsize=$(grep -c -e ^+ -e ^- $TMPD/mig3)
+				diff -u0 $TMPD/.mig1 $TMPD/.mig2 > $TMPD/.mig3
+				diffsize=$(grep -c -e ^+ -e ^- $TMPD/.mig3)
 				if [ "$diffsize" -eq 0 ] ; then
 					set_return_code MIGRATION_FAILED
 					echo "page migration failed."
