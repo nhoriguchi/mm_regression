@@ -37,19 +37,16 @@ clean:
 	  true ; \
 	done
 
-TARGETS=page_table_walker mmgeneric hugepage_migration thp_migration mce_base mce_hugetlb mce_thp mce_ksm mce_stress mce_multiple_injection
+# recipes are given via environment variable RECIPEFILES= or RECIPEDIR=
+test: all update_recipes
+	@bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME)) $(addprefix -d ,$(RECIPEDIR))
 
-$(TARGETS): all
-	@bash run-test.sh -v -r $@.rc -n $@ $(TESTCASE_FILTER)
+# all recipes
+test_all: all update_recipes
+	@bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell find cases/ -type f | xargs readlink -f 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
 
 test1g: all
 	@bash run-test-1g.sh
-
-mce_kvm: all
-	bash run-test.sh -v -r $@.rc -n $@ -S $(TESTCASE_FILTER)
-
-tmp_mce_kvm: all
-	bash run-test.sh -v -r $@.rc -n $@ -S $(TESTCASE_FILTER)
 
 # alias definition
 test_old: mmgeneric page_table_walker hugepage_migration thp_migration mce_test
@@ -57,19 +54,8 @@ mce_test: mce_base mce_hugetlb mce_thp mce_ksm
 mce_test_advanced: mce_multiple_injection mce_stress
 mce_test_full: mce_test mce_test_advanced
 
-# recipes are given via environment variable RECIPEFILES= or RECIPEDIR=
-test: all
-	@bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME)) $(addprefix -d ,$(RECIPEDIR))
-
-# all recipes
-test_all: all
-	@bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell find cases/ -type f | xargs readlink -f 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
-
-test42: all
+makefile_test: all
 	@echo $(shell readlink -f $(RECIPES) 2> /dev/null)
 	@echo $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null))
-
-page_migration: all
-	@bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(RECIPES)) $(addprefix -t ,$(RUNNAME))
 
 -include test_core/make.include
