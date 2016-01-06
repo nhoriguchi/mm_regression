@@ -6,24 +6,13 @@
 
 EACH_BUFSIZE_IN_PAGE=$[512*10]
 
-TEST_PROGRAM="$test_alloc_generic -o memory_compaction -w start -w exit"
+TEST_PROGRAM="$test_alloc_generic -a none -o memory_compaction -w start -w exit"
 EXPECTED_RETURN_CODE="START EXIT"
 PIPETIMEOUT=30
 
 _prepare() {
 	prepare_mm_generic || return 1
-
-	# dd if=/dev/zero of=$WDIR/testfile bs=4096 count=$EACH_BUFSIZE_IN_PAGE > /dev/null 2>&1
-	# [ $? -ne 0 ] && echo "failed to create $swapfile" && return 1
-	# set_and_check_hugetlb_pool 100
 	prepare_system_default
-	# free
-	# echo "set_khpd_pages_to_scan $[4096 * 10]"
-	# set_khpd_pages_to_scan $[4096 * 10]
-	# echo "set_khpd_scan_sleep_millisecs 0"
-	# set_khpd_scan_sleep_millisecs 0
-	# echo "set_khpd_alloc_sleep_millisecs 0"
-	# set_khpd_alloc_sleep_millisecs 0
 	set_thp_always
 	show_current_tuning_parameters
 	show_current_tuning_parameters_compact
@@ -31,11 +20,7 @@ _prepare() {
 
 _cleanup() {
 	cleanup_mm_generic
-
 	cleanup_system_default
-	set_and_check_hugetlb_pool 0
-	rm -rf $WDIR/testfile
-	default_tuning_parameters
 }
 
 _control() {
@@ -45,6 +30,8 @@ _control() {
 	echo_log "$line"
 	case "$line" in
 		"just started")
+			# TODO: check vmstat
+
 			show_current_tuning_parameters_compact
 			grep -e comp -e thp /proc/vmstat
 			show_stat_thp
