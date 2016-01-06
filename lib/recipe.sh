@@ -54,6 +54,11 @@ parse_recipefile() {
 check_remove_suffix() {
 	local recipe=$1
 
+	# Directory is not a recipe.
+	if [ -d "$recipe" ] ; then
+		return 1
+	fi
+
 	if [[ "$recipe" =~ \.auto$ ]] ; then
 		echo "$recipe: auto generated recipe."
 		if [ -f "${recipe%%.auto}" ] ; then
@@ -63,11 +68,8 @@ check_remove_suffix() {
 	fi
 
 	if [[ "$recipe" =~ \.devel$ ]] ; then
-		echo "$recipe: developing recipe."
-		if [ -f "${recipe%%.devel}" ] ; then
-			echo "Manually made recipe with same recipe ID exists (${recipe%%.devel},) so no reason to run this .devel recipe? If you really want to run, please give environment variable DEVEL=true from calling make."
-			[ "$DEVEL_MODE" != true ] && return 1
-		fi
+		echo "$recipe: developing recipe. If you really want to run this testcase, please give environment variable DEVEL=true from calling make. If this recipe is ready to regular running, please remove the suffix."
+		[ "$DEVEL_MODE" != true ] && return 1
 	fi
 
 	if [[ "$recipe" =~ \.set$ ]] ; then
@@ -84,4 +86,6 @@ check_remove_suffix() {
 		echo "$recipe: old (obsolete) recipe. It might not run as intended, so just skip it."
 		return 1
 	fi
+
+	return 0
 }
