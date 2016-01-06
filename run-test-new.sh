@@ -43,7 +43,7 @@ export NEWSTYLE=true
 
 . $TCDIR/setup_generic.sh
 . $TCDIR/setup_test_core.sh
-. $TCDIR/setup_recipe.sh
+. $TCDIR/lib/recipe.sh
 . $TCDIR/lib/patch.sh
 . $TCDIR/lib/common.sh
 

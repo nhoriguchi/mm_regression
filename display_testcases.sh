@@ -27,7 +27,7 @@ tbasedir=/tmp/$(basename $BASH_SOURCE)
 TMPF=$(mktemp --tmpdir=$tbasedir -d XXXXXX)
 
 . $SDIR/setup_test_core.sh
-. $SDIR/setup_recipe.sh
+. $SDIR/lib/recipe.sh
 
 reset_per_testcase_counters() { true ; } # dummy
 
