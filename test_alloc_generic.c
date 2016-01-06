@@ -134,14 +134,16 @@ static void do_fork_stress(void) {
 static int __mremap_chunk(char *p, int csize, void *args) {
 	int offset = nr_chunk * CHUNKSIZE * PS;
 	int back = *(int *)args; /* 0: +offset, 1: -offset*/
+	void *new;
 
 	if (back) {
 		printf("mremap p:%p+%lx -> %p\n", p + offset, csize, p);
-		return mremap(p + offset, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p);
+		new = mremap(p + offset, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p);
 	} else {
 		printf("mremap p:%p+%lx -> %p\n", p, csize, p + offset);
-		return mremap(p, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p + offset);
+		new = mremap(p, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p + offset);
 	}
+	return new == MAP_FAILED ? -1 : 0;
 }
 
 static void __do_mremap_stress(void) {
@@ -397,6 +399,9 @@ static void do_operation(void) {
 		break;
 	case OT_MBIND_FUZZ:
 		__do_mbind_fuzz();
+		break;
+	case OT_MEMORY_COMPACTION:
+		do_memory_compaction();
 		break;
 	case OT_MADV_WILLNEED:
 		__do_madv_willneed();
@@ -707,7 +712,7 @@ int main(int argc, char *argv[]) {
 			operate_with_numa_prepared();
 			break;
 		case AT_NONE:
-			operate_with_numa_prepared();
+			do_operation();
 			break;
 		}
 
