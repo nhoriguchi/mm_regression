@@ -20,7 +20,6 @@ ERROR_TYPE=__MARK_ERROR_TYPE
 ACCESS_LATER_OPTION=
 [ __MARK_ACCESS_LATER = later_access ] && ACCESS_LATER_OPTION=-A
 
-TEST_PROGRAM="$test_alloc_generic -o memory_error_injection -e $ERROR_TYPE -B $BACKEND $ACCESS_LATER_OPTION -d work"
 TEST_PROGRAM="$test_alloc_generic -a allocate_exit -o memory_error_injection -e $ERROR_TYPE -B $BACKEND $ACCESS_LATER_OPTION -d work -w start -w after_allocate -w before_free -w exit"
 
 case "$BACKEND" in
