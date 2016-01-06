@@ -75,6 +75,11 @@ check_console_output() {
 
 init_return_code() {
     rm -f $GTMPD/_return_code* $TMPD/_return_code*
+
+	# Even if current testcase is skipped, we need an empty _return_code_seq
+	# file because test_summary.rb script want it to be able to tell that the
+	# testcase is started or just skipped.
+	touch $TMPD/_return_code_seq
 }
 
 get_return_code() {
@@ -114,7 +119,6 @@ set_return_code_start() {
 
 check_testcase_already_run() {
 	[ "$AGAIN" ] && return 1
-	grep START $TMPD/_return_code_seq
 	grep -q -x START $TMPD/_return_code_seq 2> /dev/null
 }
 
@@ -142,6 +146,8 @@ check_system_default() {
 prepare() {
 	local prepfunc
 	local ret=0
+
+	kill_all_subprograms
 
 	while true ; do # mocking goto
 		if [ "$TEST_PREPARE" ] ; then

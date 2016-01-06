@@ -108,13 +108,12 @@ for recipe in $RECIPEFILES ; do
 		# check_testcase_filter || exit 1
 
 		echo_log "===> Recipe: $recipe_relpath (ID: $recipe_relpath)"
+		date +%s > $TMPD/start_time
+		reset_per_testcase_counters
+		init_return_code
+
 		. .tmp.recipe
 		mv .tmp.recipe $TMPD/_recipe
-
-		date +%s > $TMPD/start_time
-
-		kill_all_subprograms
-		reset_per_testcase_counters
 
 		if [ "$TEST_PROGRAM" ] ; then
 			do_test "$TEST_PROGRAM -p $PIPE $VERBOSE"
