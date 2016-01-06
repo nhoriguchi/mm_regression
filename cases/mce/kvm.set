@@ -8,14 +8,21 @@
 #!2 ERROR_TYPE: mce-srao hard-offline soft-offline
 #!2 ACCESS_LATER: none
 
-. $TRDIR/setup_mce_kvm.sh
+# VM and PASSWD should be given via environment variable
+# VM=f21a
+# PASSWD=
+
+# # TODO: assuming that sshvm is installed (via deploy_vm_image)
+VMIP=$(sshvm -i -n default $VM)
+
+. $TRDIR/setup_mce_kvm.sh || exit 1
 
 FLAVOR=__MARK_FLAVOR
 ERROR_TYPE=__MARK_ERROR_TYPE
 ACCESS_LATER_OPTION=
 [ __MARK_ACCESS_LATER = later_access ] && ACCESS_LATER_OPTION=-A
 
-echo "FLAVOR is $FLAVOR"
+echo "FLAVOR: $FLAVOR"
 if [ "$FLAVOR" == panic ] ; then
 	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_PANICKED"
 	TARGET_PAGETYPES="dirty,lru,mmap,anonymous=lru,mmap"
