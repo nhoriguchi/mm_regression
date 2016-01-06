@@ -104,6 +104,14 @@ check_return_code() {
     fi
 }
 
+set_return_code_start() {
+	set_return_code START
+	# making sure return code START is written on the disk because if current
+	# testcase causes kernel panic or power reset, the return code is used to
+	# skip the same testcode in the next run after reboot.
+	sync
+}
+
 check_testcase_already_run() {
 	[ "$AGAIN" ] && return 1
 	grep START $TMPD/_return_code_seq
@@ -310,7 +318,7 @@ __do_test() {
         cleanup
         return 1
     fi
-    set_return_code "START"
+    set_return_code_start
     [ "$VERBOSE" ] && echo_log "$cmd"
 
     exec 2> >( tee -a ${OFILE} )
@@ -393,7 +401,7 @@ __do_test_async() {
         cleanup
         return 1
     fi
-    set_return_code "START"
+    set_return_code_start
     run_controller
     cleanup
     check
