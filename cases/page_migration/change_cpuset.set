@@ -9,9 +9,6 @@ THP=1
 CGROUP=cpu,cpuset,memory:test1
 MIGRATE_SRC=change_cpuset
 
-# TEST_PROGRAM="$test_alloc_generic -o page_migration -s $MIGRATE_SRC -m private -B thp -N $THP -b"
-# EXPECTED_RETURN_CODE="START CGCLASSIFY_PASS MIGRATION_PASSED EXIT"
-
 EXPECTED_RETURN_CODE="START CGCLASSIFY_PASS MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
 TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s $MIGRATE_SRC -N $THP -B thp -w start -w after_allocate -w before_free -w exit"
 
