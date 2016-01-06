@@ -1,5 +1,5 @@
-TMPF=$(mktemp) 
-cat - > $TMPF  
+TMPF=$(mktemp)
+cat - > $TMPF
 
 THISDIR=$(dirname $BASH_SOURCE)
 . $THISDIR/recipe.sh
