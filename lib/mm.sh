@@ -71,7 +71,7 @@ prepare_mm_generic() {
 		if [ "$HUGEPAGESIZE" ] ; then
 			hugepage_size_support_check || return 1
 		fi
-		set_and_check_hugetlb_pool $HUGETLB || return 1
+		set_and_check_hugetlb_pool $HUGETLB
 	fi
 
 	if [ "$HUGETLB_MOUNT" ] ; then # && [ "$HUGETLB_FILE" ] ; then
