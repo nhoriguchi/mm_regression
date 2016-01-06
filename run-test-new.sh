@@ -1,17 +1,17 @@
 #!/bin/bash
 
 VERBOSE=""
-TESTCASE_FILTER=""
-RECIPEDIR=
-RECIPEFILES=
 DEVEL_MODE=
+# RECIPEFILES might be set as an environment variable
+# RECIPEDIR might be set as an environment variable
+# TESTCASE_FILTER might be set as an environment variable
 
 while getopts vs:t:f:Spd:r:D OPT ; do
     case $OPT in
         v) VERBOSE="-v" ;;
         s) KERNEL_SRC="${OPTARG}" ;;
         t) TESTNAME="$OPTARG" ;;
-        f) export TESTCASE_FILTER="$TESTCASE_FILTER ${OPTARG}" ;;
+        f) TESTCASE_FILTER="$TESTCASE_FILTER ${OPTARG}" ;;
         S) SCRIPT=true ;;
 		p) SUBPROCESS=true ;;
 		d) RECIPEDIR="$OPTARG" ;;
@@ -32,6 +32,7 @@ for rd in $RECIPEDIR ; do
 done
 
 [ ! "$RECIPEFILES" ] && echo "RECIPEFILES not given or not exist." >&2 && exit 1
+export RECIPEFILES
 
 export TCDIR=$(dirname $(readlink -f $BASH_SOURCE))
 # Assuming that current directory is the root directory of the current test.
@@ -54,6 +55,13 @@ echo "Current test: $(basename $TRDIR)"
 echo "TESTNAME/RUNNAME: $TESTNAME"
 echo "TESTCASE_FILTER: $TESTCASE_FILTER"
 echo "RECIPEFILES: ${RECIPEFILES//$TRDIR\/cases\//}"
+
+stop_test_running() {
+	ps x -o  "%p %r %y %x %c" | grep $$
+	kill -9 -$(ps --no-header -o "%r" $$)
+}
+
+trap stop_test_running SIGTERM
 
 for recipe in $RECIPEFILES ; do
 	echo "===> recipe $recipe"
