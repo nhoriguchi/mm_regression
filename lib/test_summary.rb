@@ -13,12 +13,13 @@ class TestCaseSummary
     @success = File.read(@tc_dir + "/_success").to_i
     @failure = File.read(@tc_dir + "/_failure").to_i
     @later = File.read(@tc_dir + "/_later").to_i
+    @return_code = File.read(@tc_dir + "/_return_code_seq")
   end
 
   # If a testcase failed badly, some result data might not be stored,
   # so let's skip such cases.
   def data_check
-    tmp =["_testcount", "_success", "_failure", "_later"].any? do |f|
+    tmp = ["_testcount", "_success", "_failure", "_later"].any? do |f|
       ! File.exist?(@tc_dir + "/" + f)
     end
 
@@ -47,10 +48,14 @@ class TestCaseSummary
     return "PASS" if @testcount == @success + @later
     return "FAIL"
   end
+
+  def started?
+    @return_code =~ /\bSTART\b/
+  end
 end
 
 class RunSummary
-  attr_accessor :dir, :tc_summary, :testcases, :testcount, :success, :failure, :later
+  attr_accessor :dir, :tc_summary, :testcases, :testcount, :success, :failure, :later, :tc_hash
 
   def initialize test_summary, dir
     @test_summary = test_summary
@@ -60,10 +65,14 @@ class RunSummary
     end.map do |tc|
       "#{tc.gsub(dir + '/', '')}"
     end.sort
+
     @tc_summary = []
+    @tc_hash = {}
     @testcases.each do |tc|
       begin
-        @tc_summary << TestCaseSummary.new(dir, tc)
+        tcs = TestCaseSummary.new(dir, tc)
+        @tc_summary << tcs
+        @tc_hash[tc] = tcs
       rescue
         puts "sorry no real rescue yet."
       end
@@ -101,6 +110,37 @@ class RunSummary
     @failure = @tc_summary.inject(0) {|sum, t| sum + t.failure}
     @later = @tc_summary.inject(0) {|sum, t| sum + t.later}
   end
+
+  def check_finished recipeset
+    run = []
+    skipped = []
+    notrun = []
+
+    recipeset.each do |r|
+      if @tc_hash[r]
+        if @tc_hash[r].started?
+          run << r
+        else
+          skipped << r
+        end
+      else
+        notrun << r
+      end
+    end
+    puts "#{@dir}: #{run.size} run, #{skipped.size} skipped, #{notrun.size} notrun"
+    if skipped.size > 0
+      puts "Testcases skipped:"
+      puts skipped.map {|r| "- " + r}
+    end
+    if notrun.size > 0
+      puts "Testcases not run:"
+      puts notrun.map {|r| "- " + r}
+      # If there's "notrun" testcase, the current testrun is not finished yet.
+      return nil
+    else
+      return true
+    end
+  end
 end
 
 class TestSummary
@@ -110,11 +150,32 @@ class TestSummary
     parse_args args
     get_targets
     get_full_recipes
+
     @run_summary = @targets.map {|t| RunSummary.new self, t}
-    if @options[:coverage]
+
+    if @options[:finishcheck]
+      do_finishcheck
+    elsif @options[:coverage]
       show_coverage
     else
       puts sum_str
+    end
+  end
+
+  def do_finishcheck
+    if ENV['RECIPEFILES'].nil?
+      puts "No environment variable RECIPEFILES set, so can't tell test ending."
+      exit
+    end
+
+    given_recipes = `echo $RECIPEFILES | bash test_core/lib/filter_recipe.sh`.chomp.split("\n").map {|r| r.gsub(/.*cases\//, '')}
+
+    if @run_summary.all? {|rs| rs.check_finished given_recipes}
+      puts "All of given recipes are finished."
+      exit 0
+    else
+      puts "There's some \"not run\" testcases. So try to run test again with the same setting."
+      exit 1
     end
   end
 
@@ -199,6 +260,9 @@ class TestSummary
       end
       opts.on("-c", "--coverage") do
         @options[:coverage] = true
+      end
+      opts.on("-F", "--finishcheck") do
+        @options[:finishcheck] = true
       end
     end.parse! args
 
