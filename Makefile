@@ -52,22 +52,18 @@ tmp_mce_kvm: all
 	bash run-test.sh -v -r $@.rc -n $@ -S $(TESTCASE_FILTER)
 
 # alias definition
-test: mmgeneric page_table_walker hugepage_migration thp_migration mce_test
+test_old: mmgeneric page_table_walker hugepage_migration thp_migration mce_test
 mce_test: mce_base mce_hugetlb mce_thp mce_ksm
 mce_test_advanced: mce_multiple_injection mce_stress
 mce_test_full: mce_test mce_test_advanced
 
-test2: all
-	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) $(addprefix '-r ',$(RECIPES)) -d cases/page_migration/hugetlb
+# recipes are given via environment variable RECIPEFILES= or RECIPEDIR=
+test: all
+	@bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME)) $(addprefix -d ,$(RECIPEDIR))
 
-test3: all
-	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/page_migration/hugetlb/mbind_private_reserved
-
-test4: all
-	bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
-
-test5: all
-	bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell find cases/ -type f | xargs readlink -f 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
+# all recipes
+test_all: all
+	@bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell find cases/ -type f | xargs readlink -f 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
 
 test42: all
 	@echo $(shell readlink -f $(RECIPES) 2> /dev/null)
