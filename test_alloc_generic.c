@@ -331,13 +331,6 @@ static void do_operation(void) {
 	}
 }
 
-/* static void operate_with_allocate_wait(int (alloc_func)(void), int (op_func)(void)) { */
-static void operate_with_allocate_wait(void) {
-	mmap_all_chunks();
-	pprintf_wait(SIGUSR1, "page_fault_done\n");
-	munmap_all_chunks();
-}
-
 static void operate_with_allocate_exit(void) {
 	mmap_all_chunks();
 	if (wait_after_allocate)
@@ -411,8 +404,6 @@ int main(int argc, char *argv[]) {
 				allocation_type = AT_MAPPING_ITERATION;
 			else if (!strcmp(optarg, "allocate_exit"))
 				allocation_type = AT_ALLOCATE_EXIT;
-			else if (!strcmp(optarg, "allocate_wait"))
-				allocation_type = AT_ALLOCATE_WAIT;
 			else if (!strcmp(optarg, "numa_prepared"))
 				allocation_type = AT_NUMA_PREPARED;
 			else if (!strcmp(optarg, "none"))
@@ -576,9 +567,6 @@ int main(int argc, char *argv[]) {
 			pprintf_wait(SIGUSR1, "just started\n");
 
 		switch (allocation_type) {
-		case AT_ALLOCATE_WAIT:
-			operate_with_allocate_wait();
-			break;
 		case AT_ALLOCATE_EXIT:
 			operate_with_allocate_exit();
 			break;

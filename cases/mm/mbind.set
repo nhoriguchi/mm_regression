@@ -14,12 +14,12 @@ if [ "$FLAVOR" == simple ] ; then
 	EXPECTED_RETURN_CODE="START EXIT"
 	_check() { check_mbind; }
 elif [ "$FLAVOR" == fuzz ] ; then
-	FUZZ_CMD="$test_alloc_generic -a allocate_wait -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 10"
+	FUZZ_CMD="$test_alloc_generic -a allocate_exit -o noop -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 10"
 	MBIND_FUZZ_THREADS=1
 	MBIND_FUZZ_DURATION=10
 	_control() { control_mbind_fuzz; }
 elif [ "$FLAVOR" == fuzz_heavy ] ; then
-	FUZZ_CMD="$test_alloc_generic -a allocate_wait -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 1000"
+	FUZZ_CMD="$test_alloc_generic -a allocate_exit -o noop -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 1000"
 	MBIND_FUZZ_THREADS=100
 	MBIND_FUZZ_DURATION=30
 	_control() { control_mbind_fuzz; }

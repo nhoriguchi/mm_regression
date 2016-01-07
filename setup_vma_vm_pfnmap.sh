@@ -14,7 +14,6 @@ control_vma_vm_pfnmap() {
 
     echo_log "$line"
     case "$line" in
-        # "waiting")
         "page_fault_done")
             read_pagemap $pid 0x700000000 1 $TMPD/case1
             read_pagemap $pid 0x700000001 1 $TMPD/case2
@@ -27,13 +26,13 @@ control_vma_vm_pfnmap() {
             cat /proc/$pid/smaps > $TMPD/smaps
             cat /proc/$pid/maps > $TMPD/maps
             cat /proc/$pid/numa_maps > $TMPD/numa_maps
-            set_return_code EXIT
+
             kill -SIGUSR1 $pid
-			return 0;
             ;;
-        "vma_vm_pfnmap exit")
-            kill -SIGUSR1 $pid
-            return 0
+        "just before exit")
+			kill -SIGUSR1 $pid
+			set_return_code EXIT
+			return 0
             ;;
         *)
             ;;
@@ -42,7 +41,6 @@ control_vma_vm_pfnmap() {
 }
 
 check_vma_vm_pfnmap() {
-    check_system_default
     check_pagemap
     check_smaps
     check_maps
