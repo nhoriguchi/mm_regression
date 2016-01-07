@@ -162,7 +162,7 @@ control_mce_test() {
 					do_multi_inject $pid
 				fi
 				set_return_code EXIT
-				kill -SIGUSR2 $pid
+				kill -SIGUSR1 $pid
 				return 0
 				;;
 			*)

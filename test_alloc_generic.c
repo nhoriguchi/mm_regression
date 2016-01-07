@@ -17,26 +17,6 @@
 #include <sys/wait.h>
 #include "include.h"
 
-void do_normal_allocation(void) {
-	mmap_all_chunks();
-
-	/* In both branch, signal(SIGUSR1) can break the loop or pause(). */
-	if (busyloop)
-		while (flag)
-			access_all_chunks();
-	else
-		pause();
-
-	munmap_all_chunks();
-}
-
-void do_mmap_munmap_iteration(void) {
-	while (flag) {
-		mmap_all_chunks();
-		munmap_all_chunks();
-	}
-}
-
 /* inject only onto the first page, so allocating big region makes no sense. */
 void __do_memory_error_injection(void) {
 	char rbuf[256];
@@ -67,21 +47,8 @@ void __do_memory_error_injection(void) {
 	if (access_after_injection) {
 		pprintf("writing affected region\n");
 		pause();
-		access_all_chunks();
+		access_all_chunks(NULL);
 	}
-}
-
-void do_memory_error_injection(void) {
-	mmap_all_chunks();
-	__do_memory_error_injection();
-	pprintf("before_free\n");
-	pause();
-	munmap_all_chunks();
-}
-
-void do_alloc_exit(void) {
-	mmap_all_chunks();
-	munmap_all_chunks();
 }
 
 static void __do_madv_stress() {
@@ -104,31 +71,19 @@ static void __do_madv_stress() {
 static void _do_madv_stress(void) {
 	__do_madv_stress();
 	if (access_after_injection)
-		access_all_chunks();
-}
-
-static void do_madv_stress(void) {
-	mmap_all_chunks();
-	_do_madv_stress();
-	munmap_all_chunks();
+		access_all_chunks(NULL);
 }
 
 static void __do_fork_stress(void) {
 	while (flag) {
 		pid_t pid = fork();
 		if (!pid) {
-			access_all_chunks();
+			access_all_chunks(NULL);
 			return;
 		}
 		/* get status? */
 		waitpid(pid, NULL, 0);
 	}
-}
-
-static void do_fork_stress(void) {
-	mmap_all_chunks();
-	__do_fork_stress();
-	munmap_all_chunks();
 }
 
 static int __mremap_chunk(char *p, int csize, void *args) {
@@ -147,33 +102,15 @@ static int __mremap_chunk(char *p, int csize, void *args) {
 }
 
 static void __do_mremap_stress(void) {
-	int ret;
-	int back = 0;
-
 	while (flag) {
-		back = 0;
-		ret = do_work_memory2(__mremap_chunk, (void *)&back);
-		if (ret == -1) {
-			perror("mremap");
-			/* pprintf("mremap failed\n"); */
-			/* return; */
-		} else
-			pprintf("mremap OK %lx\n", ret);
-		back = 1;
-		ret = do_work_memory2(__mremap_chunk, (void *)&back);
-		if (ret == -1) {
-			perror("mremap");
-			/* pprintf("mremap failed\n"); */
-			/* return; */
-		} else
-			pprintf("mremap OK %lx\n", ret);
-	}
-}
+		int back = 0;
 
-static void do_mremap_stress(void) {
-	mmap_all_chunks();
-	__do_mremap_stress();
-	munmap_all_chunks();
+		back = 0;
+		do_work_memory(__mremap_chunk, (void *)&back);
+
+		back = 1;
+		do_work_memory(__mremap_chunk, (void *)&back);
+	}
 }
 
 static int __madv_willneed_chunk(char *p, int size, void *args) {
@@ -181,19 +118,7 @@ static int __madv_willneed_chunk(char *p, int size, void *args) {
 }
 
 static void __do_madv_willneed(void) {
-	int ret = do_work_memory2(__madv_willneed_chunk, NULL);
-	if (ret == -1) {
-		perror("madv_willneed");
-		pprintf("madv_willneed failed\n");
-		pause();
-		/* return; */
-	}
-}
-
-static void do_madv_willneed(void) {
-	mmap_all_chunks();
-	__do_madv_willneed();
-	munmap_all_chunks();
+	do_work_memory(__madv_willneed_chunk, NULL);
 }
 
 static void __do_allocate_more(void) {
@@ -245,6 +170,7 @@ static void do_memory_compaction(void) {
 	if (madvise(ptr, len, MADV_HUGEPAGE))
 		err("MADV_HUGEPAGE");
 
+	/* TODO: move to pprintf_wait_func */
 	pprintf("entering busy loop\n");
 	while (flag) {
 		for (p = ptr; p < ptr + len; p += THPS) {
@@ -254,6 +180,18 @@ static void do_memory_compaction(void) {
 				err("MADV_DONTNEED");
 		}
 	}
+}
+
+static int iterate_mbind_pingpong(void *arg) {
+	struct mbind_arg *mbind_arg = (struct mbind_arg *)arg;
+
+	numa_bitmask_clearall(mbind_arg->new_nodes);
+	numa_bitmask_setbit(mbind_arg->new_nodes, 1);
+	do_work_memory(__mbind_chunk, mbind_arg);
+
+	numa_bitmask_clearall(mbind_arg->new_nodes);
+	numa_bitmask_setbit(mbind_arg->new_nodes, 0);
+	do_work_memory(__mbind_chunk, mbind_arg);
 }
 
 static void __do_mbind_pingpong(void) {
@@ -266,49 +204,19 @@ static void __do_mbind_pingpong(void) {
 
 	mbind_arg.new_nodes = numa_bitmask_alloc(nr_nodes);
 
-	while (flag) {
-		numa_bitmask_clearall(mbind_arg.new_nodes);
-		numa_bitmask_setbit(mbind_arg.new_nodes, 1);
-
-		ret = do_work_memory2(__mbind_chunk, &mbind_arg);
-		if (ret == -1) {
-			perror("mbind");
-		/* 	pprintf("mbind failed\n"); */
-		/* 	pause(); */
-		}
-
-		numa_bitmask_clearall(mbind_arg.new_nodes);
-		numa_bitmask_setbit(mbind_arg.new_nodes, 0);
-
-		ret = do_work_memory2(__mbind_chunk, &mbind_arg);
-		if (ret == -1) {
-			perror("mbind");
-		/* 	pprintf("mbind failed\n"); */
-		/* 	pause(); */
-		}
-	}
+	pprintf_wait_func(iterate_mbind_pingpong, &mbind_arg,
+			  "entering iterate_mbind_pingpong\n");
 }
 
 static void __do_move_pages_pingpong(void) {
-	int ret;
-	int node;
-
 	while (flag) {
+		int node;
+
 		node = 1;
-		ret = do_work_memory2(__move_pages_chunk, &node);
-		if (ret == -1) {
-			perror("move_pages");
-			pprintf("move_pages failed\n");
-			pause();
-		}
+		do_work_memory(__move_pages_chunk, &node);
 
 		node = 0;
-		ret = do_work_memory2(__move_pages_chunk, &node);
-		if (ret == -1) {
-			perror("move_pages");
-			pprintf("move_pages failed\n");
-			pause();
-		}
+		do_work_memory(__move_pages_chunk, &node);
 	}
 }
 
@@ -327,8 +235,7 @@ static void setup(void) {
 
 	need_numa();
 
-	signal(SIGUSR1, sig_handle);
-	signal(SIGUSR2, sig_handle_flag);
+	signal(SIGUSR1, sig_handle_flag);
 
 	if (backend_bitmap & BE_PAGECACHE) {
 		if (!workdir)
@@ -443,17 +350,6 @@ static void operate_with_allocate_exit(void) {
 	munmap_all_chunks();
 }
 
-static void operate_with_allocate_busyloop(void) {
-	mmap_all_chunks();
-	if (wait_after_allocate)
-		pprintf_wait(SIGUSR1, "page_fault_done\n");
-	while (flag)
-		access_all_chunks();
-	if (wait_before_free)
-		pprintf_wait(SIGUSR1, "before_free\n");
-	munmap_all_chunks();
-}
-
 static void operate_with_mapping_iteration(void) {
 	while (flag) {
 		mmap_all_chunks();
@@ -474,7 +370,7 @@ static void operate_with_numa_prepared(void) {
 int main(int argc, char *argv[]) {
 	char c;
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:io:e:PB:Af:d:M:s:RFa:w:O:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:o:e:PB:Ad:M:s:RFa:w:O:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -512,9 +408,6 @@ int main(int argc, char *argv[]) {
 					err("set_mempolicy");
 			}
 			break;
-		case 'i':
-			operation_type = OT_MAPPING_ITERATION;
-			break;
 		case 'a':
 			if (!strcmp(optarg, "iterate_mapping"))
 				allocation_type = AT_MAPPING_ITERATION;
@@ -522,8 +415,6 @@ int main(int argc, char *argv[]) {
 				allocation_type = AT_ALLOCATE_EXIT;
 			else if (!strcmp(optarg, "allocate_wait"))
 				allocation_type = AT_ALLOCATE_WAIT;
-			else if (!strcmp(optarg, "allocate_busyloop"))
-				allocation_type = AT_ALLOCATE_BUSYLOOP;
 			else if (!strcmp(optarg, "numa_prepared"))
 				allocation_type = AT_NUMA_PREPARED;
 			else if (!strcmp(optarg, "none"))
@@ -534,11 +425,7 @@ int main(int argc, char *argv[]) {
 				allocation_type = AT_ALLOC_EXIT;
 			break;
 		case 'o':
-			if (!strcmp(optarg, "iterate_mapping"))
-				operation_type = OT_MAPPING_ITERATION;
-			else if (!strcmp(optarg, "allocate_once"))
-				operation_type = OT_ALLOCATE_ONCE;
-			else if (!strcmp(optarg, "memory_error_injection"))
+			if (!strcmp(optarg, "memory_error_injection"))
 				operation_type = OT_MEMORY_ERROR_INJECTION;
 			else if (!strcmp(optarg, "alloc_exit"))
 				operation_type = OT_ALLOC_EXIT;
@@ -629,11 +516,6 @@ int main(int argc, char *argv[]) {
 		case 'A':
 			access_after_injection = 1;
 			break;
-		case 'f':
-			file = optarg;
-			printf("file %s\n", file);
-			fd = checked_open(file, O_RDWR);
-			break;
 		case 'd': /* tmpdir/workdir */
 			workdir = optarg;
 			break;
@@ -702,9 +584,6 @@ int main(int argc, char *argv[]) {
 		case AT_ALLOCATE_EXIT:
 			operate_with_allocate_exit();
 			break;
-		case AT_ALLOCATE_BUSYLOOP:
-			operate_with_allocate_busyloop();
-			break;
 		case AT_MAPPING_ITERATION:
 			operate_with_mapping_iteration();
 			break;
@@ -718,53 +597,6 @@ int main(int argc, char *argv[]) {
 
 		if (wait_exit)
 			pprintf_wait(SIGUSR1, "just before exit\n");
-	} else  {
-		switch (operation_type) {
-		case OT_MAPPING_ITERATION:
-			do_mmap_munmap_iteration();
-			break;
-		case OT_ALLOCATE_ONCE:
-			do_normal_allocation();
-			break;
-		case OT_MEMORY_ERROR_INJECTION:
-			do_memory_error_injection();
-			break;
-		case OT_ALLOC_EXIT:
-			do_alloc_exit();
-			break;
-		case OT_PAGE_MIGRATION:
-			pprintf("just started\n");
-			pause();
-			do_page_migration();
-			break;
-		case OT_PROCESS_VM_ACCESS:
-			do_process_vm_access();
-			break;
-		case OT_MLOCK:
-			do_mlock();
-			break;
-		case OT_MPROTECT:
-			do_mprotect();
-			break;
-		case OT_MADV_STRESS:
-			do_madv_stress();
-			break;
-		case OT_FORK_STRESS:
-			do_fork_stress();
-			break;
-		case OT_MREMAP_STRESS:
-			do_mremap_stress();
-			break;
-		case OT_MBIND_FUZZ:
-			do_mbind_fuzz();
-			break;
-		case OT_MEMORY_COMPACTION:
-			if (wait_start)
-				pprintf_wait(SIGUSR1, "just started\n");
-			do_memory_compaction();
-			if (wait_exit)
-				pprintf_wait(SIGUSR1, "just before exit\n");
-			break;
-		}
-	}
+	} else
+		errmsg("-a option not given\n");
 }

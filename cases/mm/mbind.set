@@ -12,17 +12,17 @@ MBIND_FUZZ_DURATION=5
 TESTFILE=$WDIR/testfile
 
 if [ "$FLAVOR" == simple ] ; then
-	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s mbind -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -w exit -w after_allocate -w start"
+	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s mbind -N 8 -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -w start -w after_allocate -w before_free -w exit"
 	EXPECTED_RETURN_CODE="START EXIT"
 	_check() { check_mbind; }
 elif [ "$FLAVOR" == fuzz ] ; then
 	FUZZ_CMD="$test_alloc_generic -a allocate_wait -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 10"
 	MBIND_FUZZ_THREADS=1
 	MBIND_FUZZ_DURATION=10
-	_control() { control_mbind_fuzz_normal_heavy; }
+	_control() { control_mbind_fuzz; }
 elif [ "$FLAVOR" == fuzz_heavy ] ; then
 	FUZZ_CMD="$test_alloc_generic -a allocate_wait -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 1000"
 	MBIND_FUZZ_THREADS=100
 	MBIND_FUZZ_DURATION=30
-	_control() { control_mbind_fuzz_normal_heavy; }
+	_control() { control_mbind_fuzz; }
 fi

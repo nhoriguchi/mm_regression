@@ -9,7 +9,9 @@ THP=1
 CGROUP=cpu,cpuset,memory:test1
 MIGRATE_SRC=change_cpuset
 
-EXPECTED_RETURN_CODE="START CGCLASSIFY_PASS MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
+# TODO: other backend
+
+EXPECTED_RETURN_CODE="START CGCLASSIFY_PASS MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
 TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s $MIGRATE_SRC -N $THP -B thp -w start -w after_allocate -w before_free -w exit"
 
 _prepare() {

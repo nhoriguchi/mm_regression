@@ -51,7 +51,7 @@ _control() {
 				echo "$PAGETYPES -r -p $pid -a 0x700000000+$EACH_BUFSIZE_IN_PAGE -Nl"
 				$PAGETYPES -r -p $pid -a 0x700000000+$EACH_BUFSIZE_IN_PAGE -Nl
 			done
-			kill -SIGUSR2 $pid
+			kill -SIGUSR1 $pid
 			;;
 		*)
 			;;

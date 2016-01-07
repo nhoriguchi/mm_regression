@@ -18,7 +18,7 @@ _control() {
     echo_log "pid $pid"
     sleep $PINGPONG_DURATION
 	ps ax | grep $pid
-    pkill -SIGUSR2 $pid
+    pkill -SIGUSR1 $pid
 	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate2
     set_return_code EXIT
 }

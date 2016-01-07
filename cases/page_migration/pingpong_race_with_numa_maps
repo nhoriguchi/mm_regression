@@ -35,7 +35,7 @@ _control() {
     reader_pid=$!
     sleep $PINGPONG_DURATION
     kill -SIGKILL $reader_pid
-    kill -SIGUSR2 $pids
+    kill -SIGUSR1 $pids
 	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate2
     set_return_code EXIT
 }

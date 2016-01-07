@@ -27,19 +27,12 @@ control_mbind() {
 		"just started")
             kill -SIGUSR1 $pid
             ;;
-		"exited busy loop")
-            kill -SIGUSR2 $pid
-            ;;
-		"mbind failed")
-            kill -SIGUSR1 $pid
-            ;;
         "page_fault_done")
             $PAGETYPES -p $pid -a 0x700000000+0x2000 -Nrl >> ${OFILE}
             cat /proc/$pid/numa_maps | grep "^70" > $TMPD/numa_maps1
             kill -SIGUSR1 $pid
             ;;
-        "entering busy loop")
-            sleep 0.5
+        "before_free")
             kill -SIGUSR1 $pid
             ;;
         "just before exit")
@@ -87,7 +80,8 @@ check_mbind_numa_maps() {
     fi
 }
 
-control_mbind_fuzz_normal_heavy() {
+# TODO: check with vmstat value
+control_mbind_fuzz() {
     echo_log "start mbind_$FLAVOR"
     for i in $(seq $MBIND_FUZZ_THREADS) ; do
 		$FUZZ_CMD > $TMPD/fuz.out 2>&1 &

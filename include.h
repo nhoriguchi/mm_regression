@@ -49,7 +49,6 @@ enum {
 	AT_MAPPING_ITERATION,
 	AT_ALLOCATE_EXIT,
 	AT_ALLOCATE_WAIT,
-	AT_ALLOCATE_BUSYLOOP,
 	AT_NUMA_PREPARED,
 	AT_NONE,
 
@@ -61,8 +60,6 @@ enum {
 int allocation_type = -1;
 
 enum {
-	OT_MAPPING_ITERATION,
-	OT_ALLOCATE_ONCE,
 	OT_MEMORY_ERROR_INJECTION,
 	OT_ALLOC_EXIT,
 	OT_PAGE_MIGRATION,
@@ -237,7 +234,7 @@ static void create_hugetlbfs_file(void) {
 	munmap(phugetlb, nr_p * PS);
 }
 
-static void *alloc_shmem2(struct mem_chunk *mc, void *exp_addr, int hugetlb) {
+static void *alloc_shmem(struct mem_chunk *mc, void *exp_addr, int hugetlb) {
 	void *addr;
 	int shmid;
 	int flags = IPC_CREAT | SHM_R | SHM_W;
@@ -266,13 +263,13 @@ static void *alloc_shmem2(struct mem_chunk *mc, void *exp_addr, int hugetlb) {
 	return addr;
 }
 
-static void free_shmem2(struct mem_chunk *mc) {
+static void free_shmem(struct mem_chunk *mc) {
 	if (shmdt((const void *)mc->p))
 		perror("Shmem detach failed.");
 	shmctl(mc->shmkey, IPC_RMID, NULL);
 }
 
-static void prepare_memory2(struct mem_chunk *mc, void *baseaddr,
+static void prepare_memory(struct mem_chunk *mc, void *baseaddr,
 			     unsigned long offset) {
 	int dev_mem_fd;
 
@@ -307,7 +304,7 @@ static void prepare_memory2(struct mem_chunk *mc, void *baseaddr,
 		 * multiple times, so controlling script must cleanup shmems after
 		 * running the testcase.
 		 */
-		mc->p = alloc_shmem2(mc, baseaddr, 1);
+		mc->p = alloc_shmem(mc, baseaddr, 1);
 		break;
 	case HUGETLB_FILE:
 		mc->p = checked_mmap(baseaddr, mc->chunk_size, protflag,
@@ -329,7 +326,7 @@ static void prepare_memory2(struct mem_chunk *mc, void *baseaddr,
 		madvise(mc->p, mc->chunk_size, MADV_HUGEPAGE);
 		break;
 	case NORMAL_SHMEM:
-		mc->p = alloc_shmem2(mc, baseaddr, 0);
+		mc->p = alloc_shmem(mc, baseaddr, 0);
 		break;
 	case DEVMEM:
 		/* Assuming that -n 1 is given */
@@ -344,7 +341,7 @@ static void prepare_memory2(struct mem_chunk *mc, void *baseaddr,
 	}
 }
 
-static void access_memory2(struct mem_chunk *mc) {
+static void access_memory(struct mem_chunk *mc) {
 	if (mc->mem_type == ZERO || mc->mem_type == HUGE_ZERO)
 		read_memory(mc->p, mc->chunk_size);
 	else if (mc->mem_type == DEVMEM) {
@@ -369,18 +366,18 @@ static void mmap_all_chunks(void) {
 			chunkset[k].mem_type = backend;
 
 			/* printf("base:0x%lx, size:%lx\n", baseaddr, chunkset[k].chunk_size); */
-			prepare_memory2(&chunkset[k], baseaddr, i * CHUNKSIZE * PS);
+			prepare_memory(&chunkset[k], baseaddr, i * CHUNKSIZE * PS);
 			/* printf("p[%d]:%p + 0x%lx, btype %d\n", i, chunkset[k].p, */
 			/*        chunkset[k].chunk_size, chunkset[k].mem_type); */
-			access_memory2(&chunkset[k]);
+			access_memory(&chunkset[k]);
 		}
 		j++;
 	}
 }
 
-static void munmap_memory2(struct mem_chunk *mc) {
+static void munmap_memory(struct mem_chunk *mc) {
 	if (mc->mem_type == HUGETLB_SHMEM || mc->mem_type == NORMAL_SHMEM)
-		free_shmem2(mc);
+		free_shmem(mc);
 	else if (mc->mem_type == DEVMEM) {
 		checked_munmap(mc->p, 3 * PS);
 	} else
@@ -392,18 +389,18 @@ static void munmap_all_chunks(void) {
 
 	for (j = 0; j < nr_mem_types; j++)
 		for (i = 0; i < nr_chunk; i++)
-			munmap_memory2(&chunkset[i + j * nr_chunk]);
+			munmap_memory(&chunkset[i + j * nr_chunk]);
 }
 
-static void access_all_chunks() {
+static int access_all_chunks(void *arg) {
 	int i, j;
 
 	for (j = 0; j < nr_mem_types; j++)
 		for (i = 0; i < nr_chunk; i++)
-			access_memory2(&chunkset[i + j * nr_chunk]);
+			access_memory(&chunkset[i + j * nr_chunk]);
 }
 
-int do_work_memory2(int (*func)(char *p, int size, void *arg), void *args) {
+int do_work_memory(int (*func)(char *p, int size, void *arg), void *args) {
 	int i, j;
 	int ret;
 
@@ -413,34 +410,16 @@ int do_work_memory2(int (*func)(char *p, int size, void *arg), void *args) {
 
 			/* printf("%s, %d %d\n", __func__, i, j); */
 			ret = (*func)(tmp->p, tmp->chunk_size, args);
-			if (ret != 0)
+			if (ret != 0) {
+				char buf[64];
+				sprintf(buf, "%p", func);
+				perror(buf);
 				break;
+			}
 		}
 	}
 	return ret;
 }
-
-/* #define mmap_all(p)	__mmap_all(p) */
-/* #define munmap_all(p)	__munmap_all(p) */
-/* #define access_all(p)	__access_all(p) */
-/* #define do_work_memory(p, f, a)	__do_work_memory(p, f, a) */
-
-#define mmap_all(p)	mmap_all_chunks()
-#define munmap_all(p)	munmap_all_chunks()
-#define access_all(p)	access_all_chunks()
-#define do_work_memory(p, f, a)	do_work_memory2(f, a)
-
-/*
- * Below here is exposed interface.
- */
-
-extern void do_alloc_exit(void);
-extern void do_memory_error_injection(void);
-extern void do_injection(void);
-extern void do_mmap_munmap_iteration(void);
-extern void do_normal_allocation(void);
-extern void do_multi_backend(void);
-
 
 int hp_partial;
 
@@ -452,12 +431,8 @@ int hp_partial;
 #define MAX_MEMBLK	1024
 
 static void __busyloop(void) {
-	pprintf("entering busy loop\n");
-	if (busyloop)
-		while (flag)
-			access_all_chunks();
-	else
-		pause();
+	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
+			  "entering busy loop\n");
 }
 
 static int set_mempolicy_node(int mode, unsigned long nid) {
@@ -470,7 +445,8 @@ static int set_mempolicy_node(int mode, unsigned long nid) {
 }
 
 static void do_migratepages(void) {
-	pprintf_wait(SIGUSR1, "waiting for migratepages\n");
+	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
+			  "waiting for migratepages\n");
 }
 
 struct mbind_arg {
@@ -495,8 +471,6 @@ static int __mbind_chunk(char *p, int size, void *args) {
 }
 
 static void do_mbind(void) {
-	int i;
-	int ret;
 	struct mbind_arg mbind_arg = {
 		.mode = MPOL_BIND,
 		.flags = MPOL_MF_MOVE|MPOL_MF_STRICT,
@@ -507,12 +481,7 @@ static void do_mbind(void) {
 
 	/* TODO: more race consideration, chunk, busyloop case? */
 	pprintf("call mbind\n");
-	ret = do_work_memory2(__mbind_chunk, (void *)&mbind_arg);
-	if (ret == -1) {
-		perror("mbind");
-		pprintf("mbind failed\n");
-		/* return; */
-	}
+	do_work_memory(__mbind_chunk, (void *)&mbind_arg);
 }
 
 static void initialize_random(void) {
@@ -537,8 +506,6 @@ static int __mbind_fuzz_chunk(char *p, int size, void *args) {
 }
 
 static void __do_mbind_fuzz(void) {
-	int i;
-	int ret;
 	struct mbind_arg mbind_arg = {
 		.mode = MPOL_BIND,
 		.flags = MPOL_MF_MOVE|MPOL_MF_STRICT,
@@ -550,19 +517,8 @@ static void __do_mbind_fuzz(void) {
 
 	/* TODO: more race consideration, chunk, busyloop case? */
 	pprintf("doing mbind_fuzz\n");
-	while (flag) {
-		ret = do_work_memory2(__mbind_fuzz_chunk, (void *)&mbind_arg);
-		if (ret == -1) {
-			perror("mbind_fuzz");
-			pprintf("mbind_fuzz failed\n");
-		}
-	}
-}
-
-static void do_mbind_fuzz(void) {
-	mmap_all_chunks();
-	__do_mbind_fuzz();
-	munmap_all_chunks();
+	while (flag)
+		do_work_memory(__mbind_fuzz_chunk, (void *)&mbind_arg);
 }
 
 static int __move_pages_chunk(char *p, int size, void *args) {
@@ -582,15 +538,9 @@ static int __move_pages_chunk(char *p, int size, void *args) {
 }
 
 static void do_move_pages(void) {
-	int ret;
 	int node = 1;
 
-	pprintf("call move_pages()\n");
-	ret = do_work_memory2(__move_pages_chunk, &node);
-	if (ret == -1) {
-		perror("move_pages");
-		pprintf("move_pages failed\n");
-	}
+	do_work_memory(__move_pages_chunk, &node);
 }
 
 static int get_max_memblock(void) {
@@ -661,9 +611,8 @@ static void do_hotremove(void) {
 
 	pmemblk = memblock_check();
 
-	/* pass pmemblk into control script */
-	pprintf("waiting for memory_hotremove: %d\n", pmemblk);
-	pause();
+	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
+			  "waiting for memory_hotremove: %d\n", pmemblk);
 }
 
 static int __madv_soft_chunk(char *p, int size, void *args) {
@@ -680,17 +629,10 @@ static int __madv_soft_chunk(char *p, int size, void *args) {
 
 /* unpoison option? */
 static void do_madv_soft(void) {
-	int ret;
-	int loop = 10;
-	int do_unpoison = 1;
+	/* int loop = 10; */
+	/* int do_unpoison = 1; */
 
-	pprintf("call madvise(MADV_SOFT_OFFLINE)\n");
-	ret = do_work_memory2(__madv_soft_chunk, NULL);
-	if (ret == -1) {
-		perror("madvise(MADV_SOFT_OFFLINE)");
-		pprintf("madvise(MADV_SOFT_OFFLINE) failed\n");
-		/* return; */
-	}
+	do_work_memory(__madv_soft_chunk, NULL);
 }
 
 static void do_auto_numa(void) {
@@ -704,13 +646,13 @@ static void do_auto_numa(void) {
 		err("numa_sched_setaffinity");
 	printf("sched_setaffinity to node 1\n");
 
-	pprintf("waiting for auto_numa\n");
-	while (flag)
-		access_all_chunks();
+	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
+			  "waiting for auto_numa\n");
 }
 
 static void do_change_cpuset(void) {
-	pprintf_wait(SIGUSR1, "waiting for change_cpuset\n");
+	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
+			  "waiting for change_cpuset\n");
 }
 
 int preferred_node = 0;
@@ -766,17 +708,6 @@ void __do_page_migration(void) {
 	}
 }
 
-void do_page_migration(void) {
-	mmap_all_chunks_numa();
-	pprintf("page_fault_done\n");
-	pause();
-	__do_page_migration();
-	__busyloop();
-	pprintf("exited busy loop\n");
-	pause();
-	munmap_all_chunks();
-}
-
 static int __process_vm_access_chunk(char *p, int size, void *args) {
 	int i;
 	struct iovec local[1024];
@@ -794,37 +725,30 @@ static int __process_vm_access_chunk(char *p, int size, void *args) {
 	/* printf("0x%lx bytes read, p[0] = %c\n", nread, p[0]); */
 }
 
+static pid_t fork_access(void) {
+	pid_t pid = fork();
+
+	if (!pid) {
+		/* Expecting COW, but it doesn't happend in zero page */
+		access_all_chunks(NULL);
+		pause();
+		return 0;
+	}
+
+	return pid;
+}
+
 void __do_process_vm_access(void) {
-	int ret;
 	pid_t pid;
 
 	/* node 0 is preferred */
 	if (set_mempolicy_node(MPOL_PREFERRED, 0) == -1)
 		err("set_mempolicy(MPOL_PREFERRED) to 0");
 
-	pid = fork();
-
-	if (!pid) {
-		/* Expecting COW, but it doesn't happend in zero page */
-		access_all_chunks();
-		pause();
-		return;
-	}
-
-	pprintf_wait(SIGUSR1, "waiting for process_vm_access\n");
-
-	ret = do_work_memory2(__process_vm_access_chunk, &pid);
-	if (ret == -1) {
-		perror("mlock");
-		pprintf("mlock failed\n");
-		/* return; */
-	}
-}
-
-void do_process_vm_access(void) {
-	mmap_all_chunks();
-	__do_process_vm_access();
-	munmap_all_chunks();
+	pid = fork_access();
+	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
+			  "waiting for process_vm_access\n");
+	do_work_memory(__process_vm_access_chunk, &pid);
 }
 
 static int __mlock_chunk(char *p, int size, void *args) {
@@ -838,35 +762,9 @@ static int __mlock_chunk(char *p, int size, void *args) {
 }
 
 void __do_mlock(void) {
-	int ret;
-	pid_t pid;
-
-	if (forkflag) {
-		pid = fork();
-
-		if (!pid) {
-			access_all_chunks();
-			pause();
-			return;
-		}
-		printf("forked\n");
-	}
-
-	ret = do_work_memory2(__mlock_chunk, NULL);
-	if (ret == -1) {
-		perror("mlock");
-		pprintf("mlock failed\n");
-		/* return; */
-	}
-}
-
-void do_mlock(void) {
-	mmap_all_chunks();
-	pprintf("page_fault_done\n");
-	pause();
-	__do_mlock();
-	__busyloop();
-	munmap_all_chunks();
+	if (forkflag)
+		fork_access();
+	do_work_memory(__mlock_chunk, NULL);
 }
 
 static int __mprotect_chunk(char *p, int size, void *args) {
@@ -880,36 +778,7 @@ static int __mprotect_chunk(char *p, int size, void *args) {
 }
 
 void __do_mprotect(void) {
-	int ret;
-	pid_t pid;
-
-	if (forkflag) {
-		pid = fork();
-
-		if (!pid) {
-			access_all_chunks();
-			pause();
-			return;
-		}
-		printf("forked\n");
-	}
-
-	ret = do_work_memory2(__mprotect_chunk, NULL);
-	if (ret == -1) {
-		perror("mprotect");
-		pprintf("mprotect failed\n");
-		/* return; */
-	}
-}
-
-void do_mprotect(void) {
-	int ret;
-	pid_t pid;
-
-	mmap_all_chunks();
-	pprintf("page_fault_done\n");
-	pause();
-	__do_mprotect();
-	__busyloop();
-	munmap_all_chunks();
+	if (forkflag)
+		fork_access();
+	do_work_memory(__mprotect_chunk, NULL);
 }

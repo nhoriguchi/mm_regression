@@ -4,6 +4,8 @@
 #!2 MIGRATE_SRC: migratepages move_pages
 #!2 RACE_SRC: mremap_stress
 
+# TODO: race with gup/migration
+
 . $TRDIR/setup_page_migration.sh
 
 MIGRATE_SRC=__MARK_MIGRATE_SRC

@@ -10,7 +10,7 @@
 
 # VM and PASSWD should be given via environment variable
 # VM=f21a
-# PASSWD=
+# PASSWD=......
 
 # # TODO: assuming that sshvm is installed (via deploy_vm_image)
 VMIP=$(sshvm -i -n default $VM)

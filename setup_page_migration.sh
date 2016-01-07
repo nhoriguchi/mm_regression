@@ -306,7 +306,7 @@ control_hugepage_migration() {
 				get_numa_maps $pid | tee $TMPD/numa_maps.2 | grep ^70000
 				$PAGETYPES -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
 				grep numa_hint_faults /proc/vmstat
-				kill -SIGUSR2 $pid
+				kill -SIGUSR1 $pid
 				;;
 			"waiting for memory_hotremove"*)
 				echo $line | sed "s/waiting for memory_hotremove: *//" > $TMPD/preferred_memblk
@@ -411,18 +411,7 @@ control_hugepage_migration() {
 					set_return_code MIGRATION_PASSED
 				fi
 
-				kill -SIGUSR2 $pid
-				;;
-			"exited busy loop")
-				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -Nrl | grep -v offset | tee $TMPD/pagetypes2 | head -n 30
-				get_numa_maps $pid   > $TMPD/numa_maps.2
-
-				if [ "$CGROUP" ] ; then
-					cgget -g $CGROUP > $TMPD/memcg.2
-				fi
 				kill -SIGUSR1 $pid
-				set_return_code EXIT
-				return 0
 				;;
 			*)
 				;;
