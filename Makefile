@@ -3,7 +3,7 @@ CC=gcc
 CFLAGS=-g # -Wall -Wextra
 TESTCASE_FILTER=
 
-src=test_mincore.c test_thp_double_mapping.c test_idle_page_tracking.c mark_idle_all.c hog_hugepages.c iterate_numa_move_pages.c memeater.c test_alloc_generic.c
+src=test_mincore.c test_thp_double_mapping.c mark_idle_all.c hog_hugepages.c iterate_numa_move_pages.c memeater.c test_alloc_generic.c
 exe=$(src:.c=)
 srcdir=.
 dstdir=/usr/local/bin

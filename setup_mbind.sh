@@ -8,10 +8,6 @@ _cleanup() { cleanup_mbind; }
 
 prepare_mbind() {
 	prepare_mm_generic || return 1
-
-	if [ "$TESTFILE" ] ; then
-		dd if=/dev/urandom of=$TESTFILE bs=4096 count=$[512*10]
-	fi
 }
 
 cleanup_mbind() {

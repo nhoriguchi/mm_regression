@@ -155,12 +155,7 @@ control_hugepage_migration() {
 				kill -SIGUSR1 $pid
 				;;
 			"page_fault_done")
-				show_hugetlb_pool > $TMPD/hugetlb_pool.1
-				get_numa_maps $pid > $TMPD/numa_maps.1
-				get_smaps_block $pid smaps.1 700000 > /dev/null
-				get_pagetypes $pid pagetypes.1 -Nrla 0x700000000+0x10000000
-				get_pagemap $pid .mig.1 -NrLa 0x700000000+0x10000000 > /dev/null
-				cp /proc/vmstat $TMPD/vmstat.1
+				get_mm_stats $pid 1
 
 				# TODO: better condition check
 				if [ "$RACE_SRC" == "race_with_gup" ] && [ "$MIGRATE_SRC" == "migratepages" ] ; then
@@ -205,13 +200,8 @@ control_hugepage_migration() {
 
 				kill -SIGUSR1 $pid
 				;;
-			"before_free") # dup with "exited busy loop"?
-				show_hugetlb_pool > $TMPD/hugetlb_pool.2
-				get_numa_maps $pid > $TMPD/numa_maps.2
-				get_smaps_block $pid smaps.2 700000 > /dev/null
-				get_pagetypes $pid pagetypes.2 -Nrla 0x700000000+0x10000000
-				get_pagemap $pid .mig.2 -NrLa 0x700000000+0x10000000 > /dev/null
-				cp /proc/vmstat $TMPD/vmstat.2
+			"before_free")
+				get_mm_stats $pid 2
 
 				if [ "$CGROUP" ] ; then
 					cgget -g $CGROUP > $TMPD/memcg.2

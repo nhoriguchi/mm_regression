@@ -9,8 +9,6 @@ HUGETLB_MOUNT=$WDIR/mount
 
 MBIND_FUZZ_DURATION=5
 
-TESTFILE=$WDIR/testfile
-
 if [ "$FLAVOR" == simple ] ; then
 	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s mbind -N 8 -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -w start -w after_allocate -w before_free -w exit"
 	EXPECTED_RETURN_CODE="START EXIT"

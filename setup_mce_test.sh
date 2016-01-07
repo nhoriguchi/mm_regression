@@ -19,13 +19,6 @@ prepare_mce_test() {
         check_mce_capability || return 1 # MCE SRAO not supported
 	fi
 
-	if [ "$TESTFILE" ] && [ "$FILESIZE" ] ; then
-		local f
-		for f in $TESTFILE ; do
-			dd if=/dev/zero of=$f bs=$FILESIZE count=1
-		done
-	fi
-
 	if [ "$MONARCH_TIMEOUT" ] ; then
 		set_monarch_timeout $MONARCH_TIMEOUT
 	fi
@@ -38,18 +31,8 @@ cleanup_mce_test() {
 	if [ "$TEST_PROGRAM" ] ; then
 		save_nr_corrupted_inject
 	fi
+
 	cleanup_mm_generic
-
-	if [ "$TESTFILE" ] && [ "$FILESIZE" ] ; then
-		local f
-		for f in $TESTFILE ; do
-			rm -f $f
-		done
-	fi
-
-	if [ -f $WDIR/testfile ] ; then
-		rm -f $WDIR/testfile*
-	fi
 
 	if [ "$DEFAULT_MONARCH_TIMEOUT" ] ; then
 		set_monarch_timeout $DEFAULT_MONARCH_TIMEOUT
