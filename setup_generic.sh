@@ -1,11 +1,5 @@
 #!/bin/bash
 
-if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
-    echo "$BASH_SOURCE should be included from another script, not directly called."
-    exit 1
-fi
-
-# global timestamp
 export TSTAMP=`date +%y%m%d_%H%M%S`
 
 [ ! "$TESTNAME" ] && TESTNAME=$TSTAMP
@@ -160,10 +154,10 @@ show_fail_summary() {
 
 show_summary() {
     echo_log "$TESTNAME:"
-    echo_log "$(cat $GTMPD/__testcount) tests ran, $(cat $GTMPD/__success) passed, $(cat $GTMPD/__failure) failed, $(cat $GTMPD/__later) laters."
+    echo_log "$(cat $GTMPD/__testcount) checks: $(cat $GTMPD/__success) passes, $(cat $GTMPD/__failure) fails, $(cat $GTMPD/__later) laters."
     show_fail_summary
     if [ "$(cat $GTMPD/__skipped)" -ne 0 ] ; then
-        echo_log "$(cat $GTMPD/__skipped) tests skipped."
+        echo_log "$(cat $GTMPD/__skipped) checks skipped."
         cat $GTMPD/__skipped_testcases | sed 's/^/ - /'
     fi
 }
