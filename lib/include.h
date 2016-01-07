@@ -265,6 +265,37 @@ void pprintf_wait(int signum, char *fmt, ...) {
 		err("sigaction");
 }
 
+static int noop(void) {
+	return 0;
+}
+
+void pprintf_wait_func(int (*func)(void *), void *arg, char *fmt, ...) {
+	int ret;
+	char buf[PS];
+	va_list ap;
+	struct sigaction new, old;
+
+	pprintf_wait_flag = 1;
+	new.sa_handler = pprintf_wait_sighandler;
+	ret = sigaction(SIGUSR1, &new, &old);
+	if (ret == -1)
+		err("sigaction");
+	va_start(ap, fmt);
+	vsprintf(buf, fmt, ap);
+	pprintf(buf);
+	va_end(ap);
+
+	if (func)
+		while (pprintf_wait_flag)
+			func(arg);
+	else
+		pause();
+
+	ret = sigaction(SIGUSR1, &old, NULL);
+	if (ret == -1)
+		err("sigaction");
+}
+
 void Dprintf(const char *fmt, ...)
 {
 	if (verbose) {
