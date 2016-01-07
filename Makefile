@@ -37,8 +37,12 @@ clean:
 	  true ; \
 	done
 
-version:
+version: get_test_core
 	@bash test_core/run-test-new.sh -V
+
+allrecipes: get_test_core
+	@find cases -type f | bash test_core/lib/filter_recipe.sh
+	@true
 
 # recipes are given via environment variable RECIPEFILES= or RECIPEDIR=
 test: all update_recipes
