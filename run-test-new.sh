@@ -68,7 +68,8 @@ stop_test_running() {
 trap stop_test_running SIGTERM
 
 echo "=====> start testing $(basename $TRDIR):$TESTNAME"
-echo "RECIPEFILES: ${RECIPEFILES//$TRDIR\/cases\//}"
+echo "RECIPEFILES:"
+echo "${RECIPEFILES//$TRDIR\/cases\//}"
 
 for recipe in $RECIPEFILES ; do
 	if [ ! -f "$recipe" ] ; then
