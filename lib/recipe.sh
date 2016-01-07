@@ -60,7 +60,6 @@ check_remove_suffix() {
 	fi
 
 	if [[ "$recipe" =~ \.auto$ ]] ; then
-		echo "$recipe: auto generated recipe."
 		if [ -f "${recipe%%.auto}" ] ; then
 			echo "Manually made recipe with same recipe ID exists (${recipe%%.auto},) so skip this .auto recipe"
 			return 1
