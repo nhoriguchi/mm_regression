@@ -305,20 +305,18 @@ control_hugepage_migration() {
 				;;
 			"waiting for memory_hotremove"*)
 				echo $line | sed "s/waiting for memory_hotremove: *//" > $TMPD/preferred_memblk
+				MEMBLK_SIZE=0x8000 # in page
+
 				targetmemblk=$(cat $TMPD/preferred_memblk)
 				echo_log "preferred memory block: $targetmemblk"
 				echo_log "echo offline > /sys/devices/system/memory/memory$targetmemblk/state"
-				echo offline > /sys/devices/system/memory/memory$targetmemblk/state
-				# if [ $? -ne 0 ] ; then
-				# 	set_return_code MEMHOTREMOVE_FAILED
-				# 	echo_log "do_memory_hotremove failed."
-				# fi
 
-				# $PAGETYPES -rNl -p ${pid} -b huge,compound_head=huge,compound_head > $TMPD/pagetypes1 | head
-				# show_hugetlb_pool
-				# find /sys -type f | grep hugepage | grep node | grep 2048
-				# find /sys -type f | grep hugepage | grep node | grep 2048 | xargs cat
-				# get_numa_maps ${pid} | tee -a $OFILE > $TMPD/numa_maps.1
+				if [ "$OPERATION_SRC" == hwpoison ] ; then
+					echo_log "$PAGETYPES -a $[$targetmemblk * $MEMBLK_SIZE] -X"
+					$PAGETYPES -a $[$targetmemblk * $MEMBLK_SIZE] -X
+				fi
+
+				echo offline > /sys/devices/system/memory/memory$targetmemblk/state
 				kill -SIGUSR1 $pid
 				;;
 			"waiting for process_vm_access")

@@ -15,23 +15,24 @@
 #!3 BACKGROUND: allocate0 allocate1
 #!3 OVERCOMMIT: overcommit noovercommit
 
-#!4 BACKEND: hugetlb_anon
+#!4 BACKEND: hugetlb_anon thp
 #!4 MIGRATE_SRC: hotremove
+#!4 OPERATION_SRC: noop hwpoison busy
+# TODO busy case return code correct?
 
 #!5 BACKEND: thp
-#!5 MIGRATE_SRC: migratepages hotremove move_pages madv_soft mbind
-#!5 BACKGROUND: none
-#!5 BUSY: busy idle
+#!5 MIGRATE_SRC: migratepages move_pages madv_soft mbind
+#!5 OPERATION_SRC: busy idle
 
 . $TRDIR/setup_page_migration.sh
 
 MIGRATE_SRC=__MARK_MIGRATE_SRC
 BACKEND=__MARK_BACKEND
 BACKGROUND=__MARK_BACKGROUND
-BUSY=__MARK_BUSY
 OPERATION_TYPE=page_migration
+OPERATION_SRC=__MARK_OPERATION_SRC
 
-if [ "$BUSY" == busy ] ; then
+if [ "$OPERATION_SRC" == busy ] ; then
 	BUSYOPT=-b
 fi
 
