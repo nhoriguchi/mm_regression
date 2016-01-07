@@ -74,7 +74,7 @@ prepare_mm_generic() {
 		set_and_check_hugetlb_pool $HUGETLB
 	fi
 
-	if [ "$HUGETLB_MOUNT" ] ; then # && [ "$HUGETLB_FILE" ] ; then
+	if [ "$HUGETLB_MOUNT" ] ; then
 		rm -rf $HUGETLB_MOUNT/* > /dev/null 2>&1
 		umount -f $HUGETLB_MOUNT > /dev/null 2>&1
 		mkdir -p $HUGETLB_MOUNT > /dev/null 2>&1
@@ -154,6 +154,10 @@ cleanup_mm_generic() {
 
 	if [ "$MEMORY_HOTREMOVE" ] ; then
 		reonline_memblocks
+	fi
+
+	if [ -f $WDIR/testfile ] ; then
+		rm -f $WDIR/testfile*
 	fi
 
 	echo 0 > /proc/sys/kernel/numa_balancing
