@@ -682,7 +682,6 @@ static void mmap_all_chunks_numa(void) {
 }
 
 void __do_page_migration(void) {
-	printf("%s %x\n", __func__, migration_src);
 	switch (migration_src) {
 	case MS_MIGRATEPAGES:
 		do_migratepages();

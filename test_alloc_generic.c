@@ -277,13 +277,11 @@ static void setup(void) {
 }
 
 static void do_operation(void) {
-	pprintf("%s: operation_type %d\n", __func__, operation_type);
 	switch (operation_type) {
 	case OT_MEMORY_ERROR_INJECTION:
 		__do_memory_error_injection();
 		break;
 	case OT_PAGE_MIGRATION:
-		pprintf("__do_page_migration\n");
 		__do_page_migration();
 		break;
 	case OT_PROCESS_VM_ACCESS:
