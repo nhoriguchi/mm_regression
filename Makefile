@@ -37,6 +37,9 @@ clean:
 	  true ; \
 	done
 
+version:
+	@bash test_core/run-test-new.sh -V
+
 # recipes are given via environment variable RECIPEFILES= or RECIPEDIR=
 test: all update_recipes
 	@bash test_core/run-test-new.sh -v $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME)) $(addprefix -d ,$(RECIPEDIR))
