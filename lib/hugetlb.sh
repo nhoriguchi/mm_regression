@@ -100,7 +100,7 @@ __set_and_check_hugetlb_pool() {
     [ ! "$expected_reserved" ] && expected_reserved=0
     [ ! "$expected_surplus" ] && expected_surplus=0
 
-    sysctl vm.nr_hugepages=$expected_total
+    sysctl -q vm.nr_hugepages=$expected_total
     [ $(get_hugepage_total)    -eq $expected_total ]    || return 1
     [ $(get_hugepage_free)     -eq $expected_free ]     || return 1
     [ $(get_hugepage_reserved) -eq $expected_reserved ] || return 1
@@ -111,10 +111,10 @@ __set_and_check_hugetlb_pool() {
 set_and_check_hugetlb_pool() {
     count_testcount
     if __set_and_check_hugetlb_pool $1 $2 $3 $4 ; then
-        count_success "hugetlb pool set and check: OK $1"
+        count_success "set hugetlb pool size to $1: OK"
         return 0
     else
-        count_failure "hugetlb pool set and check: failed"
+        count_failure "set hugetlb pool size to $1: NG"
         show_hugetlb_pool
         return 1
     fi
