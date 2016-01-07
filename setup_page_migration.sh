@@ -103,6 +103,12 @@ check_thp_split() {
 	local thp_split_before=$(grep "thp_split_page " $TMPD/vmstat.1 | cut -f2 -d' ')
 	local thp_split_after=$(grep "thp_split_page " $TMPD/vmstat.2 | cut -f2 -d' ')
 
+	# kernel is older before thp refcount redesign, so use "thp_split" field.
+	if [ ! "$thp_split_before" ] ; then
+		thp_split_before=$(grep "thp_split " $TMPD/vmstat.1 | cut -f2 -d' ')
+		thp_split_after=$(grep "thp_split " $TMPD/vmstat.2 | cut -f2 -d' ')
+	fi
+
 	echo_log "check thp split from /proc/vmstat"
 
 	if [ ! -e $TMPD/vmstat.1 ] || [ ! -e $TMPD/vmstat.2 ] ; then
@@ -111,7 +117,7 @@ check_thp_split() {
 	fi
 
 	if [ ! "$pmd_split_before" ] || [ ! "$pmd_split_after" ] ; then
-		echo_log "pmd_split not supported in this kernel ($uname -r)"
+		echo_log "pmd_split not supported in this kernel ($(uname -r))"
 	else
 		if [ "$pmd_split_before" -eq "$pmd_split_after" ] ; then
 			echo_log "pmd not split"
@@ -121,7 +127,7 @@ check_thp_split() {
 		fi
 	fi
 
-	if [ "$thp_split_before" -eq "$thp_split_before" ] ; then
+	if [ "$thp_split_before" -eq "$thp_split_after" ] ; then
 		echo_log "thp not split"
 		return 1
 	else
@@ -157,12 +163,11 @@ control_hugepage_migration() {
 				cp /proc/vmstat $TMPD/vmstat.1
 
 				# TODO: better condition check
-				if [ "$RACE_SRC" == "race_with_gup" ] ; then
-					$PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
-					$PAGETYPES -p $pid -r -b anon | grep total
-					ps ax | grep thp
-					grep -A15 ^70000 /proc/$pid/smaps | grep -i anon
-					( for i in $(seq 10) ; do migratepages $pid 0 1 ; migratepages $pid 1 0 ; done ) &
+				if [ "$RACE_SRC" == "race_with_gup" ] && [ "$MIGRATE_SRC" == "migratepages" ] ; then
+					( for i in $(seq 10) ; do
+						  migratepages $pid 0 1 > /dev/null 2>&1
+						  migratepages $pid 1 0 > /dev/null 2>&1
+					  done ) &
 				fi
 
 				# TODO: better condition check
@@ -328,16 +333,12 @@ control_hugepage_migration() {
 				;;
 			"waiting for process_vm_access")
 				local cpid=$(pgrep -P $pid .)
-				echo "$PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head -Nl"
-				$PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head -Nl
-				echo "$PAGETYPES -p $cpid -r -b thp,compound_head=thp,compound_head -Nl"
-				$PAGETYPES -p $cpid -r -b thp,compound_head=thp,compound_head -Nl
-				( for i in $(seq 20) ; do
-						migratepages $pid 0 1  2> /dev/null
-						migratepages $pid 1 0  2> /dev/null
-						migratepages $cpid 0 1 2> /dev/null
-						migratepages $cpid 1 0 2> /dev/null
-						done ) &
+				( for i in $(seq 10) ; do
+					  migratepages $pid 0 1 > /dev/null 2>&1
+					  migratepages $pid 1 0 > /dev/null 2>&1
+					  migratepages $cpid 0 1 > /dev/null 2>&1
+					  migratepages $cpid 1 0 > /dev/null 2>&1
+				  done ) &
 				kill -SIGUSR1 $pid
 				;;
 			"entering busy loop")
