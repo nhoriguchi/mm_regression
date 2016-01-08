@@ -34,14 +34,6 @@ cleanup_hugepage_migration() {
 	fi
 }
 
-check_hugepage_migration() {
-	if [ "$CGROUP" ] && [ -s $TMPD/memcg.2 ] ; then
-		# TODO: meaningful check/
-		diff -u $TMPD/memcg.0 $TMPD/memcg.1 | grep -e ^+ -e ^-
-		diff -u $TMPD/memcg.1 $TMPD/memcg.2 | grep -e ^+ -e ^-
-	fi
-}
-
 check_migration_pagemap() {
 	diff -u1000000 $TMPD/.mig.1 $TMPD/.mig.2 > $TMPD/.mig.diff
 	local before=$(grep "^-" $TMPD/.mig.diff | wc -l)
@@ -137,12 +129,15 @@ control_hugepage_migration() {
 		echo_log "$line"
 		case "$line" in
 			"just started")
-				# TODO: Need better data output
-				show_hugetlb_pool > $TMPD/hugetlb_pool.0
+				get_mm_stats $pid 0
 
 				if [ "$CGROUP" ] ; then
 					cgclassify -g $CGROUP $pid
-					cgget -g $CGROUP > $TMPD/memcg.0
+					if [ $? -eq 0 ] ; then
+						set_return_code CGCLASSIFY_PASS
+					else
+						set_return_code CGCLASSIFY_FAIL
+					fi
 				fi
 
 				kill -SIGUSR1 $pid
@@ -167,38 +162,10 @@ control_hugepage_migration() {
 					( for i in $(seq 10) ; do migratepages $pid 0 1 ; migratepages $pid 1 0 ; done ) &
 				fi
 
-				if [ "$MIGRATE_SRC" = auto_numa ] ; then
-					echo "current CPU: $(ps -o psr= $pid)"
-					taskset -p $pid
-				fi
-
-				# if [ "$MIGRATE_SRC" = change_cpuset ] ; then
-				# 	cgclassify -g cpu,cpuset,memory:test1 $pid
-				# 	[ $? -eq 0 ] && set_return_code CGCLASSIFY_PASS || set_return_code CGCLASSIFY_FAIL
-				# 	echo "cat /sys/fs/cgroup/memory/test1/tasks"
-				# 	cat /sys/fs/cgroup/memory/test1/tasks
-				# 	ls /sys/fs/cgroup/memory/test1/tasks
-				# 	cgget -r cpuset.mems -r cpuset.cpus -r cpuset.memory_migrate test1
-				# 	# $PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
-				# 	$PAGETYPES -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee -a $OFILE | tee $TMPD/pagetypes1
-
-				# 	cgset -r cpuset.mems=0 test1
-				# 	cgset -r cpuset.mems=1 test1
-				# 	cgget -r cpuset.mems -r cpuset.cpus -r cpuset.memory_migrate test1
-				# fi
-
-				if [ "$CGROUP" ] ; then
-					cgget -g $CGROUP > $TMPD/memcg.1
-				fi
-
 				kill -SIGUSR1 $pid
 				;;
 			"before_free")
 				get_mm_stats $pid 2
-
-				if [ "$CGROUP" ] ; then
-					cgget -g $CGROUP > $TMPD/memcg.2
-				fi
 
 				if [ "$MIGRATE_SRC" ] ; then
 					if check_migration_pagemap ; then
@@ -255,27 +222,9 @@ control_hugepage_migration() {
 				kill -SIGUSR1 $pid
 				;;
 			"waiting for change_cpuset")
-				cgclassify -g cpu,cpuset,memory:test1 $pid
-				[ $? -eq 0 ] && set_return_code CGCLASSIFY_PASS || set_return_code CGCLASSIFY_FAIL
-				echo "cat /sys/fs/cgroup/memory/test1/tasks"
-				cat /sys/fs/cgroup/memory/test1/tasks
-				ls /sys/fs/cgroup/memory/test1/tasks
-				cgget -r cpuset.mems -r cpuset.cpus -r cpuset.memory_migrate test1
-				# $PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
-				$PAGETYPES -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee -a $OFILE | tee $TMPD/pagetypes1
-
+				echo "changing cpuset.mems 0 to 1"
 				cgset -r cpuset.mems=0 test1
 				cgset -r cpuset.mems=1 test1
-				cgget -r cpuset.mems -r cpuset.cpus -r cpuset.memory_migrate test1
-
-				if [ "$CGROUP" ] ; then
-					cgget -g $CGROUP > $TMPD/memcg.1
-				fi
-
-				$PAGETYPES -p $pid -r -b anon | grep total
-				grep -A15 ^70000 /proc/$pid/smaps | grep -i anon
-				grep RssAnon /proc/$pid/status
-				$PAGETYPES -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee -a $OFILE | tee $TMPD/pagetypes2
 				kill -SIGUSR1 $pid
 				;;
 			"waiting for auto_numa")
@@ -291,6 +240,7 @@ control_hugepage_migration() {
 				sleep 3
 				echo "current CPU: $(ps -o psr= $pid)"
 				taskset -p $pid
+
 				get_numa_maps $pid | tee $TMPD/numa_maps.2 | grep ^70000
 				$PAGETYPES -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
 				grep numa_hint_faults /proc/vmstat
@@ -414,8 +364,4 @@ _prepare() {
 
 _cleanup() {
 	cleanup_hugepage_migration
-}
-
-_check() {
-	check_hugepage_migration
 }

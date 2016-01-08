@@ -1,0 +1,32 @@
+#!1 BACKEND: anonymous thp
+
+. $TRDIR/setup_page_migration.sh
+
+NUMA_NODE=2
+MIGRATE_SRC=auto_numa
+
+BACKEND=__MARK_BACKEND
+
+AUTO_NUMA=true
+
+if [ "$BACKEND" == thp ] ; then
+	THP=1
+	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
+elif [ "$BACKEND" == anonymous ] ; then
+	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_NOT_EXIST EXIT"
+fi
+
+# in auto_numa testing, initial cpu affinity is important so set it with -C
+# option to node 0. And during waiting the memeat thread must keep accessing
+# the target region to drive NUMA hinting fault (done by -b).
+TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s $MIGRATE_SRC -N 20 -B $BACKEND -w start -w after_allocate -w before_free -w exit -C 0 -b"
+
+get_numa_maps() { cat /proc/$1/numa_maps; }
+
+_prepare() {
+	prepare_mm_generic || return 1
+}
+
+_cleanup() {
+	cleanup_mm_generic
+}

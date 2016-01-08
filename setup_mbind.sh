@@ -24,16 +24,33 @@ control_mbind() {
             kill -SIGUSR1 $pid
             ;;
         "page_fault_done")
-            $PAGETYPES -p $pid -a 0x700000000+0x2000 -Nrl >> ${OFILE}
-            cat /proc/$pid/numa_maps | grep "^70" > $TMPD/numa_maps1
+			get_mm_stats $pid 1
             kill -SIGUSR1 $pid
             ;;
         "before_free")
+			get_mm_stats $pid 2
+
+			if check_migration_pagemap ; then
+				set_return_code MIGRATION_PASSED
+			else
+				set_return_code MIGRATION_FAILED
+			fi
+
+			check_migration_hugeness
+			ret=$?
+			if [ "$ret" == 0 ] ; then
+				set_return_code HUGEPAGE_MIGRATED
+			elif [ "$ret" == 1 ] ; then
+				set_return_code HUGEPAGE_NOT_MIGRATED
+			elif [ "$ret" == 2 ] ; then
+				set_return_code HUGEPAGE_DISAPPEARED
+			elif [ "$ret" == 3 ] ; then
+				set_return_code HUGEPAGE_NOT_EXIST
+			fi
+
             kill -SIGUSR1 $pid
             ;;
         "just before exit")
-            $PAGETYPES -p $pid -a 0x700000000+0x2000 -Nrl >> ${OFILE}
-            cat /proc/$pid/numa_maps | grep "^70" > $TMPD/numa_maps2
             kill -SIGUSR1 $pid
             set_return_code EXIT
             return 0
@@ -44,36 +61,24 @@ control_mbind() {
     return 1
 }
 
-# inside cheker you must tee output in you own.
-check_mbind() {
-    check_mbind_numa_maps "700000000000"  || return 1
-    check_mbind_numa_maps "700000200000"  || return 1
-    check_mbind_numa_maps "700000400000"  || return 1
-}
+check_migration_pagemap() {
+	diff -u1000000 $TMPD/.mig.1 $TMPD/.mig.2 > $TMPD/.mig.diff
+	local before=$(grep "^-" $TMPD/.mig.diff | wc -l)
+	local after=$(grep "^+" $TMPD/.mig.diff | wc -l)
+	local unchange=$(grep "^ " $TMPD/.mig.diff | wc -l)
 
-get_numa_maps_nodes() {
-    local numa_maps=$1
-    local vma_start=$2
-    grep "^${vma_start} " ${numa_maps} | tr ' ' '\n' | grep -E "^N[0-9]=" | tr '\n' ' '
-}
-
-check_mbind_numa_maps() {
-    local address=$1
-    local node1=$(get_numa_maps_nodes $TMPD/numa_maps1 ${address})
-    local node2=$(get_numa_maps_nodes $TMPD/numa_maps2 ${address})
-
-    count_testcount
-    if [ ! -f $TMPD/numa_maps1 ] || [ ! -f $TMPD/numa_maps2 ] ; then
-        count_failure "numa_maps file not exist."
-        return 1
-    fi
-
-    if [ "$node1" == "$node2" ] ; then
-        count_failure "vaddr ${address} is not migrated. map1=${node1}, map2=${node2}."
-        return 1
-    else
-        count_success "vaddr ${address} is migrated."
-    fi
+	echo_log "check pagemap"
+	if [ "$before" -gt 0 ] && [ "$after" -gt 0 ] ; then
+		if [ "$unchange" -ne 0 ] ; then
+			echo_log "some pages migrated ($unchange pages failed)"
+		else
+			echo_log "all pages migrated"
+		fi
+		return 0
+	else
+		echo_log "no page migrated"
+		return 1
+	fi
 }
 
 # TODO: check with vmstat value

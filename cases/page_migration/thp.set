@@ -14,9 +14,6 @@ THP=10
 
 BACKEND=thp
 
-INIT_NUMA_BALANCING=$(cat /proc/sys/kernel/numa_balancing)
-AUTO_NUMA=
-
 if [ "$RACE_SRC" == race_with_gup ] ; then
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_DISAPPEARED PMD_SPLIT EXIT"
 	# madv_soft calls get_user_pages()

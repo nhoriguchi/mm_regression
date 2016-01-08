@@ -430,7 +430,7 @@ static void __busyloop(void) {
 			  "entering busy loop\n");
 }
 
-static int set_mempolicy_node(int mode, unsigned long nid) {
+static int set_mempolicy_node(int mode, int nid) {
 	/* Assuming that max node number is < 64 */
 	unsigned long nodemask = 1UL << nid;
 
@@ -438,6 +438,18 @@ static int set_mempolicy_node(int mode, unsigned long nid) {
 		set_mempolicy(mode, NULL, nr_nodes);
 	else
 		set_mempolicy(mode, &nodemask, nr_nodes);
+}
+
+static int numa_sched_setaffinity_node(int nid) {
+	struct bitmask *new_cpus = numa_bitmask_alloc(32);
+
+	if (numa_node_to_cpus(nid, new_cpus))
+		err("numa_node_to_cpus");
+
+	if (numa_sched_setaffinity(0, new_cpus))
+		err("numa_sched_setaffinity");
+
+	numa_bitmask_free(new_cpus);
 }
 
 static void do_migratepages(void) {
@@ -630,16 +642,7 @@ static void do_madv_soft(void) {
 }
 
 static void do_auto_numa(void) {
-	int ret;
-	struct bitmask *new_cpus = numa_bitmask_alloc(numa_num_configured_cpus());
-
-	if (numa_node_to_cpus(1, new_cpus))
-		err("numa_node_to_cpus");
-
-	if (numa_sched_setaffinity(0, new_cpus))
-		err("numa_sched_setaffinity");
-	printf("sched_setaffinity to node 1\n");
-
+	numa_sched_setaffinity_node(1);
 	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
 			  "waiting for auto_numa\n");
 }
@@ -649,9 +652,15 @@ static void do_change_cpuset(void) {
 			  "waiting for change_cpuset\n");
 }
 
-int preferred_node = 0;
+/* default (-1) means no preferred node */
+int preferred_cpu_node = -1;
+int preferred_mem_node = 0;
+
 static void mmap_all_chunks_numa(void) {
-	if (set_mempolicy_node(MPOL_BIND, preferred_node) == -1)
+	if (preferred_cpu_node != -1)
+		numa_sched_setaffinity_node(preferred_cpu_node);
+
+	if (set_mempolicy_node(MPOL_BIND, preferred_mem_node) == -1)
 		err("set_mempolicy");
 	/* do_mbind(mpol_mode_for_page_migration, preferred_node); */
 

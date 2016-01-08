@@ -372,7 +372,7 @@ static void operate_with_numa_prepared(void) {
 int main(int argc, char *argv[]) {
 	char c;
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:o:e:PB:Ad:M:s:RFa:w:O:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:o:e:PB:Ad:M:s:RFa:w:O:C:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -565,7 +565,10 @@ int main(int argc, char *argv[]) {
 			}
 			break;
 		case 'O':
-			preferred_node = strtoul(optarg, NULL, 0);
+			preferred_mem_node = strtoul(optarg, NULL, 0);
+			break;
+		case 'C':
+			preferred_cpu_node = strtoul(optarg, NULL, 0);
 			break;
 		default:
 			errmsg("invalid option\n");
