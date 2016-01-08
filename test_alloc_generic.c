@@ -220,6 +220,12 @@ static void __do_move_pages_pingpong(void) {
 	}
 }
 
+static void do_hugetlb_reserve(void) {
+	mmap_all_chunks();
+	__busyloop();
+	munmap_all_chunks();
+}
+
 static int need_numa() {
 	if ((operation_type == OT_PAGE_MIGRATION) ||
 	    (operation_type == OT_PAGE_MIGRATION)) {
@@ -328,11 +334,15 @@ static void do_operation(void) {
 	case OT_BUSYLOOP:
 		__busyloop();
 		break;
+	case OT_HUGETLB_RESERVE:
+		do_hugetlb_reserve();
+		break;
 	}
 }
 
 static void operate_with_allocate_exit(void) {
 	mmap_all_chunks();
+	access_all_chunks(NULL);
 	if (wait_after_allocate)
 		pprintf_wait(SIGUSR1, "page_fault_done\n");
 	do_operation();
@@ -344,6 +354,7 @@ static void operate_with_allocate_exit(void) {
 static void operate_with_mapping_iteration(void) {
 	while (flag) {
 		mmap_all_chunks();
+		access_all_chunks(NULL);
 		munmap_all_chunks();
 	}
 }
@@ -452,6 +463,8 @@ int main(int argc, char *argv[]) {
 				operation_type = OT_NOOP;
 			} else if (!strcmp(optarg, "busyloop")) {
 				operation_type = OT_BUSYLOOP;
+			} else if (!strcmp(optarg, "hugetlb_reserve")) {
+				operation_type = OT_HUGETLB_RESERVE;
 			} else
 				operation_type = strtoul(optarg, NULL, 0);
 			break;

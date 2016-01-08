@@ -78,6 +78,7 @@ enum {
 	OT_PAGE_MIGRATION_PINGPONG,
 	OT_NOOP,
 	OT_BUSYLOOP,
+	OT_HUGETLB_RESERVE,
 	NR_OPERATION_TYPES,
 };
 int operation_type = -1;
@@ -359,16 +360,11 @@ static void mmap_all_chunks(void) {
 		for (i = 0; i < nr_chunk; i++) {
 			k = i + j * nr_chunk;
 			baseaddr = allocate_base + k * CHUNKSIZE * PS;
-			/* printf("k %d, base %p\n", k, baseaddr); */
 
 			chunkset[k].chunk_size = get_size_of_chunked_mmap_area(i);
 			chunkset[k].mem_type = backend;
 
-			/* printf("base:0x%lx, size:%lx\n", baseaddr, chunkset[k].chunk_size); */
 			prepare_memory(&chunkset[k], baseaddr, i * CHUNKSIZE * PS);
-			/* printf("p[%d]:%p + 0x%lx, btype %d\n", i, chunkset[k].p, */
-			/*        chunkset[k].chunk_size, chunkset[k].mem_type); */
-			access_memory(&chunkset[k]);
 		}
 		j++;
 	}
@@ -437,6 +433,7 @@ static void __busyloop(void) {
 static int set_mempolicy_node(int mode, unsigned long nid) {
 	/* Assuming that max node number is < 64 */
 	unsigned long nodemask = 1UL << nid;
+
 	if (mode == MPOL_DEFAULT)
 		set_mempolicy(mode, NULL, nr_nodes);
 	else
@@ -469,7 +466,7 @@ static int __mbind_chunk(char *p, int size, void *args) {
 		      mbind_arg->new_nodes->size + 1, mbind_arg->flags);
 }
 
-static void do_mbind(void) {
+static void do_mbind(int mode, int nid) {
 	struct mbind_arg mbind_arg = {
 		.mode = MPOL_BIND,
 		.flags = MPOL_MF_MOVE|MPOL_MF_STRICT,
@@ -478,8 +475,6 @@ static void do_mbind(void) {
 	mbind_arg.new_nodes = numa_bitmask_alloc(nr_nodes);
 	numa_bitmask_setbit(mbind_arg.new_nodes, 1);
 
-	/* TODO: more race consideration, chunk, busyloop case? */
-	pprintf("call mbind\n");
 	do_work_memory(__mbind_chunk, (void *)&mbind_arg);
 }
 
@@ -656,28 +651,16 @@ static void do_change_cpuset(void) {
 
 int preferred_node = 0;
 static void mmap_all_chunks_numa(void) {
-	struct bitmask *init_cpus = numa_bitmask_alloc(numa_num_configured_cpus());
-
-	/*
-	 * All migration testing assume that data is migrated from node 0
-	 * to node 1, and some testcase like auto numa need to locate running
-	 * CPU to some node, so let's assign affined CPU to node 0 too.
-	 */
-	if (numa_node_to_cpus(preferred_node, init_cpus))
-		err("numa_node_to_cpus");
-
-	if (numa_sched_setaffinity(0, init_cpus))
-		err("numa_sched_setaffinity");
-
-	/* node 0 is preferred */
-	if (set_mempolicy_node(mpol_mode_for_page_migration, preferred_node) == -1)
-		errmsg("set_mempolicy(%lx) to %d",
-		       mpol_mode_for_page_migration, preferred_node);
+	if (set_mempolicy_node(MPOL_BIND, preferred_node) == -1)
+		err("set_mempolicy");
+	/* do_mbind(mpol_mode_for_page_migration, preferred_node); */
 
 	mmap_all_chunks();
+	access_all_chunks(NULL);
 
 	if (set_mempolicy_node(MPOL_DEFAULT, 0) == -1)
-		err("set_mempolicy to MPOL_DEFAULT");
+		err("set_mempolicy");
+	/* do_mbind(MPOL_DEFAULT, 0); */
 }
 
 void __do_page_migration(void) {
@@ -686,7 +669,8 @@ void __do_page_migration(void) {
 		do_migratepages();
 		break;
 	case MS_MBIND:
-		do_mbind();
+		/* TODO: better setting */
+		do_mbind(mpol_mode_for_page_migration, 1);
 		break;
 	case MS_MOVE_PAGES:
 		do_move_pages();

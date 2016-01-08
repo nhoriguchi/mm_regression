@@ -8,13 +8,13 @@ prepare_hugepage_migration() {
 	prepare_mm_generic || return 1
 
 	if [ "$RESERVE_HUGEPAGE" ] ; then
-		$hog_hugepages -m private -n $RESERVE_HUGEPAGE -r &
+		$test_alloc_generic -a none -o hugetlb_reserve -B hugetlb_anon -N $RESERVE_HUGEPAGE &
 		set_return_code RESERVE
 		sleep 1 # TODO: properly wait for reserve completion
 	fi
 
 	if [ "$ALLOCATE_HUGEPAGE" ] ; then
-		$hog_hugepages -m private -n $ALLOCATE_HUGEPAGE -N $ALLOCATE_NODE &
+		$test_alloc_generic -a allocate_exit -o busyloop -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -O $ALLOCATE_NODE &
 		set_return_code ALLOCATE
 		sleep 1 # TODO: properly wait for reserve completion
 	fi
@@ -35,13 +35,6 @@ cleanup_hugepage_migration() {
 }
 
 check_hugepage_migration() {
-	# migration from madv_soft allows page migration within the same node,
-	# so it's meaningless to compare node statistics.
-# 	if [ "$HUGETLB" ] && [[ "$EXPECTED_RETURN_CODE" =~ " MIGRATION_PASSED" ]] && \
-# 		   [ -s $TMPD/numa_maps.2 ] && [ "$MIGRATE_SRC" != "madv_soft" ] ; then
-# 		check_numa_maps
-# 	fi
-
 	if [ "$CGROUP" ] && [ -s $TMPD/memcg.2 ] ; then
 		# TODO: meaningful check/
 		diff -u $TMPD/memcg.0 $TMPD/memcg.1 | grep -e ^+ -e ^-

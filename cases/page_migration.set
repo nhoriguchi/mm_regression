@@ -73,15 +73,7 @@ if [[ "$BACKEND" =~ hugetlb ]] && [ "$MIGRATE_SRC" != hotremove ] ; then
 		else
 			EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_FAILED HUGEPAGE_NOT_MIGRATED"
 		fi
-	elif [ "$BACKGROUND" == allocate0 ] ; then
-		# in 2 node system, if background thread eats up all hugepages on
-		# node 0, TEST_PROGRAM cannot help using node 1 before migration.
-		# In such a case, page migration never succeeds, even if overcommit
-		# is enabled.
-		# ... but mbind somehow succeed in such case :(, let's make it
-		# failed until situation is understood.
-		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_FAILED HUGEPAGE_NOT_MIGRATED"
-	elif [ "$BACKGROUND" == allocate1 ] ; then
+	elif [ "$BACKGROUND" == allocate0 ] || [ "$BACKGROUND" == allocate1 ] ; then
 		if [ __MARK_OVERCOMMIT == overcommit ] ; then
 			EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
 		else
