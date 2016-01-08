@@ -108,9 +108,9 @@ prepare_mm_generic() {
 	fi
 
 	if [ "$AUTO_NUMA" ] ; then
-		echo 1 > /proc/sys/kernel/numa_balancing
+		enable_auto_numa
 	else
-		echo 0 > /proc/sys/kernel/numa_balancing
+		disable_auto_numa
 	fi
 
 	# TODO: better location?
@@ -154,6 +154,10 @@ cleanup_mm_generic() {
 
 	if [ "$MEMORY_HOTREMOVE" ] ; then
 		reonline_memblocks
+	fi
+
+	if [ "$AUTO_NUMA" ] ; then
+		disable_auto_numa
 	fi
 
 	if [ -f $WDIR/testfile ] ; then
@@ -215,21 +219,32 @@ get_pagemap() {
 	fi
 }
 
+get_mm_global_stats() {
+	local tag=$1
+
+	show_hugetlb_pool > $TMPD/hugetlb_pool.$tag
+	cp /proc/vmstat $TMPD/vmstat.$tag
+	if [ "$CGROUP" ] ; then
+		cgget -g $CGROUP > $TMPD/cgroup.$tag
+	fi
+}
+
 get_mm_stats() {
 	if [ "$#" -eq 1 ] ; then # only global stats
 		local tag=$1
-
-		show_hugetlb_pool > $TMPD/hugetlb_pool.$tag
-		cp /proc/vmstat $TMPD/vmstat.$tag
+		get_mm_global_stats $tag
 	elif [ "$#" -eq 2 ] ; then # process stats
 		local pid=$1
 		local tag=$2
 
-		show_hugetlb_pool > $TMPD/hugetlb_pool.$tag
+		get_mm_global_stats $tag
+
 		get_numa_maps $pid > $TMPD/numa_maps.$tag
 		get_smaps_block $pid smaps.$tag 700000 > /dev/null
 		get_pagetypes $pid pagetypes.$tag -Nrla 0x700000000+0x10000000
 		get_pagemap $pid .mig.$tag -NrLa 0x700000000+0x10000000 > /dev/null
-		cp /proc/vmstat $TMPD/vmstat.$tag
+		cp /proc/$pid/status $TMPD/proc_status.$tag
+		cp /proc/$pid/sched $TMPD/proc_sched.$tag
+		taskset -p $pid > $TMPD/taskset.$tag
 	fi
 }
