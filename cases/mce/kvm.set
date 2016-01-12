@@ -35,7 +35,8 @@ elif [ "$FLAVOR" == mce-srar ] ; then
 	_control() { control_kvm_action_required; }
 	# _check() { check_kvm_action_required; }
 elif [ "$FLAVOR" == mce_on_qemu ] ; then
-	EXPECTED_RETURN_CODE="START END"
+	EXPECTED_RETURN_CODE="START GOT_TARGET_PFN EXIT"
+	ERROR_TYPE=mce-srao
 	_control() { control_kvm_inject_mce_on_qemu_page; }
 	_check() { check_kvm_inject_mce_on_qemu_page; }
 else

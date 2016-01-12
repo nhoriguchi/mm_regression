@@ -229,8 +229,19 @@ check_kvm_soft_offline() {
 }
 
 control_kvm_inject_mce_on_qemu_page() {
-	local pid=$(cat /varun/libvirt/qemu/$VM.pid)
-	$PAGETYPES -p $pid -l
+	local pid=$(cat /var/run/libvirt/qemu/$VM.pid)
+	$PAGETYPES -p $pid -Nrl -b lru | grep -v offset > $TMPD/pagetypes.1
+
+	local target=$(tail -n1 $TMPD/pagetypes.1 | cut -f2)
+	if [ "$target" ] ; then
+		set_return_code GOT_TARGET_PFN
+		echo "$MCEINJECT -e $ERROR_TYPE -a 0x$target"
+		$MCEINJECT -e $ERROR_TYPE -a 0x$target
+	else
+		set_return_code NO_TARGET_PFN
+	fi
+
+	set_return_code EXIT
 }
 
 check_kvm_inject_mce_on_qemu_page() {
