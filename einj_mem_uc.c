@@ -374,7 +374,7 @@ int main(int argc, char **argv)
 		}
 
 		/* Give system a chance to process on possibly deep C-state idle cpus */
-		usleep(1000);
+		usleep(10000);
 
 		proc_interrupts(&a_mce, &a_cmci);
 
