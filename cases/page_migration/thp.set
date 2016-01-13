@@ -15,7 +15,7 @@ THP=10
 BACKEND=thp
 
 if [ "$RACE_SRC" == race_with_gup ] ; then
-	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_DISAPPEARED PMD_SPLIT EXIT"
+	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
 	# madv_soft calls get_user_pages()
 	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s madv_soft -B thp -b -d work -N $THP -w start -w after_allocate -w before_free -w exit"
 	# BUG_ON in mm/vmscan.c:1430
