@@ -29,7 +29,7 @@ _control() {
 
 	echo_log "$line"
 	case "$line" in
-		"just started")
+		"after_start")
 			# TODO: check vmstat
 
 			show_current_tuning_parameters_compact
@@ -37,7 +37,7 @@ _control() {
 			show_stat_thp
 			kill -SIGUSR1 $pid
 			;;
-		"just before exit")
+		"before_exit")
 			$PAGETYPES -r -p $pid -a 0x700000000+$EACH_BUFSIZE_IN_PAGE -Nl
 			grep -e comp -e thp /proc/vmstat
 			show_stat_thp

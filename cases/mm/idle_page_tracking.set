@@ -29,7 +29,7 @@ _control() {
 
     echo "$line" | tee -a $OFILE
     case "$line" in
-		"page_fault_done")
+		"after_access")
 			get_mm_stats $pid 1 > /dev/null
 
 			echo_log $mark_idle_all write
@@ -39,7 +39,7 @@ _control() {
 
 			kill -SIGUSR1 $pid
 			;;
-		"before_free")
+		"before_munmap")
 			sleep 1
 
 			echo_log $mark_idle_all read
@@ -50,7 +50,7 @@ _control() {
 			get_mm_stats $pid 2 > /dev/null
 			kill -SIGUSR1 $pid
 			;;
-		"just before exit")
+		"before_exit")
 			kill -SIGUSR1 $pid
 			set_return_code EXIT
 			return 0

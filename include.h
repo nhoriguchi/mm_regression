@@ -358,7 +358,7 @@ static void mmap_all_chunks(void) {
 	int i, j = 0, k, backend;
 	void *baseaddr;
 
-	printf("backend %lx, nr_chunk %lx\n", backend, nr_chunk);
+	/* printf("backend %lx, nr_chunk %lx\n", backend, nr_chunk); */
 	for_each_backend(backend) {
 		for (i = 0; i < nr_chunk; i++) {
 			k = i + j * nr_chunk;
@@ -769,9 +769,9 @@ static int __mlock2_chunk(char *p, int size, void *args) {
 
 	if (hp_partial) {
 		for (i = 0; i < (size - 1) / 512 + 1; i++)
-			syscall(__NR_mlock2, p + i * HPS, PS);
+			syscall(__NR_mlock2, p + i * HPS, PS, 1);
 	} else
-		syscall(__NR_mlock2, p, size);
+		syscall(__NR_mlock2, p, size, 1);
 }
 
 void __do_mlock2(void) {
@@ -850,6 +850,10 @@ static void do_operation_loop(void) {
 			access_all_chunks(NULL);
 		} else if (!strcmp(opc.name, "munmap")) {
 			munmap_all_chunks();
+		} else if (!strcmp(opc.name, "mbind")) {
+			do_mbind(mpol_mode_for_page_migration, 1);
+		} else if (!strcmp(opc.name, "mlock")) {
+			__do_mlock();
 		} else if (!strcmp(opc.name, "mlock2")) {
 			__do_mlock2();
 		} else

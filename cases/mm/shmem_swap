@@ -87,11 +87,11 @@ _control() {
 
     echo_log "$line"
     case "$line" in
-		"just started")
+		"after_start")
             cgclassify -g cpu,memory:test1 $pid || set_return_code CGCLASSIFY_FAIL
             kill -SIGUSR1 $pid
             ;;
-		"page_fault_done")
+		"after_access")
 			__get_smaps_shmem | tee -a $OFILE > $TMPD/smaps_shmem.1
 			__get_smaps_anon | tee -a $OFILE > $TMPD/smaps_anon.1
 			grep ^Swap: /proc/$pid/smaps > $TMPD/smaps_swap.1
@@ -99,7 +99,7 @@ _control() {
 			cat /proc/$pid/status > $TMPD/proc_status.1
             kill -SIGUSR1 $pid
             ;;
-		"before_free")
+		"before_munmap")
 			__get_smaps_shmem | tee -a $OFILE > $TMPD/smaps_shmem.2
 			__get_smaps_anon | tee -a $OFILE > $TMPD/smaps_anon.2
 			grep ^Swap: /proc/$pid/smaps > $TMPD/smaps_swap.2
@@ -107,7 +107,7 @@ _control() {
 			cat /proc/$pid/status > $TMPD/proc_status.2
             kill -SIGUSR1 $pid
 			;;
-		"just before exit")
+		"before_exit")
             set_return_code EXIT
             kill -SIGUSR1 $pid
             return 0

@@ -58,12 +58,12 @@ _control() {
     echo_log "$line"
     case "$line" in
         # "malloc_madv_willneed start")
-        "just started")
+        "after_start")
             cgclassify -g cpu,memory:test1 $pid || set_return_code CGCLASSIFY_FAIL
             kill -SIGUSR1 $pid
             ;;
         # "call madvise with MADV_WILLNEED")
-        "page_fault_done")
+        "after_access")
             echo 3 > /proc/sys/vm/drop_caches
             gawk '
                 BEGIN {gate=0;}
@@ -82,7 +82,7 @@ _control() {
             kill -SIGUSR1 $pid
             ;;
         # "malloc_madv_willneed exit")
-        "before_free")
+        "before_munmap")
             gawk '
                 BEGIN {gate=0;}
                 /^[0-9]/ {
@@ -98,7 +98,7 @@ _control() {
             $PAGETYPES -r -p $pid -a 0x700000000,0x700003800 > $TMPD/page-types.2
             kill -SIGUSR1 $pid
 			;;
-		"just before exit")
+		"before_exit")
             kill -SIGUSR1 $pid
             set_return_code EXIT
             return 0

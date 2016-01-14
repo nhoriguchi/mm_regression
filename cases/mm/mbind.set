@@ -10,7 +10,7 @@ HUGETLB_MOUNT=$WDIR/mount
 MBIND_FUZZ_DURATION=5
 
 if [ "$FLAVOR" == simple ] ; then
-	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s mbind -N 8 -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -w start -w after_allocate -w before_free -w exit"
+	TEST_PROGRAM="$test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -N 8 -L 'start:wait_after mmap_numa access:wait_after mbind munmap:wait_before exit:wait_before'"
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"
 elif [ "$FLAVOR" == fuzz ] ; then
 	FUZZ_CMD="$test_alloc_generic -a allocate_exit -o noop -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -d work -N 10"

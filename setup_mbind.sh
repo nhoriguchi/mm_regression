@@ -20,14 +20,14 @@ control_mbind() {
 
     echo_log "$line"
     case "$line" in
-		"just started")
+		"after_start")
             kill -SIGUSR1 $pid
             ;;
-        "page_fault_done")
+        "after_access")
 			get_mm_stats $pid 1
             kill -SIGUSR1 $pid
             ;;
-        "before_free")
+        "before_munmap")
 			get_mm_stats $pid 2
 
 			if check_migration_pagemap ; then
@@ -36,21 +36,9 @@ control_mbind() {
 				set_return_code MIGRATION_FAILED
 			fi
 
-			check_migration_hugeness
-			ret=$?
-			if [ "$ret" == 0 ] ; then
-				set_return_code HUGEPAGE_MIGRATED
-			elif [ "$ret" == 1 ] ; then
-				set_return_code HUGEPAGE_NOT_MIGRATED
-			elif [ "$ret" == 2 ] ; then
-				set_return_code HUGEPAGE_DISAPPEARED
-			elif [ "$ret" == 3 ] ; then
-				set_return_code HUGEPAGE_NOT_EXIST
-			fi
-
             kill -SIGUSR1 $pid
             ;;
-        "just before exit")
+        "before_exit")
             kill -SIGUSR1 $pid
             set_return_code EXIT
             return 0

@@ -349,10 +349,10 @@ static void operate_with_allocate_exit(void) {
 		pprintf_wait(SIGUSR1, "mmap_done\n");
 	access_all_chunks(NULL);
 	if (wait_after_allocate)
-		pprintf_wait(SIGUSR1, "page_fault_done\n");
+		pprintf_wait(SIGUSR1, "after_access\n");
 	do_operation();
 	if (wait_before_free)
-		pprintf_wait(SIGUSR1, "before_free\n");
+		pprintf_wait(SIGUSR1, "before_munmap\n");
 	munmap_all_chunks();
 }
 
@@ -367,10 +367,10 @@ static void operate_with_mapping_iteration(void) {
 static void operate_with_numa_prepared(void) {
 	mmap_all_chunks_numa();
 	if (wait_after_allocate)
-		pprintf_wait(SIGUSR1, "page_fault_done\n");
+		pprintf_wait(SIGUSR1, "after_access\n");
 	do_operation();
 	if (wait_before_free)
-		pprintf_wait(SIGUSR1, "before_free\n");
+		pprintf_wait(SIGUSR1, "before_munmap\n");
 	munmap_all_chunks();
 }
 
@@ -563,7 +563,7 @@ int main(int argc, char *argv[]) {
 				waitpoint_mask |= 1 << WP_AFTER_MMAP;
 			} else if (!strcmp(optarg, "after_allocate")) {
 				waitpoint_mask |= 1 << WP_AFTER_ALLOCATE;
-			} else if (!strcmp(optarg, "before_free")) {
+			} else if (!strcmp(optarg, "before_munmap")) {
 				waitpoint_mask |= 1 << WP_BEFORE_FREE;
 			} else if (!strcmp(optarg, "exit")) {
 				waitpoint_mask |= 1 << WP_EXIT;
@@ -592,7 +592,7 @@ int main(int argc, char *argv[]) {
 
 	if (allocation_type != -1) {
 		if (wait_start)
-			pprintf_wait(SIGUSR1, "just started\n");
+			pprintf_wait(SIGUSR1, "after_start\n");
 
 		switch (allocation_type) {
 		case AT_ALLOCATE_EXIT:
@@ -610,7 +610,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		if (wait_exit)
-			pprintf_wait(SIGUSR1, "just before exit\n");
+			pprintf_wait(SIGUSR1, "before_exit\n");
 	} else if (op_strings) {
 		do_operation_loop();
 	} else {

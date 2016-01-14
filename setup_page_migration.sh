@@ -128,7 +128,7 @@ control_hugepage_migration() {
 	if [ "$pid" ] ; then # sync mode
 		echo_log "$line"
 		case "$line" in
-			"just started")
+			"after_start")
 				get_mm_stats $pid 0
 
 				if [ "$CGROUP" ] ; then
@@ -142,7 +142,7 @@ control_hugepage_migration() {
 
 				kill -SIGUSR1 $pid
 				;;
-			"page_fault_done")
+			"after_access")
 				get_mm_stats $pid 1
 
 				# TODO: better condition check
@@ -164,7 +164,7 @@ control_hugepage_migration() {
 
 				kill -SIGUSR1 $pid
 				;;
-			"before_free")
+			"before_munmap")
 				get_mm_stats $pid 2
 
 				if [ "$MIGRATE_SRC" ] ; then
@@ -211,7 +211,7 @@ control_hugepage_migration() {
 
 				kill -SIGUSR1 $pid
 				;;
-			"just before exit")
+			"before_exit")
 				kill -SIGUSR1 $pid
 				set_return_code EXIT
 				return 0

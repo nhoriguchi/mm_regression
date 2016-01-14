@@ -70,10 +70,10 @@ control_mce_test() {
 	if [ "$pid" ] ; then # sync mode
 		echo_log "=> $line"
 		case "$line" in
-			"just started")
+			"after_start")
 				kill -SIGUSR1 $pid
 				;;
-			"page_fault_done")
+			"after_access")
 				show_hugetlb_pool > $TMPD/hugetlb_pool.1
 				get_numa_maps $pid > $TMPD/numa_maps.1
 				get_smaps_block $pid smaps.1 700000 > /dev/null
@@ -83,7 +83,7 @@ control_mce_test() {
 
 				kill -SIGUSR1 $pid
 				;;
-			"before_free") # dup with "exited busy loop"?
+			"before_munmap") # dup with "exited busy loop"?
 				show_hugetlb_pool > $TMPD/hugetlb_pool.2
 				get_numa_maps $pid > $TMPD/numa_maps.2
 				get_smaps_block $pid smaps.2 700000 > /dev/null
@@ -93,7 +93,7 @@ control_mce_test() {
 
 				kill -SIGUSR1 $pid
 				;;
-			"just before exit")
+			"before_exit")
 				kill -SIGUSR1 $pid
 				set_return_code EXIT
 				return 0

@@ -14,7 +14,7 @@ control_vma_vm_pfnmap() {
 
     echo_log "$line"
     case "$line" in
-        "page_fault_done")
+        "after_access")
             read_pagemap $pid 0x700000000 1 $TMPD/case1
             read_pagemap $pid 0x700000001 1 $TMPD/case2
             read_pagemap $pid 0x700000002 1 $TMPD/case3
@@ -29,7 +29,7 @@ control_vma_vm_pfnmap() {
 
             kill -SIGUSR1 $pid
             ;;
-        "just before exit")
+        "before_exit")
 			kill -SIGUSR1 $pid
 			set_return_code EXIT
 			return 0
