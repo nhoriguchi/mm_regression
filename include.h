@@ -27,7 +27,7 @@ int nr_p = 512;
 int nr_chunk = 1;
 int busyloop = 0;
 
-char *workdir;
+char *workdir = "work";
 char *file;
 int fd;
 int hugetlbfd;
@@ -64,6 +64,7 @@ enum {
 	OT_PAGE_MIGRATION,
 	OT_PROCESS_VM_ACCESS,
 	OT_MLOCK,
+	OT_MLOCK2,
 	OT_MPROTECT,
 	OT_POISON_UNPOISON,
 	OT_MADV_STRESS,
@@ -117,12 +118,14 @@ unsigned long backend_bitmap = 0;
 /* Waitpoint */
 enum {
 	WP_START,
+	WP_AFTER_MMAP,
 	WP_AFTER_ALLOCATE,
 	WP_BEFORE_FREE,
 	WP_EXIT,
 	NR_WAITPOINTS,
 };
 #define wait_start		(waitpoint_mask & (1 << WP_START))
+#define wait_after_mmap		(waitpoint_mask & (1 << WP_AFTER_MMAP))
 #define wait_after_allocate	(waitpoint_mask & (1 << WP_AFTER_ALLOCATE))
 #define wait_before_free	(waitpoint_mask & (1 << WP_BEFORE_FREE))
 #define wait_exit		(waitpoint_mask & (1 << WP_EXIT))
@@ -355,7 +358,7 @@ static void mmap_all_chunks(void) {
 	int i, j = 0, k, backend;
 	void *baseaddr;
 
-	/* printf("backend %lx, nr_chunk %lx\n", backend, nr_chunk); */
+	printf("backend %lx, nr_chunk %lx\n", backend, nr_chunk);
 	for_each_backend(backend) {
 		for (i = 0; i < nr_chunk; i++) {
 			k = i + j * nr_chunk;
@@ -758,6 +761,25 @@ void __do_mlock(void) {
 	do_work_memory(__mlock_chunk, NULL);
 }
 
+/* only true for x86_64 */
+#define __NR_mlock2 325
+
+static int __mlock2_chunk(char *p, int size, void *args) {
+	int i;
+
+	if (hp_partial) {
+		for (i = 0; i < (size - 1) / 512 + 1; i++)
+			syscall(__NR_mlock2, p + i * HPS, PS);
+	} else
+		syscall(__NR_mlock2, p, size);
+}
+
+void __do_mlock2(void) {
+	if (forkflag)
+		fork_access();
+	do_work_memory(__mlock2_chunk, NULL);
+}
+
 static int __mprotect_chunk(char *p, int size, void *args) {
 	int i;
 
@@ -772,4 +794,81 @@ void __do_mprotect(void) {
 	if (forkflag)
 		fork_access();
 	do_work_memory(__mprotect_chunk, NULL);
+}
+
+struct op_control {
+	char *name;
+	int wait_before;
+	int wait_after;
+};
+
+char *op_args[256];
+static void parse_operation_args(struct op_control *opc, char *str) {
+	char delimiter[] = ":";
+	char *ptr;
+	int i = 0;
+
+	memset(opc, 0, sizeof(struct op_control));
+
+	ptr = strtok(str, delimiter);
+	opc->name = ptr;
+	while (ptr) {
+		if (!strcmp(ptr, "wait_before")) {
+			opc->wait_before = 1;
+		} else if (!strcmp(ptr, "wait_after")) {
+			opc->wait_after = 1;
+		}
+
+		ptr = strtok(NULL, delimiter);
+	}
+}
+
+char *op_strings[256];
+
+static void do_operation_loop(void) {
+	int i = 0;
+	struct op_control opc;
+
+	for (; op_strings[i] > 0; i++) {
+		parse_operation_args(&opc, op_strings[i]);
+
+		printf("===> op_name:%s, wait_before:%d, wait_after:%d\n",
+		       opc.name, opc.wait_before, opc.wait_after);
+
+		if (opc.wait_before)
+			pprintf_wait(SIGUSR1, "before_%s\n", opc.name);
+
+		if (!strcmp(opc.name, "start")) {
+			;
+		} else if (!strcmp(opc.name, "exit")) {
+			;
+		} else if (!strcmp(opc.name, "mmap")) {
+			mmap_all_chunks();
+		} else if (!strcmp(opc.name, "mmap_numa")) {
+			mmap_all_chunks_numa();
+		} else if (!strcmp(opc.name, "access")) {
+			access_all_chunks(NULL);
+		} else if (!strcmp(opc.name, "munmap")) {
+			munmap_all_chunks();
+		} else if (!strcmp(opc.name, "mlock2")) {
+			__do_mlock2();
+		} else
+			errmsg("unsupported op_string: %s\n", opc.name);
+
+		if (opc.wait_after)
+			pprintf_wait(SIGUSR1, "after_%s\n", opc.name);
+	}
+}
+
+static void parse_operations(char *str) {
+	char delimiter[] = " ";
+	char *ptr;
+	int i = 0;
+
+	ptr = strtok(str, delimiter);
+	op_strings[i++] = ptr;
+	while (ptr) {
+		ptr = strtok(NULL, delimiter);
+		op_strings[i++] = ptr;
+	}
 }

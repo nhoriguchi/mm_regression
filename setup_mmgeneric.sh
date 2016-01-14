@@ -6,11 +6,11 @@
 . $TCDIR/lib/hugetlb.sh
 
 prepare_mmgeneric() {
-	true
+	prepare_mm_generic || return 1
 }
 
 cleanup_mmgeneric() {
-	true
+	cleanup_mm_generic
 }
 
 check_mmgeneric() {

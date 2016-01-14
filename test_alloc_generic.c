@@ -296,6 +296,9 @@ static void do_operation(void) {
 	case OT_MLOCK:
 		__do_mlock();
 		break;
+	case OT_MLOCK2:
+		__do_mlock2();
+		break;
 	case OT_MPROTECT:
 		__do_mprotect();
 		break;
@@ -342,6 +345,8 @@ static void do_operation(void) {
 
 static void operate_with_allocate_exit(void) {
 	mmap_all_chunks();
+	if (wait_after_mmap)
+		pprintf_wait(SIGUSR1, "mmap_done\n");
 	access_all_chunks(NULL);
 	if (wait_after_allocate)
 		pprintf_wait(SIGUSR1, "page_fault_done\n");
@@ -372,7 +377,7 @@ static void operate_with_numa_prepared(void) {
 int main(int argc, char *argv[]) {
 	char c;
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:o:e:PB:Ad:M:s:RFa:w:O:C:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:o:e:PB:Ad:M:s:RFa:w:O:C:L:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -437,6 +442,8 @@ int main(int argc, char *argv[]) {
 				operation_type = OT_PROCESS_VM_ACCESS;
 			else if (!strcmp(optarg, "mlock"))
 				operation_type = OT_MLOCK;
+			else if (!strcmp(optarg, "mlock2"))
+				operation_type = OT_MLOCK2;
 			else if (!strcmp(optarg, "mprotect"))
 				operation_type = OT_MPROTECT;
 			else if (!strcmp(optarg, "madv_stress"))
@@ -552,6 +559,8 @@ int main(int argc, char *argv[]) {
 		case 'w':
 			if (!strcmp(optarg, "start")) {
 				waitpoint_mask |= 1 << WP_START;
+			} else if (!strcmp(optarg, "after_mmap")) {
+				waitpoint_mask |= 1 << WP_AFTER_MMAP;
 			} else if (!strcmp(optarg, "after_allocate")) {
 				waitpoint_mask |= 1 << WP_AFTER_ALLOCATE;
 			} else if (!strcmp(optarg, "before_free")) {
@@ -569,6 +578,9 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'C':
 			preferred_cpu_node = strtoul(optarg, NULL, 0);
+			break;
+		case 'L':
+			parse_operations(optarg);
 			break;
 		default:
 			errmsg("invalid option\n");
@@ -599,6 +611,9 @@ int main(int argc, char *argv[]) {
 
 		if (wait_exit)
 			pprintf_wait(SIGUSR1, "just before exit\n");
-	} else
-		errmsg("-a option not given\n");
+	} else if (op_strings) {
+		do_operation_loop();
+	} else {
+		errmsg("-a option nor -L option given\n");
+	}
 }

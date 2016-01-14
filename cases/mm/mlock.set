@@ -1,0 +1,46 @@
+#!1 MLOCK_VERSION: mlock2
+#!1 BACKEND: anonymous pagecache hugetlb_anon hugetlb_shmem hugetlb_file ksm thp zero huge_zero
+
+MLOCK_VERSION=__MARK_MLOCK_VERSION
+BACKEND=__MARK_BACKEND
+
+. $TRDIR/setup_mmgeneric.sh
+
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'mmap mlock2:wait_after exit:wait_before'"
+EXPECTED_RETURN_CODE="START MLOCKED EXIT"
+
+if [[ "$BACKEND" =~ hugetlb ]] ; then
+	HUGETLB=100
+	HUGETLB_MOUNT=$WDIR/hugetlbfs
+	EXPECTED_RETURN_CODE="START MLOCK_FAILED EXIT"
+elif [[ "$BACKEND" =~ thp ]] ; then
+	THP=true
+fi
+
+_control() {
+	local pid="$1"
+	local line="$2"
+
+	echo_log "$line"
+	case "$line" in
+		"after_mlock2")
+			get_mm_stats $pid 1
+
+			if cut -f4 $TMPD/pagetypes.1 | grep m > /dev/null ; then
+				set_return_code MLOCKED
+			else
+				set_return_code MLOCK_FAILED
+			fi
+
+			kill -SIGUSR1 $pid
+			;;
+		"before_exit")
+			kill -SIGUSR1 $pid
+			set_return_code EXIT
+			return 0
+			;;
+		*)
+			;;
+	esac
+	return 1
+}
