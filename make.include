@@ -13,3 +13,10 @@ update_recipes: get_test_core
 summary:
 	@ruby test_core/lib/test_summar.rb
 	@true
+
+version: get_test_core
+	@bash test_core/run-test-new.sh -V
+
+allrecipes: get_test_core
+	@find cases -type f | bash test_core/lib/filter_recipe.sh
+	@true
