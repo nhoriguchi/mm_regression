@@ -10,10 +10,19 @@
 #!2 OVERCOMMIT: overcommit noovercommit
 #!2 RESERVE: reserve noreserve
 
-#!3 BACKEND: hugetlb_anon
-#!3 MIGRATE_SRC: migratepages mbind move_pages madv_soft
-#!3 BACKGROUND: allocate0 allocate1
-#!3 OVERCOMMIT: overcommit noovercommit
+# "allocate0 + noovercommit" case is meaningless testcases because test program
+# always fail to allocate hugepage from node 0 and killed by SIGBUS before trying
+# to page migration.
+
+#!30 BACKEND: hugetlb_anon
+#!30 MIGRATE_SRC: migratepages mbind move_pages madv_soft
+#!30 BACKGROUND: allocate0 allocate1
+#!30 OVERCOMMIT: overcommit
+
+#!31 BACKEND: hugetlb_anon
+#!31 MIGRATE_SRC: migratepages mbind move_pages madv_soft
+#!31 BACKGROUND: allocate1
+#!31 OVERCOMMIT: noovercommit
 
 #!4 BACKEND: hugetlb_anon thp
 #!4 MIGRATE_SRC: hotremove
