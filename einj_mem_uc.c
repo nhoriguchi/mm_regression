@@ -14,6 +14,7 @@
 #include <string.h>
 #include <time.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <setjmp.h>
 #include <signal.h>
 
@@ -309,12 +310,13 @@ struct sigaction recover_act = {
 int main(int argc, char **argv)
 {
 	int c, i;
-	int	count = 1;
+	int	count = 1, cmci_wait_count = 0;
 	double	delay = 1.0;
 	struct test *t;
 	void	*vaddr;
 	long long paddr;
 	long	b_mce, b_cmci, a_mce, a_cmci;
+	struct timeval t1, t2;
 
 	progname = argv[0];
 
@@ -351,11 +353,13 @@ int main(int argc, char **argv)
 	sigaction(SIGBUS, &recover_act, NULL);
 
 	for (i = 0; i < count; i++) {
+		cmci_wait_count = 0;
 		vaddr = t->alloc();
 		paddr = vtop((long long)vaddr);
 		printf("%d: %-8s vaddr = %p paddr = %llx\n", i, t->testname, vaddr, paddr);
 
 		proc_interrupts(&b_mce, &b_cmci);
+		gettimeofday(&t1, NULL);
 		if (sigsetjmp(env, 1)) {
 			if ((t->flags & F_SIGBUS) == 0) {
 				printf("Unexpected SIGBUS\n");
@@ -374,7 +378,7 @@ int main(int argc, char **argv)
 		}
 
 		/* Give system a chance to process on possibly deep C-state idle cpus */
-		usleep(10000);
+		usleep(100);
 
 		proc_interrupts(&a_mce, &a_cmci);
 
@@ -399,6 +403,20 @@ int main(int argc, char **argv)
 		}
 
 		if (t->flags & F_CMCI) {
+			while (a_cmci < b_cmci + lcpus_persocket) {
+				if (cmci_wait_count > 1000) {
+					break;
+				}
+				usleep(100);
+				proc_interrupts(&a_mce, &a_cmci);
+				cmci_wait_count++;
+			}
+			if (cmci_wait_count != 0) {
+				gettimeofday(&t2, NULL);
+				printf("CMCIs took ~%ld usecs to be reported.\n",
+					1000000 * (t2.tv_sec - t1.tv_sec) +
+						(t2.tv_usec - t1.tv_usec));
+			}
 			if (a_cmci == b_cmci) {
 				printf("Expected CMCI, but none seen\n");
 			} else if (a_cmci < b_cmci + lcpus_persocket) {
