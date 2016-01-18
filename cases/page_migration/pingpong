@@ -11,8 +11,8 @@ PINGPONG_DURATION=10
 _control() {
     echo_log "start hugepage_pingpong"
 	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate1
-    echo "$test_alloc_generic -v -a allocate_exit -o mbind_pingpong -N 10 -d work -B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem > $TMPD/fuz.out 2>&1 &"
-    $test_alloc_generic -a allocate_exit -o mbind_pingpong -N 10 -d work -B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem > $TMPD/fuz.out 2>&1 &
+    echo "$test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -N 10 -L \"start mmap access mbind_pingpong\" > $TMPD/fuz.out 2>&1 &"
+    $test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -N 10 -L "start mmap access mbind_pingpong" > $TMPD/fuz.out 2>&1 &
     local pid=$!
     echo_log "pid $pid"
     sleep $PINGPONG_DURATION

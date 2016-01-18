@@ -1,5 +1,6 @@
 #include <sys/uio.h>
 #include <sys/time.h>
+#include <stdlib.h>
 #include "test_core/lib/include.h"
 #include "test_core/lib/hugepage.h"
 #include "test_core/lib/pfn.h"
@@ -127,7 +128,7 @@ enum {
 #define wait_start		(waitpoint_mask & (1 << WP_START))
 #define wait_after_mmap		(waitpoint_mask & (1 << WP_AFTER_MMAP))
 #define wait_after_allocate	(waitpoint_mask & (1 << WP_AFTER_ALLOCATE))
-#define wait_before_free	(waitpoint_mask & (1 << WP_BEFORE_FREE))
+#define wait_before_munmap	(waitpoint_mask & (1 << WP_BEFORE_FREE))
 #define wait_exit		(waitpoint_mask & (1 << WP_EXIT))
 int waitpoint_mask = 0;
 
@@ -433,6 +434,10 @@ static void __busyloop(void) {
 			  "entering busy loop\n");
 }
 
+static void do_busyloop(void) {
+	pprintf_wait_func(access_all_chunks, NULL, "entering busy loop\n");
+}
+
 static int set_mempolicy_node(int mode, int nid) {
 	/* Assuming that max node number is < 64 */
 	unsigned long nodemask = 1UL << nid;
@@ -665,14 +670,11 @@ static void mmap_all_chunks_numa(void) {
 
 	if (set_mempolicy_node(MPOL_BIND, preferred_mem_node) == -1)
 		err("set_mempolicy");
-	/* do_mbind(mpol_mode_for_page_migration, preferred_node); */
 
 	mmap_all_chunks();
-	access_all_chunks(NULL);
 
 	if (set_mempolicy_node(MPOL_DEFAULT, 0) == -1)
 		err("set_mempolicy");
-	/* do_mbind(MPOL_DEFAULT, 0); */
 }
 
 void __do_page_migration(void) {
@@ -699,6 +701,40 @@ void __do_page_migration(void) {
 	case MS_CHANGE_CPUSET:
 		do_change_cpuset();
 		break;
+	}
+}
+
+/* inject only onto the first page, so allocating big region makes no sense. */
+static void do_memory_error_injection(void) {
+	char rbuf[256];
+	unsigned long offset = 0;
+
+	switch (injection_type) {
+	case MCE_SRAO:
+	case SYSFS_HARD:
+	case SYSFS_SOFT:
+		pprintf("waiting for injection from outside\n");
+		pause();
+		break;
+	case MADV_HARD:
+	case MADV_SOFT:
+		pprintf("error injection with madvise\n");
+		pause();
+		pipe_read(rbuf);
+		offset = strtol(rbuf, NULL, 0);
+		Dprintf("madvise inject to addr %lx\n", chunkset[0].p + offset * PS);
+		if (madvise(chunkset[0].p + offset * PS, PS, injection_type == MADV_HARD ?
+			    MADV_HWPOISON : MADV_SOFT_OFFLINE) != 0)
+			perror("madvise");
+		pprintf("after madvise injection\n");
+		pause();
+		break;
+	}
+
+	if (access_after_injection) {
+		pprintf("writing affected region\n");
+		pause();
+		access_all_chunks(NULL);
 	}
 }
 
@@ -796,31 +832,357 @@ void __do_mprotect(void) {
 	do_work_memory(__mprotect_chunk, NULL);
 }
 
+static void allocate_transhuge(void *ptr)
+{
+	uint64_t ent[2];
+	int i;
+
+	/* drop pmd */
+	if (mmap(ptr, THPS, PROT_READ | PROT_WRITE,
+		 MAP_FIXED | MAP_ANONYMOUS | MAP_NORESERVE | MAP_PRIVATE, -1, 0) != ptr)
+		err("mmap transhuge");
+
+	if (madvise(ptr, THPS, MADV_HUGEPAGE))
+		err("MADV_HUGEPAGE");
+
+	/* allocate transparent huge page */
+	for (i = 0; i < (1 << (THP_SHIFT - PAGE_SHIFT)); i++) {
+		*(volatile void **)(ptr + i * PAGE_SIZE) = ptr;
+	}
+}
+
+static void do_memory_compaction(void) {
+	size_t ram, len;
+	void *ptr, *p;
+
+	ram = sysconf(_SC_PHYS_PAGES);
+	if (ram > SIZE_MAX / sysconf(_SC_PAGESIZE) / 4)
+		ram = SIZE_MAX / 4;
+	else
+		ram *= sysconf(_SC_PAGESIZE);
+	Dprintf("===> %lx\n", ram);
+	len = ram;
+	Dprintf("===> %lx\n", len);
+	len -= len % THPS;
+	ptr = mmap((void *)ADDR_INPUT, len + THPS, PROT_READ | PROT_WRITE,
+			MAP_ANONYMOUS | MAP_NORESERVE | MAP_PRIVATE, -1, 0);
+
+	if (madvise(ptr, len, MADV_HUGEPAGE))
+		err("MADV_HUGEPAGE");
+
+	/* TODO: move to pprintf_wait_func */
+	pprintf("entering busy loop\n");
+	while (flag) {
+		for (p = ptr; p < ptr + len; p += THPS) {
+			allocate_transhuge(p);
+			/* split transhuge page, keep last page */
+			if (madvise(p, THPS - PAGE_SIZE, MADV_DONTNEED))
+				err("MADV_DONTNEED");
+		}
+	}
+}
+
+static void __do_allocate_more(void) {
+	char *panon;
+	int size = nr_p * PS;
+
+	panon = checked_mmap((void *)(ADDR_INPUT + size), size, MMAP_PROT,
+			MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	/* should cause swap out with external cgroup setting */
+	pprintf("anonymous address starts at %p\n", panon);
+	memset(panon, 'a', size);
+}
+
+/* inject only onto the first page, so allocating big region makes no sense. */
+void __do_memory_error_injection(void) {
+	char rbuf[256];
+	unsigned long offset = 0;
+
+	switch (injection_type) {
+	case MCE_SRAO:
+	case SYSFS_HARD:
+	case SYSFS_SOFT:
+		pprintf("waiting for injection from outside\n");
+		pause();
+		break;
+	case MADV_HARD:
+	case MADV_SOFT:
+		pprintf("error injection with madvise\n");
+		pause();
+		pipe_read(rbuf);
+		offset = strtol(rbuf, NULL, 0);
+		Dprintf("madvise inject to addr %lx\n", chunkset[0].p + offset * PS);
+		if (madvise(chunkset[0].p + offset * PS, PS, injection_type == MADV_HARD ?
+			    MADV_HWPOISON : MADV_SOFT_OFFLINE) != 0)
+			perror("madvise");
+		pprintf("after madvise injection\n");
+		pause();
+		break;
+	}
+
+	if (access_after_injection) {
+		pprintf("writing affected region\n");
+		pause();
+		access_all_chunks(NULL);
+	}
+}
+
+static void __do_madv_stress() {
+	int i, j;
+	int madv = (injection_type == MADV_HARD ? MADV_HWPOISON : MADV_SOFT_OFFLINE);
+
+	for (j = 0; j < nr_mem_types; j++) {
+		for (i = 0; i < nr_chunk; i++) {
+			struct mem_chunk *tmp = &chunkset[i + j * nr_chunk];
+
+			if (madvise(tmp->p, PS, madv) == -1) {
+				fprintf(stderr, "chunk:%p, backend:%d\n",
+					tmp->p, tmp->mem_type);
+				perror("madvise");
+			}
+		}
+	}
+}
+
+static void _do_madv_stress(void) {
+	__do_madv_stress();
+	if (access_after_injection)
+		access_all_chunks(NULL);
+}
+
+static void __do_fork_stress(void) {
+	while (flag) {
+		pid_t pid = fork();
+		if (!pid) {
+			access_all_chunks(NULL);
+			return;
+		}
+		/* get status? */
+		waitpid(pid, NULL, 0);
+	}
+}
+
+static int __mremap_chunk(char *p, int csize, void *args) {
+	int offset = nr_chunk * CHUNKSIZE * PS;
+	int back = *(int *)args; /* 0: +offset, 1: -offset*/
+	void *new;
+
+	if (back) {
+		printf("mremap p:%p+%lx -> %p\n", p + offset, csize, p);
+		new = mremap(p + offset, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p);
+	} else {
+		printf("mremap p:%p+%lx -> %p\n", p, csize, p + offset);
+		new = mremap(p, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p + offset);
+	}
+	return new == MAP_FAILED ? -1 : 0;
+}
+
+static void __do_mremap_stress(void) {
+	while (flag) {
+		int back = 0;
+
+		back = 0;
+		do_work_memory(__mremap_chunk, (void *)&back);
+
+		back = 1;
+		do_work_memory(__mremap_chunk, (void *)&back);
+	}
+}
+
+static int __madv_willneed_chunk(char *p, int size, void *args) {
+	return madvise(p, size, MADV_WILLNEED);
+}
+
+static void __do_madv_willneed(void) {
+	do_work_memory(__madv_willneed_chunk, NULL);
+}
+
+static void operate_with_mapping_iteration(void) {
+	while (flag) {
+		mmap_all_chunks();
+		access_all_chunks(NULL);
+		munmap_all_chunks();
+	}
+}
+
+static int iterate_mbind_pingpong(void *arg) {
+	struct mbind_arg *mbind_arg = (struct mbind_arg *)arg;
+
+	numa_bitmask_clearall(mbind_arg->new_nodes);
+	numa_bitmask_setbit(mbind_arg->new_nodes, 1);
+	do_work_memory(__mbind_chunk, mbind_arg);
+
+	numa_bitmask_clearall(mbind_arg->new_nodes);
+	numa_bitmask_setbit(mbind_arg->new_nodes, 0);
+	do_work_memory(__mbind_chunk, mbind_arg);
+}
+
+static void __do_mbind_pingpong(void) {
+	int ret;
+	int node;
+	struct mbind_arg mbind_arg = {
+		.mode = MPOL_BIND,
+		.flags = MPOL_MF_MOVE|MPOL_MF_STRICT,
+	};
+
+	mbind_arg.new_nodes = numa_bitmask_alloc(nr_nodes);
+
+	pprintf_wait_func(iterate_mbind_pingpong, &mbind_arg,
+			  "entering iterate_mbind_pingpong\n");
+}
+
+static void __do_move_pages_pingpong(void) {
+	while (flag) {
+		int node;
+
+		node = 1;
+		do_work_memory(__move_pages_chunk, &node);
+
+		node = 0;
+		do_work_memory(__move_pages_chunk, &node);
+	}
+}
+
+static void do_hugetlb_reserve(void) {
+	mmap_all_chunks();
+	__busyloop();
+	munmap_all_chunks();
+}
+
+enum {
+	NR_memory_error_injection,
+	NR_mlock,
+	NR_test,
+	NR_mmap,
+	NR_OPERATIONS,
+};
+
+static const char *operation_name[] = {
+	[NR_memory_error_injection]	= "memory_error_injection",
+	[NR_mlock]	= "mlock",
+	[NR_test]	= "test",
+	[NR_mmap]	= "mmap",
+};
+
+static const char *op_supported_args[][10] = {
+	[NR_memory_error_injection]	= {"asdf"},
+	[NR_mlock]	= {"mlock", "fjfj", "sadf"},
+	[NR_test]	= {"test", "ffmm"},
+	[NR_mmap]	= {"test", "ffmm", "key2"},
+};
+
 struct op_control {
 	char *name;
 	int wait_before;
 	int wait_after;
+	char **args;
+	char **keys;
+	char **values;
+	int nr_args;
 };
+
+static int get_op_index(struct op_control *opc) {
+	int i;
+
+	for (i = 0; i < NR_OPERATIONS; i++)
+		if (!strcmp(operation_name[i], opc->name))
+			return i;
+}
+
+static char *get_value(struct op_control *opc, char *key) {
+	int i;
+	char tkey[32], tvalue[32];
+
+	for (i = 0; i < opc->nr_args; i++) {
+		if (!strcmp(opc->keys[i], key)) {
+			/* value might be empty string. */
+			return opc->values[i];
+		}
+	}
+	/* not key */
+	return NULL;
+}
+
+static int parse_operation_arg(struct op_control *opc) {
+	int i = 0, op_idx, j;
+	char key, *value;
+	char buf[256]; /* TODO: malloc? */
+	int supported;
+
+	/* op_idx = get_op_index(opc); */
+	/* if (op_idx == NR_OPERATIONS) */
+	/* 	errmsg("unknown operation: %s\n", opc->name); */
+
+	for (i = 0; i < opc->nr_args; i++) {
+		opc->keys[i] = malloc(64);
+		opc->values[i] = malloc(64);
+
+		sscanf(opc->args[i], "%[^=]=%s", opc->keys[i], opc->values[i]);
+
+		if (!strcmp(opc->keys[i], "wait_before")) {
+			opc->wait_before = 1;
+			continue;
+		}
+		if (!strcmp(opc->keys[i], "wait_after")) {
+			opc->wait_after = 1;
+			continue;
+		}
+
+		supported = 0;
+		j = 0;
+		while (op_supported_args[op_idx][j]) {
+			if (!strcmp(op_supported_args[op_idx][j], opc->keys[i])) {
+				supported = 1;
+				break;
+			}
+			j++;
+		}
+		if (!supported)
+			errmsg("operation %s does not support argument %s\n",
+			       opc->name, opc->keys[i]);
+	}
+	return 0;
+}
+
+static void print_opc(struct op_control *opc) {
+	int i;
+
+	printf("===> op_name:%s, wait_before:%d, wait_after:%d\n",
+	       opc->name, opc->wait_before, opc->wait_after);
+	for (i = 0; i < opc->nr_args; i++) {
+		char *value = get_value(opc, opc->keys[i]);
+		printf("  %s = %s (%p)\n", opc->keys[i], value, value);
+	}
+}
 
 char *op_args[256];
 static void parse_operation_args(struct op_control *opc, char *str) {
 	char delimiter[] = ":";
 	char *ptr;
-	int i = 0;
-
+	int i = 0, j, k;
+	char buf[256];
+	
 	memset(opc, 0, sizeof(struct op_control));
+	strcpy(buf, str);
 
-	ptr = strtok(str, delimiter);
-	opc->name = ptr;
-	while (ptr) {
-		if (!strcmp(ptr, "wait_before")) {
-			opc->wait_before = 1;
-		} else if (!strcmp(ptr, "wait_after")) {
-			opc->wait_after = 1;
-		}
+	/* TODO: need overrun check */
+	opc->name = malloc(256);
+	opc->args = malloc(10 * sizeof(void *));
+	opc->keys = malloc(10 * sizeof(void *));
+	opc->values = malloc(10 * sizeof(void *));
 
+	ptr = strtok(buf, delimiter);
+	strcpy(opc->name, ptr);
+	while (1) {
 		ptr = strtok(NULL, delimiter);
+		if (!ptr)
+			break;
+		opc->args[i++] = ptr;
 	}
+	opc->nr_args = i;
+
+	parse_operation_arg(opc);
+print_opc(opc);
 }
 
 char *op_strings[256];
@@ -832,8 +1194,7 @@ static void do_operation_loop(void) {
 	for (; op_strings[i] > 0; i++) {
 		parse_operation_args(&opc, op_strings[i]);
 
-		printf("===> op_name:%s, wait_before:%d, wait_after:%d\n",
-		       opc.name, opc.wait_before, opc.wait_after);
+		/* print_opc(&opc); */
 
 		if (opc.wait_before)
 			pprintf_wait(SIGUSR1, "before_%s\n", opc.name);
@@ -848,14 +1209,52 @@ static void do_operation_loop(void) {
 			mmap_all_chunks_numa();
 		} else if (!strcmp(opc.name, "access")) {
 			access_all_chunks(NULL);
+		} else if (!strcmp(opc.name, "busyloop")) {
+			do_busyloop();
 		} else if (!strcmp(opc.name, "munmap")) {
 			munmap_all_chunks();
 		} else if (!strcmp(opc.name, "mbind")) {
 			do_mbind(mpol_mode_for_page_migration, 1);
+		} else if (!strcmp(opc.name, "move_pages")) {
+			do_move_pages();
 		} else if (!strcmp(opc.name, "mlock")) {
 			__do_mlock();
 		} else if (!strcmp(opc.name, "mlock2")) {
 			__do_mlock2();
+		} else if (!strcmp(opc.name, "hugetlb_reserve")) {
+			__do_mlock2();
+		} else if (!strcmp(opc.name, "memory_error_injection")) {
+			do_memory_error_injection();
+		} else if (!strcmp(opc.name, "auto_numa")) {
+			do_auto_numa();
+		} else if (!strcmp(opc.name, "mprotect")) {
+			__do_mprotect();
+		} else if (!strcmp(opc.name, "change_cpuset")) {
+			do_change_cpuset();
+		} else if (!strcmp(opc.name, "migratepages")) {
+			do_migratepages();
+		} else if (!strcmp(opc.name, "memory_compaction")) {
+			do_memory_compaction();
+		} else if (!strcmp(opc.name, "allocate_more")) {
+			__do_allocate_more();
+		} else if (!strcmp(opc.name, "madv_willneed")) {
+			__do_madv_willneed();
+		} else if (!strcmp(opc.name, "madv_soft")) {
+			do_madv_soft();
+		} else if (!strcmp(opc.name, "iterate_mapping")) {
+			operate_with_mapping_iteration();
+		} else if (!strcmp(opc.name, "mremap_stress")) {
+			__do_mremap_stress();
+		} else if (!strcmp(opc.name, "hotremove")) {
+			do_hotremove();
+		} else if (!strcmp(opc.name, "process_vm_access")) {
+			__do_process_vm_access();
+		} else if (!strcmp(opc.name, "fork_stress")) {
+			__do_fork_stress();
+		} else if (!strcmp(opc.name, "mbind_pingpong")) {
+			__do_mbind_pingpong();
+		} else if (!strcmp(opc.name, "madv_stress")) {
+			_do_madv_stress();
 		} else
 			errmsg("unsupported op_string: %s\n", opc.name);
 

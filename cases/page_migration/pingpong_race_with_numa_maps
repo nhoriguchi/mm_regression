@@ -26,10 +26,10 @@ _control() {
     echo_log "start $PINGPONG_NR_PROC hugepage_pingpong processes"
 	grep ^pgmigrate /proc/vmstat | tee $TMPD/vmstat.pgmigrate1
     for i in $(seq $PINGPONG_NR_PROC) ; do
-		echo "$test_alloc_generic -v -a allocate_exit -o mbind_pingpong -N 10 -d work -B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem > $TMPD/fuz.out$i 2>&1 &"
-		$test_alloc_generic -a allocate_exit -o mbind_pingpong -N 10 -d work -B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem > $TMPD/fuz.out$i 2>&1 &
+		$test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -N 10 -L "start mmap access mbind_pingpong" > $TMPD/fuz.out 2>&1 &
         pids="$pids $!"
     done
+	echo_log "$PINGPONG_NR_PROC processes running ($pids)"
     eval "$cmd $pids" &
     reader_pid=$!
     sleep $PINGPONG_DURATION

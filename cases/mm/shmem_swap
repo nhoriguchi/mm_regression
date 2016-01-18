@@ -1,6 +1,6 @@
 . $TRDIR/setup_mmgeneric.sh
 
-TEST_PROGRAM="$test_alloc_generic -a allocate_exit -o allocate_more -B normal_shmem -n 3072 -w start -w after_allocate -w before_free -w exit"
+TEST_PROGRAM="$test_alloc_generic -B normal_shmem -n 3072 -L 'start:wait_after mmap access:wait_after allocate_more munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="START EXIT"
 
 __prepare_memcg() {

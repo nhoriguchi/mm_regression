@@ -97,20 +97,20 @@ if [[ "$BACKEND" =~ hugetlb ]] && [ "$MIGRATE_SRC" != hotremove ] ; then
 	fi
 	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
 
-	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o $OPERATION_TYPE -s $MIGRATE_SRC -B $BACKEND -d work -N 2 $NORESERVEFLAG $BUSYOPT -w start -w after_allocate -w before_free -w exit"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 2 $NORESERVEFLAG $BUSYOPT -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
 elif [[ "$BACKEND" =~ hugetlb ]] ; then # hotremove
 	HUGETLB=$[$MEMTOTAL/$HUGEPAGESIZE/2]
 	HUGETLB_ALLOCATED=$[HUGETLB*4/5]
 	# no pass fail ?
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
-	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o $OPERATION_TYPE -s $MIGRATE_SRC -B $BACKEND -d work -N $HUGETLB_ALLOCATED -M $(get_backend_pageflags hugetlb_mapped) $BUSYOPT -w start -w after_allocate -w before_free -w exit"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $HUGETLB_ALLOCATED -M $(get_backend_pageflags hugetlb_mapped) $BUSYOPT -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
 elif [[ "$BACKEND" =~ thp ]] && [ "$MIGRATE_SRC" == hotremove ] ; then
 	THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
 	THP_ALLOCATED=$[THP*4/5]
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
-	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o $OPERATION_TYPE -s $MIGRATE_SRC -B $BACKEND -d work -N $THP_ALLOCATED -M $(get_backend_pageflags $BACKEND) $BUSYOPT -w start -w after_allocate -w before_free -w exit"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP_ALLOCATED -M $(get_backend_pageflags $BACKEND) $BUSYOPT -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
 elif  [[ "$BACKEND" =~ thp ]] ; then
 	THP=10
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
-	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o $OPERATION_TYPE -s $MIGRATE_SRC -B $BACKEND -d work -N $THP $BUSYOPT -w start -w after_allocate -w before_free -w exit"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP $BUSYOPT -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
 fi

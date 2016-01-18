@@ -19,4 +19,5 @@ fi
 # in auto_numa testing, initial cpu affinity is important so set it with -C
 # option to node 0. And during waiting the memeat thread must keep accessing
 # the target region to drive NUMA hinting fault (done by -b).
-TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s $MIGRATE_SRC -N 20 -B $BACKEND -w start -w after_allocate -w before_free -w exit -C 0 -b"
+# TODO: replace -C/-b option with operation arg
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 20 -C 0 -b -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"

@@ -8,7 +8,7 @@ THP=512
 
 background_alloc_exit() {
 	while true ; do
-		$test_alloc_generic -a allocate_exit -o noop -B thp -N $THP
+		$test_alloc_generic -a allocate_exit -o noop -B thp -N $THP -L "mmap access"
 	done
 }
 

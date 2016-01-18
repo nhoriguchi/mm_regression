@@ -29,7 +29,7 @@ _control() {
     local pid=
 
     for i in $(seq $RACE_ITERATIONS) ; do
-		$test_alloc_generic -a iterate_mapping -B thp -N 8 &
+		$test_alloc_generic -B thp -N 10 -L iterate_mapping &
 		pid=$!
 
 		get_pagetypes $pid pagetypes.1 -b "$TARGET_PAGEFLAGS" -Nrla 0x700000000+0x10000000

@@ -3,4 +3,4 @@
 NUMA_NODE=2
 EXPECTED_RETURN_CODE="START EXIT"
 
-TEST_PROGRAM="$test_alloc_generic -a allocate_exit -o page_migration -s mbind -B zero -n 3 -w start -w after_allocate -w exit"
+TEST_PROGRAM="$test_alloc_generic -B zero -n 3 -B zero -n 3 -L 'start:wait_after mmap_numa access:wait_after mbind munmap:wait_before exit:wait_before'"

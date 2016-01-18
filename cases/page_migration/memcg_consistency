@@ -3,8 +3,8 @@
 NUMA_NODE=2
 HUGEPAGESIZE=2048 # kB
 HUGETLB=100
-EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
-TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s migratepages -N 10 -B hugetlb_anon -w start -w after_allocate -w before_free -w exit"
+EXPECTED_RETURN_CODE="START CGCLASSIFY_PASS MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
+TEST_PROGRAM="$test_alloc_generic -B hugetlb_anon -N 10 -L 'start:wait_after mmap_numa access:wait_after migratepages munmap:wait_before exit:wait_before'"
 MIGRATE_SRC=migratepages
 
 CGROUP=cpu,memory,hugetlb:test1

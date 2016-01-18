@@ -21,15 +21,15 @@ WAITSEC=3
 
 run_race_src() {
 	if [ "$RACE_SRC" == iterate_mapping ] ; then
-		$test_alloc_generic -a iterate_mapping -B hugetlb_anon -N 10
+		$test_alloc_generic -B hugetlb_anon -N 10 -L iterate_mapping
 	elif [ "$RACE_SRC" == gup ] ; then
 		# how to wait allocation done?
-		$test_alloc_generic -a allocate_exit -o page_migration -s madv_soft -B hugetlb_anon -N 100 -w after_allocate > /dev/null &
+		$test_alloc_generic -B hugetlb_anon -N 100 -L 'start mmap access:wait_after madv_soft' > /dev/null &
 		local mypid=$!
 		sleep 2
 		kill -SIGUSR1 $mypid
 	elif [ "$RACE_SRC" == mremap_stress ] ; then
-		$test_alloc_generic -a allocate_exit -o mremap_stress -B anonymous -N 10 > /dev/null 2>&1
+		$test_alloc_generic -B anonymous -N 10 -L 'start mmap access mremap_stress' > /dev/null &
 	fi
 }
 

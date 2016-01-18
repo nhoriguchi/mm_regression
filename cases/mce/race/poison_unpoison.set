@@ -59,7 +59,7 @@ BACKENDOPT="-B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -B
 _control() {
     local pid=
 
-	$test_alloc_generic -a allocate_exit -o busyloop $BACKENDOPT -d work -b -N 8 &
+	$test_alloc_generic $BACKENDOPT -N 8 -b -L 'start mmap access busyloop' &
     pid=$!
 
     random_poison $pid &

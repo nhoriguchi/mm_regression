@@ -2,18 +2,19 @@
 
 EXPECTED_RETURN_CODE="START EXIT"
 
-HUGETLB=100
+HUGETLB=500
 HUGETLB_MOUNT=$WDIR/hugetlbfs
 
 BACKENDOPT="-B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -B hugetlb_file -B ksm -B normal_shmem"
+OPERATIONS="start mmap access madv_stress"
 
 _control() {
     for i in $(seq 10) ; do
-		echo i
-		$test_alloc_generic -a allocate_exit -o madv_stress $BACKENDOPT -N 8 -d work -e madv_hard > /dev/null 2>&1
-		$test_alloc_generic -a allocate_exit -o madv_stress $BACKENDOPT -N 8 -d work -e madv_soft > /dev/null 2>&1
-		$test_alloc_generic -a allocate_exit -o madv_stress $BACKENDOPT -N 8 -d work -e madv_hard -A > /dev/null 2>&1
-		$test_alloc_generic -a allocate_exit -o madv_stress $BACKENDOPT -N 8 -d work -e madv_soft -A > /dev/null 2>&1
+		echo $i
+		$test_alloc_generic $BACKENDOPT -N 8 -e madv_hard -L "$OPERATIONS" > /dev/null 2>&1 &
+		$test_alloc_generic $BACKENDOPT -N 8 -e madv_soft -L "$OPERATIONS" > /dev/null 2>&1 &
+		$test_alloc_generic $BACKENDOPT -N 8 -e madv_hard -A -L "$OPERATIONS" > /dev/null 2>&1 &
+		$test_alloc_generic $BACKENDOPT -N 8 -e madv_soft -A -L "$OPERATIONS" > /dev/null 2>&1 &
     done
 	sleep 3
 

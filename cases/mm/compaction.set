@@ -6,7 +6,7 @@
 
 EACH_BUFSIZE_IN_PAGE=$[512*10]
 
-TEST_PROGRAM="$test_alloc_generic -a none -o memory_compaction -w start -w exit"
+TEST_PROGRAM="$test_alloc_generic -L 'start:wait_after memory_compaction exit:wait_before'"
 EXPECTED_RETURN_CODE="START EXIT"
 PIPETIMEOUT=30
 

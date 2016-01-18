@@ -8,13 +8,13 @@ prepare_hugepage_migration() {
 	prepare_mm_generic || return 1
 
 	if [ "$RESERVE_HUGEPAGE" ] ; then
-		$test_alloc_generic -a none -o hugetlb_reserve -B hugetlb_anon -N $RESERVE_HUGEPAGE &
+		$test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L "mmap:wait_after" &
 		set_return_code RESERVE
 		sleep 1 # TODO: properly wait for reserve completion
 	fi
 
 	if [ "$ALLOCATE_HUGEPAGE" ] ; then
-		$test_alloc_generic -a allocate_exit -o busyloop -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -O $ALLOCATE_NODE &
+		$test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L "mmap busyloop" &
 		set_return_code ALLOCATE
 		sleep 1 # TODO: properly wait for reserve completion
 	fi
@@ -130,7 +130,7 @@ control_hugepage_migration() {
 		case "$line" in
 			"after_start")
 				get_mm_stats $pid 0
-
+echo '-----------'
 				if [ "$CGROUP" ] ; then
 					cgclassify -g $CGROUP $pid
 					if [ $? -eq 0 ] ; then
@@ -141,6 +141,7 @@ control_hugepage_migration() {
 				fi
 
 				kill -SIGUSR1 $pid
+echo '-----------'
 				;;
 			"after_access")
 				get_mm_stats $pid 1

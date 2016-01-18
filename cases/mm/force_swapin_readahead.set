@@ -2,8 +2,7 @@
 
 . $TRDIR/setup_mmgeneric.sh
 
-# TEST_PROGRAM="$test_malloc_madv_willneed -n 0x3800"
-TEST_PROGRAM="$test_alloc_generic -a allocate_exit -o madv_willneed -B anonymous -n 0x3800 -w start -w exit -w after_allocate -w before_free"
+TEST_PROGRAM="$test_alloc_generic -B anonymous -n 0x3800 -L 'start:wait_after mmap access:wait_after madv_willneed munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="START EXIT"
 
 __prepare_memcg() {

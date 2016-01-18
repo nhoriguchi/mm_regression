@@ -17,215 +17,6 @@
 #include <sys/wait.h>
 #include "include.h"
 
-/* inject only onto the first page, so allocating big region makes no sense. */
-void __do_memory_error_injection(void) {
-	char rbuf[256];
-	unsigned long offset = 0;
-
-	switch (injection_type) {
-	case MCE_SRAO:
-	case SYSFS_HARD:
-	case SYSFS_SOFT:
-		pprintf("waiting for injection from outside\n");
-		pause();
-		break;
-	case MADV_HARD:
-	case MADV_SOFT:
-		pprintf("error injection with madvise\n");
-		pause();
-		pipe_read(rbuf);
-		offset = strtol(rbuf, NULL, 0);
-		Dprintf("madvise inject to addr %lx\n", chunkset[0].p + offset * PS);
-		if (madvise(chunkset[0].p + offset * PS, PS, injection_type == MADV_HARD ?
-			    MADV_HWPOISON : MADV_SOFT_OFFLINE) != 0)
-			perror("madvise");
-		pprintf("after madvise injection\n");
-		pause();
-		break;
-	}
-
-	if (access_after_injection) {
-		pprintf("writing affected region\n");
-		pause();
-		access_all_chunks(NULL);
-	}
-}
-
-static void __do_madv_stress() {
-	int i, j;
-	int madv = (injection_type == MADV_HARD ? MADV_HWPOISON : MADV_SOFT_OFFLINE);
-
-	for (j = 0; j < nr_mem_types; j++) {
-		for (i = 0; i < nr_chunk; i++) {
-			struct mem_chunk *tmp = &chunkset[i + j * nr_chunk];
-
-			if (madvise(tmp->p, PS, madv) == -1) {
-				fprintf(stderr, "chunk:%p, backend:%d\n",
-					tmp->p, tmp->mem_type);
-				perror("madvise");
-			}
-		}
-	}
-}
-
-static void _do_madv_stress(void) {
-	__do_madv_stress();
-	if (access_after_injection)
-		access_all_chunks(NULL);
-}
-
-static void __do_fork_stress(void) {
-	while (flag) {
-		pid_t pid = fork();
-		if (!pid) {
-			access_all_chunks(NULL);
-			return;
-		}
-		/* get status? */
-		waitpid(pid, NULL, 0);
-	}
-}
-
-static int __mremap_chunk(char *p, int csize, void *args) {
-	int offset = nr_chunk * CHUNKSIZE * PS;
-	int back = *(int *)args; /* 0: +offset, 1: -offset*/
-	void *new;
-
-	if (back) {
-		printf("mremap p:%p+%lx -> %p\n", p + offset, csize, p);
-		new = mremap(p + offset, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p);
-	} else {
-		printf("mremap p:%p+%lx -> %p\n", p, csize, p + offset);
-		new = mremap(p, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p + offset);
-	}
-	return new == MAP_FAILED ? -1 : 0;
-}
-
-static void __do_mremap_stress(void) {
-	while (flag) {
-		int back = 0;
-
-		back = 0;
-		do_work_memory(__mremap_chunk, (void *)&back);
-
-		back = 1;
-		do_work_memory(__mremap_chunk, (void *)&back);
-	}
-}
-
-static int __madv_willneed_chunk(char *p, int size, void *args) {
-	return madvise(p, size, MADV_WILLNEED);
-}
-
-static void __do_madv_willneed(void) {
-	do_work_memory(__madv_willneed_chunk, NULL);
-}
-
-static void __do_allocate_more(void) {
-	char *panon;
-	int size = nr_p * PS;
-
-	panon = checked_mmap((void *)(ADDR_INPUT + size), size, MMAP_PROT,
-			MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-	/* should cause swap out with external cgroup setting */
-	pprintf("anonymous address starts at %p\n", panon);
-	memset(panon, 'a', size);
-}
-
-static void allocate_transhuge(void *ptr)
-{
-	uint64_t ent[2];
-	int i;
-
-	/* drop pmd */
-	if (mmap(ptr, THPS, PROT_READ | PROT_WRITE,
-		 MAP_FIXED | MAP_ANONYMOUS | MAP_NORESERVE | MAP_PRIVATE, -1, 0) != ptr)
-		err("mmap transhuge");
-
-	if (madvise(ptr, THPS, MADV_HUGEPAGE))
-		err("MADV_HUGEPAGE");
-
-	/* allocate transparent huge page */
-	for (i = 0; i < (1 << (THP_SHIFT - PAGE_SHIFT)); i++) {
-		*(volatile void **)(ptr + i * PAGE_SIZE) = ptr;
-	}
-}
-
-static void do_memory_compaction(void) {
-	size_t ram, len;
-	void *ptr, *p;
-
-	ram = sysconf(_SC_PHYS_PAGES);
-	if (ram > SIZE_MAX / sysconf(_SC_PAGESIZE) / 4)
-		ram = SIZE_MAX / 4;
-	else
-		ram *= sysconf(_SC_PAGESIZE);
-	Dprintf("===> %lx\n", ram);
-	len = ram;
-	Dprintf("===> %lx\n", len);
-	len -= len % THPS;
-	ptr = mmap((void *)ADDR_INPUT, len + THPS, PROT_READ | PROT_WRITE,
-			MAP_ANONYMOUS | MAP_NORESERVE | MAP_PRIVATE, -1, 0);
-
-	if (madvise(ptr, len, MADV_HUGEPAGE))
-		err("MADV_HUGEPAGE");
-
-	/* TODO: move to pprintf_wait_func */
-	pprintf("entering busy loop\n");
-	while (flag) {
-		for (p = ptr; p < ptr + len; p += THPS) {
-			allocate_transhuge(p);
-			/* split transhuge page, keep last page */
-			if (madvise(p, THPS - PAGE_SIZE, MADV_DONTNEED))
-				err("MADV_DONTNEED");
-		}
-	}
-}
-
-static int iterate_mbind_pingpong(void *arg) {
-	struct mbind_arg *mbind_arg = (struct mbind_arg *)arg;
-
-	numa_bitmask_clearall(mbind_arg->new_nodes);
-	numa_bitmask_setbit(mbind_arg->new_nodes, 1);
-	do_work_memory(__mbind_chunk, mbind_arg);
-
-	numa_bitmask_clearall(mbind_arg->new_nodes);
-	numa_bitmask_setbit(mbind_arg->new_nodes, 0);
-	do_work_memory(__mbind_chunk, mbind_arg);
-}
-
-static void __do_mbind_pingpong(void) {
-	int ret;
-	int node;
-	struct mbind_arg mbind_arg = {
-		.mode = MPOL_BIND,
-		.flags = MPOL_MF_MOVE|MPOL_MF_STRICT,
-	};
-
-	mbind_arg.new_nodes = numa_bitmask_alloc(nr_nodes);
-
-	pprintf_wait_func(iterate_mbind_pingpong, &mbind_arg,
-			  "entering iterate_mbind_pingpong\n");
-}
-
-static void __do_move_pages_pingpong(void) {
-	while (flag) {
-		int node;
-
-		node = 1;
-		do_work_memory(__move_pages_chunk, &node);
-
-		node = 0;
-		do_work_memory(__move_pages_chunk, &node);
-	}
-}
-
-static void do_hugetlb_reserve(void) {
-	mmap_all_chunks();
-	__busyloop();
-	munmap_all_chunks();
-}
-
 static int need_numa() {
 	if ((operation_type == OT_PAGE_MIGRATION) ||
 	    (operation_type == OT_PAGE_MIGRATION)) {
@@ -351,25 +142,20 @@ static void operate_with_allocate_exit(void) {
 	if (wait_after_allocate)
 		pprintf_wait(SIGUSR1, "after_access\n");
 	do_operation();
-	if (wait_before_free)
+	if (wait_before_munmap)
 		pprintf_wait(SIGUSR1, "before_munmap\n");
 	munmap_all_chunks();
 }
 
-static void operate_with_mapping_iteration(void) {
-	while (flag) {
-		mmap_all_chunks();
-		access_all_chunks(NULL);
-		munmap_all_chunks();
-	}
-}
-
 static void operate_with_numa_prepared(void) {
+printf("dajfsdf\n");
 	mmap_all_chunks_numa();
+printf("dajfsdfdsfdf\n");
+	access_all_chunks(NULL);
 	if (wait_after_allocate)
 		pprintf_wait(SIGUSR1, "after_access\n");
 	do_operation();
-	if (wait_before_free)
+	if (wait_before_munmap)
 		pprintf_wait(SIGUSR1, "before_munmap\n");
 	munmap_all_chunks();
 }

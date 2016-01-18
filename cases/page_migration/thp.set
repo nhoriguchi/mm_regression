@@ -17,16 +17,16 @@ BACKEND=thp
 if [ "$RACE_SRC" == race_with_gup ] ; then
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
 	# madv_soft calls get_user_pages()
-	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s madv_soft -B thp -b -d work -N $THP -w start -w after_allocate -w before_free -w exit"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -b -L 'start:wait_after mmap_numa access:wait_after madv_soft munmap:wait_before exit:wait_before'"
 	# BUG_ON in mm/vmscan.c:1430
 elif [ "$RACE_SRC" == race_with_process_vm_access ] ; then
 	# TODO: really need busyloop flag?
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
-	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o process_vm_access -B thp -b -d work -N $THP -M $(get_backend_pageflags $BACKEND) -w start -w after_allocate -w before_free -w exit"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -b -L 'start:wait_after mmap_numa access:wait_after process_vm_access munmap:wait_before exit:wait_before'"
 elif [ "$RACE_SRC" == race_with_map_fault_unmap ] ; then
 	_control() {
 		for i in $(seq 5) ; do
-			$test_alloc_generic -a iterate_mapping -B thp -N 10 &
+			$test_alloc_generic -B thp -N 10 -L iterate_mapping &
 			local pid=$!
 			sleep 0.3
 			for j in $(seq 100) ; do
@@ -47,7 +47,7 @@ elif [ "$RACE_SRC" == race_with_fork ] ; then
 	# BUG_ON in cow path
 	_control() {
 		for i in $(seq 5) ; do
-			$test_alloc_generic -a allocate_exit -o fork_stress -B thp -N $THP &
+			$test_alloc_generic -B thp -N $THP -L "start mmap access fork_stress" &
 			local pid=$!
 			sleep 0.3
 			for j in $(seq 100) ; do
@@ -66,6 +66,6 @@ elif [ "$RACE_SRC" == race_with_mremap ] ; then
 	true
 else
 	# no race mbind/partial case
-	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_DISAPPEARED PMD_SPLIT EXIT"
-	TEST_PROGRAM="$test_alloc_generic -a numa_prepared -o page_migration -s mbind -B thp -b -P -d work -N $THP -M $(get_backend_pageflags $BACKEND) -w start -w after_allocate -w before_free -w exit"
+	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_DISAPPEARED THP_SPLIT EXIT"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -b -P -L 'start:wait_after mmap_numa access:wait_after mbind munmap:wait_before exit:wait_before'"
 fi
