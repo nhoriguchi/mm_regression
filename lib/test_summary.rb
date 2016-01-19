@@ -94,16 +94,11 @@ class RunSummary
         tmp << "  " + tc.sum_str
       end
     end
-    tmp << "# of PASS: #{@testcase_pass.count}"
-    tmp << "# of FAIL: #{@testcase_fail.count}"
-    tmp << "# of NONE: #{@testcase_none.count}"
-    tmp << "# of SKIP: #{@testcase_skip.count}"
-    tmp << "# of WARN: #{@testcase_warn.count}"
-    tmp << "# of checkcount: #{@testcount}"
-    tmp << "# of checkpass: #{@success}"
-    tmp << "# of checkfail: #{@failure}"
-    tmp << "# of checklater: #{@later}"
-    tmp << non_passed_summary
+    tmp << "PASS #{@testcase_pass.count}, FAIL #{@testcase_fail.count}, NONE #{@testcase_none.count}, SKIP #{@testcase_skip.count}, WARN #{@testcase_warn.count}"
+    tmp << "checkcount #{@testcount}, checkpass #{@success}, checkfail #{@failure}, checklater #{@later}"
+    if @test_summary.options[:verbose]
+      tmp << non_passed_summary
+    end
     tmp.join("\n")
   end
 
