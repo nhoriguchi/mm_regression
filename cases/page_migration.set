@@ -24,9 +24,13 @@
 #!31 BACKGROUND: allocate1
 #!31 OVERCOMMIT: noovercommit
 
-#!4 BACKEND: hugetlb_anon thp
-#!4 MIGRATE_SRC: hotremove
-#!4 OPERATION_SRC: noop hwpoison busy
+#!40 BACKEND: hugetlb_anon
+#!40 MIGRATE_SRC: hotremove
+#!40 OPERATION_SRC: noop hwpoison busy
+
+#!41 BACKEND: thp
+#!41 MIGRATE_SRC: hotremove
+#!41 OPERATION_SRC: noop hwpoison busy
 # TODO busy case return code correct?
 
 #!5 BACKEND: thp
@@ -38,7 +42,6 @@
 MIGRATE_SRC=__MARK_MIGRATE_SRC
 BACKEND=__MARK_BACKEND
 BACKGROUND=__MARK_BACKGROUND
-OPERATION_TYPE=page_migration
 OPERATION_SRC=__MARK_OPERATION_SRC
 
 SOFT_RETRY=5
@@ -110,6 +113,12 @@ elif [[ "$BACKEND" =~ thp ]] && [ "$MIGRATE_SRC" == hotremove ] ; then
 	THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
 	THP_ALLOCATED=$[THP*4/5]
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
+
+	# low-priority known issue
+	if [ "$OPERATION_SRC" == hwpoison ] ; then
+		SKIP_THIS_TEST=true
+	fi
+
 	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP_ALLOCATED -M $(get_backend_pageflags $BACKEND) $BUSYOPT -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
 elif  [[ "$BACKEND" =~ thp ]] ; then
 	THP=10

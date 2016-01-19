@@ -7,13 +7,13 @@
 
 SSH_OPT="-o ConnectTimeout=5"
 
-[ ! "$VM" ] && echo_log "You must give VM name in recipe file" && exit 1
-[ ! "$VMIP" ] && echo_log "You must give VM IP address in recipe file" && exit 1
-[ ! "$PASSWD" ] && echo_log "You must give VM root password in recipe file" && exit 1
+[ ! "$VM" ] && echo_log "You must give VM name in recipe file" && return 1
+[ ! "$VMIP" ] && echo_log "You must give VM IP address in recipe file" && return 1
+[ ! "$PASSWD" ] && echo_log "You must give VM root password in recipe file" && return 1
 
 MEMEATER=$(dirname $(readlink -f $BASH_SOURCE))/memeater
 GPA2HPA=$(dirname $(readlink -f $BASH_SOURCE))/gpa2hpa.rb
-[ ! -x "$MEMEATER" ] && echo "memeater not found." >&2 && exit 1
+[ ! -x "$MEMEATER" ] && echo "memeater not found." >&2 && return 1
 GUESTMEMEATER=/usr/local/bin/memeater
 GUESTMEMEATERPID=0
 TARGETGVA=""
@@ -25,7 +25,7 @@ GUESTSERIALMONITORPID=""
 memsize=$(virsh dominfo $VM | grep "Used memory:" | tr -s ' ' | cut -f3 -d' ')
 if [ "$memsize" -gt 2097152 ] ; then
 	echo_log "Too much VM RAM size. (> 2GB)"
-	exit 1
+	return 1
 fi
 
 vm_restart_if_unconnectable

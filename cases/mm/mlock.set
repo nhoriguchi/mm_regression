@@ -6,8 +6,16 @@ BACKEND=__MARK_BACKEND
 
 . $TRDIR/setup_mmgeneric.sh
 
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'mmap mlock2:wait_after exit:wait_before'"
-EXPECTED_RETURN_CODE="START MLOCKED EXIT"
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'mmap access mlock2:wait_after exit:wait_before'"
+
+case "$BACKEND" in
+	"zero"|"huge zero")
+		EXPECTED_RETURN_CODE="START MLOCK_FAILED EXIT"
+		;;
+	*)
+		EXPECTED_RETURN_CODE="START MLOCKED EXIT"
+		;;
+esac
 
 if [[ "$BACKEND" =~ hugetlb ]] ; then
 	HUGETLB=100
@@ -26,7 +34,8 @@ _control() {
 		"after_mlock2")
 			get_mm_stats $pid 1
 
-			if cut -f4 $TMPD/pagetypes.1 | grep m > /dev/null ; then
+			# looking at "unevictable" flag, not "mlocked" flag
+			if cut -f4 $TMPD/pagetypes.1 | grep u > /dev/null ; then
 				set_return_code MLOCKED
 			else
 				set_return_code MLOCK_FAILED

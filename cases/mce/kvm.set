@@ -13,9 +13,9 @@
 # PASSWD=......
 
 # # TODO: assuming that sshvm is installed (via deploy_vm_image)
-VMIP=$(sshvm -i -n default $VM)
+VMIP=$(sshvm -i -n default $VM 2> /dev/null)
 
-. $TRDIR/setup_mce_kvm.sh || exit 1
+. $TRDIR/setup_mce_kvm.sh || return 1
 
 FLAVOR=__MARK_FLAVOR
 ERROR_TYPE=__MARK_ERROR_TYPE

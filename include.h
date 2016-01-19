@@ -47,19 +47,6 @@ int nr_all_chunks;
 int nr_mem_types = 1;
 
 enum {
-	AT_MAPPING_ITERATION,
-	AT_ALLOCATE_EXIT,
-	AT_NUMA_PREPARED,
-	AT_NONE,
-
-	AT_SIMPLE,
-	AT_ACCESS_LOOP,
-	AT_ALLOC_EXIT,
-	NR_ALLOCATION_TYPES,
-};
-int allocation_type = -1;
-
-enum {
 	OT_MEMORY_ERROR_INJECTION,
 	OT_ALLOC_EXIT,
 	OT_PAGE_MIGRATION,
@@ -1065,7 +1052,7 @@ static const char *operation_name[] = {
 };
 
 static const char *op_supported_args[][10] = {
-	[NR_memory_error_injection]	= {"asdf"},
+	[NR_memory_error_injection]	= {"error_type"},
 	[NR_mlock]	= {"mlock", "fjfj", "sadf"},
 	[NR_test]	= {"test", "ffmm"},
 	[NR_mmap]	= {"test", "ffmm", "key2"},
@@ -1094,10 +1081,6 @@ static int parse_operation_arg(struct op_control *opc) {
 	char key, *value;
 	char buf[256]; /* TODO: malloc? */
 	int supported;
-
-	/* op_idx = get_op_index(opc); */
-	/* if (op_idx == NR_OPERATIONS) */
-	/* 	errmsg("unknown operation: %s\n", opc->name); */
 
 	for (i = 0; i < opc->nr_args; i++) {
 		opc->keys[i] = calloc(1, 64);
@@ -1240,8 +1223,12 @@ static void do_operation_loop(void) {
 			__do_fork_stress();
 		} else if (!strcmp(opc.name, "mbind_pingpong")) {
 			__do_mbind_pingpong();
+		} else if (!strcmp(opc.name, "move_pages_pingpong")) {
+			__do_move_pages_pingpong();
 		} else if (!strcmp(opc.name, "madv_stress")) {
 			_do_madv_stress();
+		} else if (!strcmp(opc.name, "mbind_fuzz")) {
+			__do_mbind_fuzz();
 		} else
 			errmsg("unsupported op_string: %s\n", opc.name);
 

@@ -134,36 +134,10 @@ static void do_operation(void) {
 	}
 }
 
-static void operate_with_allocate_exit(void) {
-	mmap_all_chunks();
-	if (wait_after_mmap)
-		pprintf_wait(SIGUSR1, "mmap_done\n");
-	access_all_chunks(NULL);
-	if (wait_after_allocate)
-		pprintf_wait(SIGUSR1, "after_access\n");
-	do_operation();
-	if (wait_before_munmap)
-		pprintf_wait(SIGUSR1, "before_munmap\n");
-	munmap_all_chunks();
-}
-
-static void operate_with_numa_prepared(void) {
-printf("dajfsdf\n");
-	mmap_all_chunks_numa();
-printf("dajfsdfdsfdf\n");
-	access_all_chunks(NULL);
-	if (wait_after_allocate)
-		pprintf_wait(SIGUSR1, "after_access\n");
-	do_operation();
-	if (wait_before_munmap)
-		pprintf_wait(SIGUSR1, "before_munmap\n");
-	munmap_all_chunks();
-}
-
 int main(int argc, char *argv[]) {
 	char c;
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:o:e:PB:Ad:M:s:RFa:w:O:C:L:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:o:e:PB:Ad:M:s:RFw:O:C:L:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -200,20 +174,6 @@ int main(int argc, char *argv[]) {
 				if (set_mempolicy(MPOL_BIND, &nodemask, nr_nodes) == -1)
 					err("set_mempolicy");
 			}
-			break;
-		case 'a':
-			if (!strcmp(optarg, "iterate_mapping"))
-				allocation_type = AT_MAPPING_ITERATION;
-			else if (!strcmp(optarg, "allocate_exit"))
-				allocation_type = AT_ALLOCATE_EXIT;
-			else if (!strcmp(optarg, "numa_prepared"))
-				allocation_type = AT_NUMA_PREPARED;
-			else if (!strcmp(optarg, "none"))
-				allocation_type = AT_NONE;
-			else if (!strcmp(optarg, "access_loop"))
-				allocation_type = AT_ACCESS_LOOP;
-			else if (!strcmp(optarg, "alloc_exit"))
-				allocation_type = AT_ALLOC_EXIT;
 			break;
 		case 'o':
 			if (!strcmp(optarg, "memory_error_injection"))
@@ -376,30 +336,9 @@ int main(int argc, char *argv[]) {
 
 	setup();
 
-	if (allocation_type != -1) {
-		if (wait_start)
-			pprintf_wait(SIGUSR1, "after_start\n");
-
-		switch (allocation_type) {
-		case AT_ALLOCATE_EXIT:
-			operate_with_allocate_exit();
-			break;
-		case AT_MAPPING_ITERATION:
-			operate_with_mapping_iteration();
-			break;
-		case AT_NUMA_PREPARED:
-			operate_with_numa_prepared();
-			break;
-		case AT_NONE:
-			do_operation();
-			break;
-		}
-
-		if (wait_exit)
-			pprintf_wait(SIGUSR1, "before_exit\n");
-	} else if (op_strings) {
+	if (op_strings) {
 		do_operation_loop();
 	} else {
-		errmsg("-a option nor -L option given\n");
+		errmsg("-L option given\n");
 	}
 }
