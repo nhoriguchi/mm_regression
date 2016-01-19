@@ -130,7 +130,7 @@ control_hugepage_migration() {
 		case "$line" in
 			"after_start")
 				get_mm_stats $pid 0
-echo '-----------'
+
 				if [ "$CGROUP" ] ; then
 					cgclassify -g $CGROUP $pid
 					if [ $? -eq 0 ] ; then
@@ -141,7 +141,6 @@ echo '-----------'
 				fi
 
 				kill -SIGUSR1 $pid
-echo '-----------'
 				;;
 			"after_access")
 				get_mm_stats $pid 1

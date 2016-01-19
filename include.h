@@ -1089,20 +1089,6 @@ static int get_op_index(struct op_control *opc) {
 			return i;
 }
 
-static char *get_value(struct op_control *opc, char *key) {
-	int i;
-	char tkey[32], tvalue[32];
-
-	for (i = 0; i < opc->nr_args; i++) {
-		if (!strcmp(opc->keys[i], key)) {
-			/* value might be empty string. */
-			return opc->values[i];
-		}
-	}
-	/* not key */
-	return NULL;
-}
-
 static int parse_operation_arg(struct op_control *opc) {
 	int i = 0, op_idx, j;
 	char key, *value;
@@ -1114,8 +1100,8 @@ static int parse_operation_arg(struct op_control *opc) {
 	/* 	errmsg("unknown operation: %s\n", opc->name); */
 
 	for (i = 0; i < opc->nr_args; i++) {
-		opc->keys[i] = malloc(64);
-		opc->values[i] = malloc(64);
+		opc->keys[i] = calloc(1, 64);
+		opc->values[i] = calloc(1, 64);
 
 		sscanf(opc->args[i], "%[^=]=%s", opc->keys[i], opc->values[i]);
 
@@ -1146,13 +1132,16 @@ static int parse_operation_arg(struct op_control *opc) {
 
 static void print_opc(struct op_control *opc) {
 	int i;
+	int op_idx = get_op_index(opc);
 
-	printf("===> op_name:%s, wait_before:%d, wait_after:%d\n",
-	       opc->name, opc->wait_before, opc->wait_after);
+	printf("===> op_name:%s", opc->name);
 	for (i = 0; i < opc->nr_args; i++) {
-		char *value = get_value(opc, opc->keys[i]);
-		printf("  %s = %s (%p)\n", opc->keys[i], value, value);
+		if (!strcmp(opc->values[i], ""))
+			printf(", %s", opc->keys[i]);
+		else
+			printf(", %s=%s", opc->keys[i], opc->values[i]);
 	}
+	printf("\n");
 }
 
 char *op_args[256];
@@ -1182,7 +1171,7 @@ static void parse_operation_args(struct op_control *opc, char *str) {
 	opc->nr_args = i;
 
 	parse_operation_arg(opc);
-print_opc(opc);
+	print_opc(opc);
 }
 
 char *op_strings[256];
@@ -1193,8 +1182,6 @@ static void do_operation_loop(void) {
 
 	for (; op_strings[i] > 0; i++) {
 		parse_operation_args(&opc, op_strings[i]);
-
-		/* print_opc(&opc); */
 
 		if (opc.wait_before)
 			pprintf_wait(SIGUSR1, "before_%s\n", opc.name);
