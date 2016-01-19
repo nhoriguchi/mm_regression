@@ -13,7 +13,7 @@ class TestCaseSummary
     @success = File.read(@tc_dir + "/_success").to_i
     @failure = File.read(@tc_dir + "/_failure").to_i
     @later = File.read(@tc_dir + "/_later").to_i
-    @return_code = File.read(@tc_dir + "/_return_code_seq")
+    @return_code_seq = File.read(@tc_dir + "/_return_code_seq")
   end
 
   # If a testcase failed badly, some result data might not be stored,
@@ -40,17 +40,23 @@ class TestCaseSummary
     tmp.map! do |line|
       "#{@testcaseid}: #{line}"
     end
+    tmp.uniq! # in retried case, same error can appear
     tmp.join("\n")
   end
 
-  def status
-    return "NONE" if @testcount == 0
-    return "PASS" if @testcount == @success + @later
-    return "FAIL"
+  def testcase_result
+    tmp = nil
+    File.read(@tc_dir + "/result").split("\n").each do |line|
+      if line =~ /^TESTCASE_RESULT: (.+)?: (\w+)$/
+        tmp = $2
+        break
+      end
+    end
+    return tmp.nil? ? "WARN" : tmp
   end
 
   def started?
-    @return_code =~ /\bSTART\b/
+    @return_code_seq =~ /\bSTART\b/
   end
 end
 
@@ -78,28 +84,37 @@ class RunSummary
       end
     end
     calc_scores
+    calc_result_group
   end
 
   def sum_str
     tmp = []
-    if @test_summary.options[:totalonly].nil?
+    if @test_summary.options[:verbose]
       @tc_summary.each do |tc|
         tmp << "  " + tc.sum_str
       end
     end
-    tmp << "#{@testcount}/#{@success}/#{@failure}/#{@later} #{@dir}"
-    if @test_summary.options[:verbose]
-      tmp << failure_str
-    end
+    tmp << "# of PASS: #{@testcase_pass.count}"
+    tmp << "# of FAIL: #{@testcase_fail.count}"
+    tmp << "# of NONE: #{@testcase_none.count}"
+    tmp << "# of SKIP: #{@testcase_skip.count}"
+    tmp << "# of WARN: #{@testcase_warn.count}"
+    tmp << "# of checkcount: #{@testcount}"
+    tmp << "# of checkpass: #{@success}"
+    tmp << "# of checkfail: #{@failure}"
+    tmp << "# of checklater: #{@later}"
+    tmp << non_passed_summary
     tmp.join("\n")
   end
 
-  def failure_str
+  def non_passed_summary
     tmp = []
-    @tc_summary.each do |tc|
-      if tc.failure > 0 or tc.later > 0
-        tmp << tc.failure_str
-      end
+    (@testcase_fail + @testcase_none + @testcase_skip).each do |tc|
+      tmp << tc.failure_str
+    end
+    (@testcase_warn).each do |tc|
+      tmp << "#{tc.testcaseid} is not finished properly, maybe panicked or stalled?"
+      tmp << tc.failure_str
     end
     tmp.join("\n")
   end
@@ -109,6 +124,14 @@ class RunSummary
     @success = @tc_summary.inject(0) {|sum, t| sum + t.success}
     @failure = @tc_summary.inject(0) {|sum, t| sum + t.failure}
     @later = @tc_summary.inject(0) {|sum, t| sum + t.later}
+  end
+
+  def calc_result_group
+    @testcase_pass = @tc_summary.select {|t| t.testcase_result == "PASS"}
+    @testcase_fail = @tc_summary.select {|t| t.testcase_result == "FAIL"}
+    @testcase_none = @tc_summary.select {|t| t.testcase_result == "NONE"}
+    @testcase_skip = @tc_summary.select {|t| t.testcase_result == "SKIP"}
+    @testcase_warn = @tc_summary.select {|t| t.testcase_result == "WARN"}
   end
 
   def check_finished recipeset
@@ -189,7 +212,7 @@ class TestSummary
           puts "---- #{recipe}"
           uncovered += 1
         else
-          puts "#{a.status} #{recipe}"
+          puts "#{a.testcase_result} #{recipe}"
           covered += 1
         end
       end
@@ -254,9 +277,6 @@ class TestSummary
       end
       opts.on("-v", "--verbose") do
         @options[:verbose] = true
-      end
-      opts.on("--only-total") do
-        @options[:totalonly] = true
       end
       opts.on("-c", "--coverage") do
         @options[:coverage] = true

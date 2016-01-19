@@ -362,44 +362,6 @@ __do_test() {
     return 0
 }
 
-do_test() {
-    local i=
-    local retryable=$TEST_RETRYABLE
-    local skipped=
-
-    check_testcase_filter && return
-    echo_log "--- testcase '$TEST_TITLE' start --------------------"
-    while true ; do
-        check_test_flag && break
-        check_inclusion_of_fixedby_patch && break
-
-        reset_per_testcase_counters $NEWSTYLE
-        __do_test "$@"
-        # test aborted due to the preparation failure
-        if [ $? -ne 0 ] ; then
-            skipped=true
-            break
-        fi
-        if [ "$(cat $TMPD/_failure)" -gt 0 ] ; then
-            if [ ! "$TEST_RETRYABLE" ] ; then
-                # don't care about retry.
-                break
-            elif [ "$TEST_RETRYABLE" -eq 0 ] ; then
-                echo_log "### retried $retryable, but still failed."
-                break
-            else
-                echo_log "### failed, so let's retry ($[retryable - TEST_RETRYABLE + 1])"
-                TEST_RETRYABLE=$[TEST_RETRYABLE-1]
-            fi
-        else
-            break
-        fi
-    done
-    echo_log "--- testcase '$TEST_TITLE' end --------------------"
-    [ "$skipped" != true ] && commit_counts
-    clear_testcase
-}
-
 __do_test_async() {
     init_return_code
     prepare
@@ -414,63 +376,103 @@ __do_test_async() {
     return 0
 }
 
-# Usage: do_test_async <testtitle> <test controller> <result checker>
-# if you don't need any external program to reproduce the problem (IOW, you can
-# reproduce in the test controller,) use this async function.
-do_test_async() {
-    local i=
-    local retryable=$TEST_RETRYABLE
-    local skipped=
+do_test_try() {
+	local ret=0
+	local failure_before="$(cat $TMPD/_failure)"
 
-    check_testcase_filter && return
-    echo_log "--- testcase '$TEST_TITLE' start --------------------"
-    while true ; do
-        check_test_flag && break
-        check_inclusion_of_fixedby_patch && break
-        reset_per_testcase_counters $NEWSTYLE
-        __do_test_async
-        # test aborted due to the preparation failure
-        if [ $? -ne 0 ] ; then
-            skipped=true
-            break
-        fi
-        if [ "$(cat $TMPD/_failure)" -gt 0 ] ; then
-            if [ ! "$TEST_RETRYABLE" ] ; then
-                # don't care about retry.
-                break
-            elif [ "$TEST_RETRYABLE" -eq 0 ] ; then
-                echo_log "### retried $retryable, but still failed."
-                break
-            else
-                echo_log "### failed, so let's retry ($[retryable - TEST_RETRYABLE + 1])"
-                TEST_RETRYABLE=$[TEST_RETRYABLE-1]
-            fi
-        else
-            break
-        fi
-    done
-    echo_log "--- testcase '$TEST_TITLE' end --------------------"
-    [ "$skipped" != true ] && commit_counts
-    clear_testcase
+    echo_log "===> testcase '$TEST_TITLE' start"
+    # check_test_flag && break
+    # check_inclusion_of_fixedby_patch && break
+
+	if [ "$TEST_PROGRAM" ] ; then
+		__do_test "$TEST_PROGRAM -p $PIPE $VERBOSE"
+	else
+		__do_test_async
+	fi
+    # test aborted due to the preparation failure
+    if [ $? -ne 0 ] ; then
+		ret=1
+	elif [ "$(cat $TMPD/_failure)" -gt "$failure_before" ] ; then
+		ret=2
+    else
+		ret=0
+    fi
+    echo_log "<=== testcase '$TEST_TITLE' end"
+	return $ret
 }
 
-# common initial value
-TEST_RETRYABLE=0
-clear_testcase() {
-    TEST_TITLE=
-    TEST_PROGRAM=
-    TEST_CONTROLLER=
-    TEST_CHECKER=
-    TEST_PREPARE=
-    TEST_CLEANUP=
-    TEST_FLAGS=
-    TEST_RETRYABLE=
-    FIXEDBY_SUBJECT=
-    FIXEDBY_COMMITID=
-    FIXEDBY_AUTHOR=
-    FIXEDBY_PATCH_SEARCH_DATE=
-    FALSENEGATIVE=false
+# Returns fail if at least one of trails fails. So at least HARD_RETRY times
+# are tried.
+do_hard_try() {
+	local ret=0
+	local soft_try=$1
+
     reset_per_testcase_counters $NEWSTYLE
+
+	if [ ! "$HARD_RETRY" ] ; then
+		do_test_try
+		return $?
+	fi
+
+	for hard_try in $(seq $HARD_RETRY) ; do
+		echo_log "====> Trial #${soft_try:+$soft_try-}$hard_try"
+		do_test_try
+		case $? in
+			0)
+				echo_log "<==== Trial #${soft_try:+$soft_try-}$hard_try passed"
+				;;
+			1)
+				ret=1
+				break
+				;;
+			2)
+				echo_log "<==== Trial #${soft_try:+$soft_try-}$hard_try failed"
+				ret=2
+				break
+				;;
+		esac
+	done
+	return $ret
+}
+
+# Returns fail if all of trails fails.
+do_soft_try() {
+	local ret=0
+
+	if [ ! "$SOFT_RETRY" ] ; then
+		do_hard_try
+		ret=$?
+	else
+		for soft_try in $(seq $SOFT_RETRY) ; do
+			echo_log "=====> Trial #$soft_try"
+			do_hard_try $soft_try
+			ret=$?
+			case $ret in
+				0)
+					echo_log "<===== Trial #$soft_try passed"
+					break
+					;;
+				1)
+					echo_log "<===== skipped"
+					break
+					;;
+				2)
+					echo_log "<===== Trial #$soft_try failed"
+					;;
+			esac
+		done
+	fi
+
+	if [ "$(cat $TMPD/_testcount)" -eq 0 ] ; then
+		echo_log "TESTCASE_RESULT: $recipe_relpath: NONE"
+	elif [ "$ret" -eq 0 ] ; then
+		echo_log "TESTCASE_RESULT: $recipe_relpath: PASS"
+	elif [ "$ret" -eq 1 ] ; then
+		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+	elif [ "$ret" -eq 2 ] ; then
+		echo_log "TESTCASE_RESULT: $recipe_relpath: FAIL"
+	fi
+	return $ret
 }
 
 for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do

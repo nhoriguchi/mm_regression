@@ -67,9 +67,9 @@ stop_test_running() {
 
 trap stop_test_running SIGTERM
 
-echo "=====> start testing $(basename $TRDIR):$TESTNAME"
-echo "RECIPEFILES:"
-echo "${RECIPEFILES//$TRDIR\/cases\//}"
+echo_log "=========> start testing $(basename $TRDIR):$TESTNAME"
+echo_log "RECIPEFILES:"
+echo_log "${RECIPEFILES//$TRDIR\/cases\//}"
 
 for recipe in $RECIPEFILES ; do
 	if [ ! -f "$recipe" ] ; then
@@ -87,7 +87,7 @@ for recipe in $RECIPEFILES ; do
 	fi
 
 	if [ "$TESTCASE_FILTER" ] && [ ! "$filtered" ] ; then
-		echo_verbose "===> SKIPPED: Recipe: $recipe_relpath"
+		echo_verbose "======= SKIPPED: Recipe: $recipe_relpath"
 		continue
 	fi
 
@@ -100,8 +100,7 @@ for recipe in $RECIPEFILES ; do
 		export OFILE=$TMPD/result
 
 		if check_testcase_already_run ; then
-			echo "### You already have workfiles for recipe $recipe_relpath with TESTNAME: $TESTNAME, so skipped."
-			echo "### If you really want to run with removing old work directory, please give environment variable AGAIN=true."
+			echo_log "### You already have workfiles for recipe $recipe_relpath with TESTNAME: $TESTNAME, so skipped. If you really want to run with removing old work directory, please give environment variable AGAIN=true."
 			continue
 		fi
 
@@ -114,21 +113,21 @@ for recipe in $RECIPEFILES ; do
 		# TODO: suppress filtered testcases at this point
 		# check_testcase_filter || exit 1
 
-		echo_log "===> Recipe: $recipe_relpath (ID: $recipe_relpath)"
+		echo_log "======> Recipe: $recipe_relpath start"
 		date +%s > $TMPD/start_time
+
+		# prepare empty testcount file at first because it's used to check
+		# testcase result from summary script.
 		reset_per_testcase_counters
 		init_return_code
 
 		mv .tmp.recipe $TMPD/_recipe
 		. $TMPD/_recipe
 
-		if [ "$TEST_PROGRAM" ] ; then
-			do_test "$TEST_PROGRAM -p $PIPE $VERBOSE"
-		else
-			do_test_async
-		fi
+		do_soft_try
 
 		date +%s > $TMPD/end_time
+		echo_log "<====== Recipe: $recipe_relpath done"
 	) &
 	testcase_pid=$!
 
@@ -141,5 +140,6 @@ done
 # find $GTMPD -name success | while read line ; do echo $line $(cat $line) ; done
 # find $GTMPD -name later | while read line ; do echo $line $(cat $line) ; done
 
-ruby $TCDIR/lib/test_summary.rb --only-total $GTMPD
-show_summary
+ruby $TCDIR/lib/test_summary.rb $GTMPD
+# show_summary
+echo_log "<========= end testing $(basename $TRDIR):$TESTNAME"
