@@ -109,11 +109,14 @@ class RunSummary
 
   def non_passed_summary
     tmp = []
-    (@testcase_fail + @testcase_none + @testcase_skip).each do |tc|
+    @testcase_fail.each do |tc|
       tmp << tc.failure_str
     end
-    (@testcase_warn).each do |tc|
-      tmp << "#{tc.testcaseid} is not finished properly, maybe panicked or stalled?"
+    @testcase_none.each do |tc|
+      tmp << "#{tc.testcaseid}: didn't start properly, check prepare routine or environment"
+    end
+    @testcase_warn.each do |tc|
+      tmp << "#{tc.testcaseid}: not finished properly, maybe panicked or stalled?"
       tmp << tc.failure_str
     end
     tmp.join("\n")

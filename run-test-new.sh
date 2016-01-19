@@ -123,8 +123,11 @@ for recipe in $RECIPEFILES ; do
 
 		mv .tmp.recipe $TMPD/_recipe
 		. $TMPD/_recipe
-
-		do_soft_try
+		if [ "$?" -eq 0 ] ; then
+			do_soft_try
+		else
+			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		fi
 
 		date +%s > $TMPD/end_time
 		echo_log "<====== Recipe: $recipe_relpath done"
