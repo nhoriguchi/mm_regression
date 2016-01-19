@@ -110,9 +110,6 @@ for recipe in $RECIPEFILES ; do
 			mkdir -p $TMPD > /dev/null 2>&1
 		fi
 
-		# TODO: suppress filtered testcases at this point
-		# check_testcase_filter || exit 1
-
 		echo_log "======> Recipe: $recipe_relpath start"
 		date +%s > $TMPD/start_time
 
@@ -123,10 +120,14 @@ for recipe in $RECIPEFILES ; do
 
 		mv .tmp.recipe $TMPD/_recipe
 		. $TMPD/_recipe
-		if [ "$?" -eq 0 ] ; then
-			do_soft_try
-		else
+		ret=$?
+		if [ "$SKIP_THIS_TEST" ] ; then
+			echo_log "This testcase is marked to be skipped by developer."
 			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		elif [ "$ret" -ne 0 ] ; then
+			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		else
+			do_soft_try
 		fi
 
 		date +%s > $TMPD/end_time
@@ -134,15 +135,8 @@ for recipe in $RECIPEFILES ; do
 	) &
 	testcase_pid=$!
 
-	# echo_verbose "===> Recipe: $recipe_relpath (ID: $recipe_relpath)"
-	# echo_verbose "===> $$ -> $testcase_pid"
 	wait $testcase_pid
 done
 
-# find $GTMPD -name testcount | while read line ; do echo $line $(cat $line) ; done
-# find $GTMPD -name success | while read line ; do echo $line $(cat $line) ; done
-# find $GTMPD -name later | while read line ; do echo $line $(cat $line) ; done
-
 ruby $TCDIR/lib/test_summary.rb $GTMPD
-# show_summary
 echo_log "<========= end testing $(basename $TRDIR):$TESTNAME"
