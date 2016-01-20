@@ -7,6 +7,8 @@ MIGRATE_SRC=auto_numa
 
 BACKEND=__MARK_BACKEND
 
+SOFT_RETRY=5
+
 AUTO_NUMA=true
 
 if [ "$BACKEND" == thp ] ; then
