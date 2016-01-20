@@ -17,34 +17,17 @@
 #include <sys/wait.h>
 #include "include.h"
 
-static int need_numa() {
-	if ((operation_type == OT_PAGE_MIGRATION) ||
-	    (operation_type == OT_PAGE_MIGRATION)) {
-		if (nr_nodes < 2)
-			errmsg("A minimum of 2 nodes is required for this test.\n");
-	}
-}
-
 /* TODO: validation options' combination more */
 static void setup(void) {
-	nr_nodes = numa_max_node() + 1;
-	nodemask = (1UL << nr_nodes) - 1; /* all nodes in default */
-
-	need_numa();
-
-	signal(SIGUSR1, sig_handle_flag);
-
 	if (backend_bitmap & BE_PAGECACHE) {
 		if (!workdir)
 			err("you must set workdir with -d option to allocate pagecache");
-		printf("create regular file\n");
 		create_regular_file();
 	}
 
 	if (backend_bitmap & BE_HUGETLB_FILE) {
 		if (!workdir)
 			err("you must set workdir with -d option to allocate hugetlbfs file");
-		printf("create hugetlbfs file\n");
 		create_hugetlbfs_file();
 	}
 
@@ -73,71 +56,15 @@ static void setup(void) {
 	memset(chunkset, 0, sizeof(struct mem_chunk) * nr_all_chunks);
 }
 
-static void do_operation(void) {
-	switch (operation_type) {
-	case OT_MEMORY_ERROR_INJECTION:
-		__do_memory_error_injection();
-		break;
-	case OT_PAGE_MIGRATION:
-		__do_page_migration();
-		break;
-	case OT_PROCESS_VM_ACCESS:
-		__do_process_vm_access();
-		break;
-	case OT_MLOCK:
-		__do_mlock();
-		break;
-	case OT_MLOCK2:
-		__do_mlock2();
-		break;
-	case OT_MPROTECT:
-		__do_mprotect();
-		break;
-	case OT_MADV_STRESS:
-		_do_madv_stress();
-		break;
-	case OT_FORK_STRESS:
-		__do_fork_stress();
-		break;
-	case OT_MREMAP_STRESS:
-		__do_mremap_stress();
-		break;
-	case OT_MBIND_FUZZ:
-		__do_mbind_fuzz();
-		break;
-	case OT_MEMORY_COMPACTION:
-		do_memory_compaction();
-		break;
-	case OT_MADV_WILLNEED:
-		__do_madv_willneed();
-		break;
-	case OT_ALLOCATE_MORE:
-		__do_allocate_more();
-		break;
-	case OT_MOVE_PAGES_PINGPONG:
-		__do_move_pages_pingpong();
-		break;
-	case OT_MBIND_PINGPONG:
-		__do_mbind_pingpong();
-		break;
-	case OT_PAGE_MIGRATION_PINGPONG:
-		/* __do_page_migration_pingpong(); */
-		break;
-	case OT_NOOP:
-		break;
-	case OT_BUSYLOOP:
-		__busyloop();
-		break;
-	case OT_HUGETLB_RESERVE:
-		do_hugetlb_reserve();
-		break;
-	}
-}
-
 int main(int argc, char *argv[]) {
 	char c;
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:o:e:PB:Ad:M:s:RFw:O:C:L:")) != -1) {
+	nr_nodes = numa_max_node() + 1;
+	nodemask = (1UL << nr_nodes) - 1; /* all nodes in default */
+
+	signal(SIGUSR1, sig_handle);
+
+	while ((c = getopt(argc, argv, "vp:n:N:bm:e:PB:Ad:M:RFO:C:L:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -174,52 +101,6 @@ int main(int argc, char *argv[]) {
 				if (set_mempolicy(MPOL_BIND, &nodemask, nr_nodes) == -1)
 					err("set_mempolicy");
 			}
-			break;
-		case 'o':
-			if (!strcmp(optarg, "memory_error_injection"))
-				operation_type = OT_MEMORY_ERROR_INJECTION;
-			else if (!strcmp(optarg, "alloc_exit"))
-				operation_type = OT_ALLOC_EXIT;
-			else if (!strcmp(optarg, "multi_backend"))
-				err("-o multi_backend is obsolete, use -B 0xffff");
-			else if (!strcmp(optarg, "page_migration"))
-				operation_type = OT_PAGE_MIGRATION;
-			else if (!strcmp(optarg, "process_vm_access"))
-				operation_type = OT_PROCESS_VM_ACCESS;
-			else if (!strcmp(optarg, "mlock"))
-				operation_type = OT_MLOCK;
-			else if (!strcmp(optarg, "mlock2"))
-				operation_type = OT_MLOCK2;
-			else if (!strcmp(optarg, "mprotect"))
-				operation_type = OT_MPROTECT;
-			else if (!strcmp(optarg, "madv_stress"))
-				operation_type = OT_MADV_STRESS;
-			else if (!strcmp(optarg, "fork_stress"))
-				operation_type = OT_FORK_STRESS;
-			else if (!strcmp(optarg, "mremap_stress"))
-				operation_type = OT_MREMAP_STRESS;
-			else if (!strcmp(optarg, "mbind_fuzz"))
-				operation_type = OT_MBIND_FUZZ;
-			else if (!strcmp(optarg, "madv_willneed")) {
-				operation_type = OT_MADV_WILLNEED;
-			} else if (!strcmp(optarg, "allocate_more")) {
-				operation_type = OT_ALLOCATE_MORE;
-			} else if (!strcmp(optarg, "memory_compaction")) {
-				operation_type = OT_MEMORY_COMPACTION;
-			} else if (!strcmp(optarg, "move_pages_pingpong")) {
-				operation_type = OT_MOVE_PAGES_PINGPONG;
-			} else if (!strcmp(optarg, "mbind_pingpong")) {
-				operation_type = OT_MBIND_PINGPONG;
-			} else if (!strcmp(optarg, "page_migration_pingpong")) {
-				operation_type = OT_PAGE_MIGRATION_PINGPONG;
-			} else if (!strcmp(optarg, "noop")) {
-				operation_type = OT_NOOP;
-			} else if (!strcmp(optarg, "busyloop")) {
-				operation_type = OT_BUSYLOOP;
-			} else if (!strcmp(optarg, "hugetlb_reserve")) {
-				operation_type = OT_HUGETLB_RESERVE;
-			} else
-				operation_type = strtoul(optarg, NULL, 0);
 			break;
 		case 'e':
 			if (!strcmp(optarg, "mce-srao"))
@@ -278,46 +159,11 @@ int main(int argc, char *argv[]) {
 			/* this filter is used for choosing memblk to be hotremoved */
 			parse_bits_mask(optarg);
 			break;
-		case 's':
-			if (!strcmp(optarg, "migratepages"))
-				migration_src = MS_MIGRATEPAGES;
-			else if (!strcmp(optarg, "mbind"))
-				migration_src = MS_MBIND;
-			else if (!strcmp(optarg, "move_pages"))
-				migration_src = MS_MOVE_PAGES;
-			else if (!strcmp(optarg, "hotremove"))
-				migration_src = MS_HOTREMOTE;
-			else if (!strcmp(optarg, "madv_soft"))
-				migration_src = MS_MADV_SOFT;
-			else if (!strcmp(optarg, "auto_numa"))
-				migration_src = MS_AUTO_NUMA;
-			else if (!strcmp(optarg, "change_cpuset"))
-				migration_src = MS_CHANGE_CPUSET;
-			else
-				errmsg("invalid -s option %s\n", optarg);
-			break;
 		case 'R':
 			mapflag |= MAP_NORESERVE;
 			break;
 		case 'F':
 			forkflag = 1;
-			break;
-		case 'w':
-			if (!strcmp(optarg, "start")) {
-				waitpoint_mask |= 1 << WP_START;
-			} else if (!strcmp(optarg, "after_mmap")) {
-				waitpoint_mask |= 1 << WP_AFTER_MMAP;
-			} else if (!strcmp(optarg, "after_allocate")) {
-				waitpoint_mask |= 1 << WP_AFTER_ALLOCATE;
-			} else if (!strcmp(optarg, "before_munmap")) {
-				waitpoint_mask |= 1 << WP_BEFORE_FREE;
-			} else if (!strcmp(optarg, "exit")) {
-				waitpoint_mask |= 1 << WP_EXIT;
-			} else {
-				int i;
-				waitpoint_mask |= strtoul(optarg, NULL, 0);
-				printf("waitpoint_mask %lx\n", waitpoint_mask);
-			}
 			break;
 		case 'O':
 			preferred_mem_node = strtoul(optarg, NULL, 0);

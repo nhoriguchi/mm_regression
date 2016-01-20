@@ -9,65 +9,73 @@ BACKEND=__MARK_BACKEND
 ERROR_TYPE=__MARK_ERROR_TYPE
 TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
 
-# TODO: goto common place
-case "$BACKEND" in
-	thp)
-		THP=100
-		;;
-	hugetlb_free|hugetlb_anon|hugetlb_shmem|hugetlb_file)
-		HUGETLB=300
-		HUGEPAGESIZE=2048 # kB
-		;;
-esac
+THP=100
+HUGETLB=300
+HUGEPAGESIZE=2048
 
 POISON_ITERATION=100
 TIMEOUT=5
 
 random_poison() {
-    local i=
-    local j=
-    local pos=
-    local pid=$1
-    local range=
-
-	case "$BACKEND" in
-		buddy|hugetlb_free)
-			$PAGETYPES -Nlr -b "$TARGET_PAGEFLAGS" | grep -v offset | \
-				cut -f1 | sed -e 's/^/0x/' > $TMPD/target_pfns
-			;;
-		*)
-			$PAGETYPES -Nlr -p $pid -b "$TARGET_PAGEFLAGS" -a 0x700000000, \
-				| grep -v offset | cut -f1 | sed -e 's/^/0x/' > $TMPD/target_pfns
-			;;
-	esac
-
 	while read line ; do
-		$PAGETYPES -N -p $pid -a $line -X 2> /dev/null
+		$MCEINJECT -e "$ERROR_TYPE" -a "$line"
+		[ "$ERROR_TYPE" == mce-srao ] && sleep 1
 	done < $TMPD/target_pfns
-	pkill -9 -f random_unpoison
 }
 
 random_unpoison() {
 	while true ; do
-        $PAGETYPES -N -b hwpoison -x
+        all_unpoison
     done
 }
-
-BACKENDOPT="-B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -B hugetlb_file -B ksm -B normal_shmem"
 
 _control() {
     local pid=
 
-	$test_alloc_generic $BACKENDOPT -N 8 -b -L 'start mmap access busyloop' &
+	$test_alloc_generic -B $BACKEND -N 32 -L 'mmap access'
+	echo_log "$test_alloc_generic -B $BACKEND -N 32 -L 'mmap access busyloop' &"
+	$test_alloc_generic -B $BACKEND -N 32 -L 'mmap access busyloop' &
     pid=$!
+	sleep 0.1
+	if ! check_process_status $pid ; then
+		set_return_code ERROR
+		return
+	fi
+	get_mm_stats $pid 1
+
+    random_unpoison $pid &
+    local pid_unpoison=$!
+	echo_log "background unpoisoner ($pid_unpoison) running ..."
+	echo_log "target pageflags: $TARGET_PAGEFLAGS"
+
+	# if backend is pagecache, takes a few second to be parepared. so better
+	# method to wait is necessary.
+	sleep 2
+	case "$BACKEND" in
+		buddy|hugetlb_free)
+			$PAGETYPES -Nrl -b "$TARGET_PAGEFLAGS" | grep -v offset | \
+				cut -f1 | sed -e 's/^/0x/' > $TMPD/target_pfns
+			;;
+		*)
+			$PAGETYPES -Nrl -b "$TARGET_PAGEFLAGS" -p $pid -a 0x700000000+0x10000000 \
+				| grep -v offset | cut -f2 | sed -e 's/^/0x/' > $TMPD/target_pfns
+			;;
+	esac
 
     random_poison $pid &
     local pid_poison=$!
-    random_unpoison $pid &
-    local pid_unpoison=$!
-	echo "Running poison/unpoison threads for $TIMEOUT seconds ..."
-	sleep $TIMEOUT
-	kill -9 $pid_poison $pid_unpoison
+	if [ ! -s $TMPD/target_pfns ] ; then
+		set_return_code NO_TARGET_PFN
+	else
+		echo_log "Running poison/unpoison threads for $TIMEOUT seconds ..."
+		sleep $TIMEOUT
+	fi
+	kill -9 $pid_poison $pid_unpoison 2> /dev/null
+	get_mm_stats $pid 2
     kill -SIGUSR1 $pid
+
+	# Without below, some hugepage remains as surplus after cleanup_mm_generic()
+	cleanup_hugetlb_config
+
     set_return_code EXIT
 }

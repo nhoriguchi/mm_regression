@@ -22,7 +22,7 @@ ERROR_TYPE=__MARK_ERROR_TYPE
 ACCESS_LATER_OPTION=
 [ __MARK_ACCESS_LATER = later_access ] && ACCESS_LATER_OPTION=-A
 
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -e $ERROR_TYPE $ACCESS_LATER_OPTION -L 'start:wait_after mmap access:wait_after memory_error_injection munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -e $ERROR_TYPE $ACCESS_LATER_OPTION -L 'start:wait_after mmap access:wait_after=1000000 memory_error_injection munmap:wait_before exit:wait_before'"
 
 case "$BACKEND" in
 	thp)

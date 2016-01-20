@@ -220,7 +220,6 @@ check_kvm_panic() {
 }
 
 check_kvm_soft_offline() {
-	check_kernel_message "${TARGETHPA}"
 	check_kernel_message_nobug
 	check_guest_kernel_message -v "${TARGETGPA}"
 	check_return_code "$EXPECTED_RETURN_CODE"

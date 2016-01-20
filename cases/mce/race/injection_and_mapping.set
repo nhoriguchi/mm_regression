@@ -9,7 +9,7 @@ BACKEND=__MARK_BACKEND
 ERROR_TYPE=__MARK_ERROR_TYPE
 TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
 
-RACE_ITERATIONS=10
+RACE_ITERATIONS=20
 MONARCH_TIMEOUT=20000000
 
 # TODO: goto common place
@@ -33,9 +33,11 @@ _control() {
 		pid=$!
 
 		get_pagetypes $pid pagetypes.1 -b "$TARGET_PAGEFLAGS" -Nrla 0x700000000+0x10000000
-		# Too much MCE easyly triggers kernel panic.
+		# Too much MCE easyly triggers kernel panic. so let's inject MCE one
+		# by on every 1 sec.
 		if [ "$ERROR_TYPE" == mce-srao ] ; then
 			cat $TMPD/pagetypes.1 | cut -f2 | head -n4 | while read line ; do
+				sleep 1
                 $MCEINJECT -e $ERROR_TYPE -a 0x$line &
             done
 		else

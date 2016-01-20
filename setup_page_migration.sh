@@ -221,6 +221,7 @@ control_hugepage_migration() {
 			"waiting for migratepages")
 				echo "calling do_migratepages for $pid"
 				do_migratepages $pid
+				echo $?
 				kill -SIGUSR1 $pid
 				;;
 			"waiting for change_cpuset")

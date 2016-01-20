@@ -3,6 +3,8 @@
 EXPECTED_RETURN_CODE="START EXIT"
 
 HUGETLB=500
+THP=true
+KSM=true
 
 BACKENDOPT="-B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -B hugetlb_file -B ksm -B normal_shmem"
 OPERATIONS="start mmap access madv_stress"
@@ -17,12 +19,7 @@ _control() {
 	sleep 3
 
 	# Without below, some hugepage remains as surplus after cleanup_mm_generic()
-	rm -rf $HUGETLB_MOUNT/* 2>&1 > /dev/null
-	umount -f $HUGETLB_MOUNT 2>&1 > /dev/null
-	sysctl -q vm.nr_hugepages=0
-	kill_all_subprograms
-	all_unpoison
-	ipcrm --all > /dev/null 2>&1
-	show_hugetlb_pool
+	cleanup_hugetlb_config
+
     set_return_code EXIT
 }

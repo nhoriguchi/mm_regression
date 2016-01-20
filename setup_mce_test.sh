@@ -23,6 +23,9 @@ prepare_mce_test() {
 		set_monarch_timeout $MONARCH_TIMEOUT
 	fi
 
+	# background memory accessor
+	$test_allocate_generic -B anonymous -N 1000 -L "mmap access busyloop" > /dev/null 2>&1 &
+
     save_nr_corrupted_before
 }
 
@@ -53,12 +56,6 @@ check_mce_test() {
 		check_console_output -v "non anonymous thp"
 		check_console_output -v "recovery action for high-order kernel page: Ignored"
 	fi
-}
-
-check_process_status() {
-	local pid=$1
-
-	kill -0 $pid 2> /dev/null
 }
 
 BASEVFN=0x700000000

@@ -47,32 +47,6 @@ int nr_all_chunks;
 int nr_mem_types = 1;
 
 enum {
-	OT_MEMORY_ERROR_INJECTION,
-	OT_ALLOC_EXIT,
-	OT_PAGE_MIGRATION,
-	OT_PROCESS_VM_ACCESS,
-	OT_MLOCK,
-	OT_MLOCK2,
-	OT_MPROTECT,
-	OT_POISON_UNPOISON,
-	OT_MADV_STRESS,
-	OT_FORK_STRESS,
-	OT_MREMAP_STRESS,
-	OT_MBIND_FUZZ,
-	OT_MADV_WILLNEED,
-	OT_ALLOCATE_MORE,
-	OT_MEMORY_COMPACTION,
-	OT_MOVE_PAGES_PINGPONG,
-	OT_MBIND_PINGPONG,
-	OT_PAGE_MIGRATION_PINGPONG,
-	OT_NOOP,
-	OT_BUSYLOOP,
-	OT_HUGETLB_RESERVE,
-	NR_OPERATION_TYPES,
-};
-int operation_type = -1;
-
-enum {
 	PAGECACHE,
 	ANONYMOUS,
 	THP,
@@ -103,34 +77,6 @@ unsigned long backend_bitmap = 0;
 #define BE_HUGEPAGE	\
 	(BE_THP|BE_HUGETLB_ANON|BE_HUGETLB_SHMEM|BE_HUGETLB_FILE|BE_NORMAL_SHMEM)
 
-/* Waitpoint */
-enum {
-	WP_START,
-	WP_AFTER_MMAP,
-	WP_AFTER_ALLOCATE,
-	WP_BEFORE_FREE,
-	WP_EXIT,
-	NR_WAITPOINTS,
-};
-#define wait_start		(waitpoint_mask & (1 << WP_START))
-#define wait_after_mmap		(waitpoint_mask & (1 << WP_AFTER_MMAP))
-#define wait_after_allocate	(waitpoint_mask & (1 << WP_AFTER_ALLOCATE))
-#define wait_before_munmap	(waitpoint_mask & (1 << WP_BEFORE_FREE))
-#define wait_exit		(waitpoint_mask & (1 << WP_EXIT))
-int waitpoint_mask = 0;
-
-enum {
-	MS_MIGRATEPAGES,
-	MS_MBIND,
-	MS_MOVE_PAGES,
-	MS_HOTREMOTE,
-	MS_MADV_SOFT,
-	MS_AUTO_NUMA,
-	MS_CHANGE_CPUSET,
-	MS_MBIND_FUZZ,
-	NR_MIGRATION_SRCS,
-};
-int migration_src = -1;
 int mpol_mode_for_page_migration = MPOL_PREFERRED;
 
 enum {
@@ -166,6 +112,43 @@ static int get_nr_mem_types(void) {
 	return j;
 }
 
+struct op_control {
+	char *name;
+	int wait_before;
+	int wait_after;
+	char **args;
+	char **keys;
+	char **values;
+	int nr_args;
+};
+
+/*
+ * Return true if opc has an argument "key".
+ */
+static int opc_defined(struct op_control *opc, char *key) {
+	int i;
+
+	for (i = 0; i < opc->nr_args; i++) {
+		if (!strcmp(opc->keys[i], key))
+			return 1;
+	}
+	return 0;
+}
+
+static char *opc_get_value(struct op_control *opc, char *key) {
+	int i;
+
+	for (i = 0; i < opc->nr_args; i++) {
+		if (!strcmp(opc->keys[i], key)) {
+			if (!strcmp(opc->values[i], ""))
+				return NULL;
+			else
+				return opc->values[i];
+		}
+	}
+	return NULL;
+}
+
 /*
  * @i is current chunk index. In the last chunk mmaped size will be truncated.
  */
@@ -174,10 +157,6 @@ static int get_size_of_chunked_mmap_area(int i) {
 		return ((nr_p - 1) % CHUNKSIZE + 1) * PS;
 	else
 		return CHUNKSIZE * PS;
-}
-
-static void cleanup_memory(void *baseaddr, int size) {
-	;
 }
 
 static void read_memory(char *p, int size) {
@@ -266,9 +245,9 @@ static void prepare_memory(struct mem_chunk *mc, void *baseaddr,
 
 	switch (mc->mem_type) {
 	case PAGECACHE:
-		/* printf("open, fd %d, offset %lx\n", fd, offset); */
 		mc->p = checked_mmap(baseaddr, mc->chunk_size, protflag,
 				     MAP_SHARED, fd, offset);
+		/* printf("open, fd %d, offset %lx, %p\n", fd, offset, mc->p); */
 		break;
 	case ANONYMOUS:
 		/* printf("base:0x%lx, size:%lx\n", baseaddr, size); */
@@ -292,7 +271,7 @@ static void prepare_memory(struct mem_chunk *mc, void *baseaddr,
 	case HUGETLB_SHMEM:
 		/*
 		 * TODO: currently alloc_shm_hugepage is not designed to be called
-		 * multiple times, so controlling script must cleanup shmems after
+		 * multiple times, so controlling scruipt must cleanup shmems after
 		 * running the testcase.
 		 */
 		mc->p = alloc_shmem(mc, baseaddr, 1);
@@ -342,7 +321,7 @@ static void access_memory(struct mem_chunk *mc) {
 		memset(mc->p, 'a', mc->chunk_size);
 }
 
-static void mmap_all_chunks(void) {
+static void do_mmap(struct op_control *opc) {
 	int i, j = 0, k, backend;
 	void *baseaddr;
 
@@ -370,7 +349,7 @@ static void munmap_memory(struct mem_chunk *mc) {
 		checked_munmap(mc->p, mc->chunk_size);
 }
 
-static void munmap_all_chunks(void) {
+static void do_munmap(struct op_control *opc) {
 	int i, j;
 
 	for (j = 0; j < nr_mem_types; j++)
@@ -378,7 +357,7 @@ static void munmap_all_chunks(void) {
 			munmap_memory(&chunkset[i + j * nr_chunk]);
 }
 
-static int access_all_chunks(void *arg) {
+static int do_access(void *arg) {
 	int i, j;
 
 	for (j = 0; j < nr_mem_types; j++)
@@ -386,7 +365,7 @@ static int access_all_chunks(void *arg) {
 			access_memory(&chunkset[i + j * nr_chunk]);
 }
 
-int do_work_memory(int (*func)(char *p, int size, void *arg), void *args) {
+static int do_work_memory(int (*func)(char *p, int size, void *arg), void *args) {
 	int i, j;
 	int ret;
 
@@ -416,13 +395,8 @@ int hp_partial;
 #define MEMBLK_SIZE	(1 << MEMBLK_ORDER)
 #define MAX_MEMBLK	1024
 
-static void __busyloop(void) {
-	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
-			  "entering busy loop\n");
-}
-
-static void do_busyloop(void) {
-	pprintf_wait_func(access_all_chunks, NULL, "entering busy loop\n");
+static void do_busyloop(struct op_control *opc) {
+	pprintf_wait_func(do_access, NULL, "entering busy loop\n");
 }
 
 static int set_mempolicy_node(int mode, int nid) {
@@ -447,8 +421,8 @@ static int numa_sched_setaffinity_node(int nid) {
 	numa_bitmask_free(new_cpus);
 }
 
-static void do_migratepages(void) {
-	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
+static void do_migratepages(struct op_control *opc) {
+	pprintf_wait_func(opc_defined(opc, "busyloop") ? do_access : NULL, opc,
 			  "waiting for migratepages\n");
 }
 
@@ -506,7 +480,7 @@ static int __mbind_fuzz_chunk(char *p, int size, void *args) {
 	      mbind_arg->new_nodes->size + 1, mbind_arg->flags);
 }
 
-static void __do_mbind_fuzz(void) {
+static void do_mbind_fuzz(struct op_control *opc) {
 	struct mbind_arg mbind_arg = {
 		.mode = MPOL_BIND,
 		.flags = MPOL_MF_MOVE|MPOL_MF_STRICT,
@@ -538,7 +512,7 @@ static int __move_pages_chunk(char *p, int size, void *args) {
 			__move_pages_status, MPOL_MF_MOVE_ALL);
 }
 
-static void do_move_pages(void) {
+static void do_move_pages(struct op_control *opc) {
 	int node = 1;
 
 	do_work_memory(__move_pages_chunk, &node);
@@ -604,7 +578,7 @@ static int memblock_check(void) {
 	return pmemblk;
 }
 
-static void do_hotremove(void) {
+static void do_hotremove(struct op_control *opc) {
 	int pmemblk; /* preferred memory block for hotremove */
 
 	if (set_mempolicy_node(MPOL_PREFERRED, 1) == -1)
@@ -612,7 +586,7 @@ static void do_hotremove(void) {
 
 	pmemblk = memblock_check();
 
-	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
+	pprintf_wait_func(busyloop ? do_access : NULL, NULL,
 			  "waiting for memory_hotremove: %d\n", pmemblk);
 }
 
@@ -629,21 +603,21 @@ static int __madv_soft_chunk(char *p, int size, void *args) {
 }
 
 /* unpoison option? */
-static void do_madv_soft(void) {
+static void do_madv_soft(struct op_control *opc) {
 	/* int loop = 10; */
 	/* int do_unpoison = 1; */
 
 	do_work_memory(__madv_soft_chunk, NULL);
 }
 
-static void do_auto_numa(void) {
+static void do_auto_numa(struct op_control *opc) {
 	numa_sched_setaffinity_node(1);
-	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
+	pprintf_wait_func(busyloop ? do_access : NULL, NULL,
 			  "waiting for auto_numa\n");
 }
 
-static void do_change_cpuset(void) {
-	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
+static void do_change_cpuset(struct op_control *opc) {
+	pprintf_wait_func(busyloop ? do_access : NULL, NULL,
 			  "waiting for change_cpuset\n");
 }
 
@@ -651,50 +625,24 @@ static void do_change_cpuset(void) {
 int preferred_cpu_node = -1;
 int preferred_mem_node = 0;
 
-static void mmap_all_chunks_numa(void) {
+static void do_mmap_numa(struct op_control *opc) {
 	if (preferred_cpu_node != -1)
 		numa_sched_setaffinity_node(preferred_cpu_node);
 
 	if (set_mempolicy_node(MPOL_BIND, preferred_mem_node) == -1)
 		err("set_mempolicy");
 
-	mmap_all_chunks();
+	do_mmap(opc);
 
 	if (set_mempolicy_node(MPOL_DEFAULT, 0) == -1)
 		err("set_mempolicy");
 }
 
-void __do_page_migration(void) {
-	switch (migration_src) {
-	case MS_MIGRATEPAGES:
-		do_migratepages();
-		break;
-	case MS_MBIND:
-		/* TODO: better setting */
-		do_mbind(mpol_mode_for_page_migration, 1);
-		break;
-	case MS_MOVE_PAGES:
-		do_move_pages();
-		break;
-	case MS_HOTREMOTE:
-		do_hotremove();
-		break;
-	case MS_MADV_SOFT:
-		do_madv_soft();
-		break;
-	case MS_AUTO_NUMA:
-		do_auto_numa();
-		break;
-	case MS_CHANGE_CPUSET:
-		do_change_cpuset();
-		break;
-	}
-}
-
 /* inject only onto the first page, so allocating big region makes no sense. */
-static void do_memory_error_injection(void) {
+static void do_memory_error_injection(struct op_control *opc) {
 	char rbuf[256];
 	unsigned long offset = 0;
+	int ret;
 
 	switch (injection_type) {
 	case MCE_SRAO:
@@ -710,8 +658,8 @@ static void do_memory_error_injection(void) {
 		pipe_read(rbuf);
 		offset = strtol(rbuf, NULL, 0);
 		Dprintf("madvise inject to addr %lx\n", chunkset[0].p + offset * PS);
-		if (madvise(chunkset[0].p + offset * PS, PS, injection_type == MADV_HARD ?
-			    MADV_HWPOISON : MADV_SOFT_OFFLINE) != 0)
+		if ((ret = madvise(chunkset[0].p + offset * PS, PS, injection_type == MADV_HARD ?
+			    MADV_HWPOISON : MADV_SOFT_OFFLINE)) != 0)
 			perror("madvise");
 		pprintf("after madvise injection\n");
 		pause();
@@ -721,7 +669,7 @@ static void do_memory_error_injection(void) {
 	if (access_after_injection) {
 		pprintf("writing affected region\n");
 		pause();
-		access_all_chunks(NULL);
+		do_access(NULL);
 	}
 }
 
@@ -747,7 +695,7 @@ static pid_t fork_access(void) {
 
 	if (!pid) {
 		/* Expecting COW, but it doesn't happend in zero page */
-		access_all_chunks(NULL);
+		do_access(NULL);
 		pause();
 		return 0;
 	}
@@ -755,7 +703,7 @@ static pid_t fork_access(void) {
 	return pid;
 }
 
-void __do_process_vm_access(void) {
+static void do_process_vm_access(struct op_control *opc) {
 	pid_t pid;
 
 	/* node 0 is preferred */
@@ -763,7 +711,7 @@ void __do_process_vm_access(void) {
 		err("set_mempolicy(MPOL_PREFERRED) to 0");
 
 	pid = fork_access();
-	pprintf_wait_func(busyloop ? access_all_chunks : NULL, NULL,
+	pprintf_wait_func(busyloop ? do_access : NULL, NULL,
 			  "waiting for process_vm_access\n");
 	do_work_memory(__process_vm_access_chunk, &pid);
 }
@@ -778,7 +726,7 @@ static int __mlock_chunk(char *p, int size, void *args) {
 		mlock(p, size);
 }
 
-void __do_mlock(void) {
+static void do_mlock(struct op_control *opc) {
 	if (forkflag)
 		fork_access();
 	do_work_memory(__mlock_chunk, NULL);
@@ -797,7 +745,7 @@ static int __mlock2_chunk(char *p, int size, void *args) {
 		syscall(__NR_mlock2, p, size, 1);
 }
 
-void __do_mlock2(void) {
+static void do_mlock2(struct op_control *opc) {
 	if (forkflag)
 		fork_access();
 	do_work_memory(__mlock2_chunk, NULL);
@@ -813,7 +761,7 @@ static int __mprotect_chunk(char *p, int size, void *args) {
 		mprotect(p, size, protflag|PROT_EXEC);
 }
 
-void __do_mprotect(void) {
+static void do_mprotect(struct op_control *opc) {
 	if (forkflag)
 		fork_access();
 	do_work_memory(__mprotect_chunk, NULL);
@@ -838,7 +786,7 @@ static void allocate_transhuge(void *ptr)
 	}
 }
 
-static void do_memory_compaction(void) {
+static void do_memory_compaction(struct op_control *opc) {
 	size_t ram, len;
 	void *ptr, *p;
 
@@ -869,7 +817,7 @@ static void do_memory_compaction(void) {
 	}
 }
 
-static void __do_allocate_more(void) {
+static void do_allocate_more(struct op_control *opc) {
 	char *panon;
 	int size = nr_p * PS;
 
@@ -910,7 +858,7 @@ void __do_memory_error_injection(void) {
 	if (access_after_injection) {
 		pprintf("writing affected region\n");
 		pause();
-		access_all_chunks(NULL);
+		do_access(NULL);
 	}
 }
 
@@ -931,17 +879,17 @@ static void __do_madv_stress() {
 	}
 }
 
-static void _do_madv_stress(void) {
+static void do_madv_stress(struct op_control *opc) {
 	__do_madv_stress();
 	if (access_after_injection)
-		access_all_chunks(NULL);
+		do_access(NULL);
 }
 
-static void __do_fork_stress(void) {
+static void do_fork_stress(struct op_control *opc) {
 	while (flag) {
 		pid_t pid = fork();
 		if (!pid) {
-			access_all_chunks(NULL);
+			do_access(NULL);
 			return;
 		}
 		/* get status? */
@@ -964,7 +912,7 @@ static int __mremap_chunk(char *p, int csize, void *args) {
 	return new == MAP_FAILED ? -1 : 0;
 }
 
-static void __do_mremap_stress(void) {
+static void do_mremap_stress(struct op_control *opc) {
 	while (flag) {
 		int back = 0;
 
@@ -980,15 +928,15 @@ static int __madv_willneed_chunk(char *p, int size, void *args) {
 	return madvise(p, size, MADV_WILLNEED);
 }
 
-static void __do_madv_willneed(void) {
+static void do_madv_willneed(struct op_control *opc) {
 	do_work_memory(__madv_willneed_chunk, NULL);
 }
 
-static void operate_with_mapping_iteration(void) {
+static void do_iterate_mapping(struct op_control *opc) {
 	while (flag) {
-		mmap_all_chunks();
-		access_all_chunks(NULL);
-		munmap_all_chunks();
+		do_mmap(opc);
+		do_access(NULL);
+		do_munmap(opc);
 	}
 }
 
@@ -1004,7 +952,7 @@ static int iterate_mbind_pingpong(void *arg) {
 	do_work_memory(__mbind_chunk, mbind_arg);
 }
 
-static void __do_mbind_pingpong(void) {
+static void do_mbind_pingpong(struct op_control *opc) {
 	int ret;
 	int node;
 	struct mbind_arg mbind_arg = {
@@ -1018,7 +966,7 @@ static void __do_mbind_pingpong(void) {
 			  "entering iterate_mbind_pingpong\n");
 }
 
-static void __do_move_pages_pingpong(void) {
+static void do_move_pages_pingpong(struct op_control *opc) {
 	while (flag) {
 		int node;
 
@@ -1030,42 +978,101 @@ static void __do_move_pages_pingpong(void) {
 	}
 }
 
-static void do_hugetlb_reserve(void) {
-	mmap_all_chunks();
-	__busyloop();
-	munmap_all_chunks();
-}
-
 enum {
-	NR_memory_error_injection,
-	NR_mlock,
-	NR_test,
+	NR_start,
+	NR_exit,
 	NR_mmap,
+	NR_mmap_numa,
+	NR_access,
+	NR_busyloop,
+	NR_munmap,
+	NR_mbind,
+	NR_move_pages,
+	NR_mlock,
+	NR_mlock2,
+	NR_memory_error_injection,
+	NR_auto_numa,
+	NR_mprotect,
+	NR_change_cpuset,
+	NR_migratepages,
+	NR_memory_compaction,
+	NR_allocate_more,
+	NR_madv_willneed,
+	NR_madv_soft,
+	NR_iterate_mapping,
+	NR_mremap_stress,
+	NR_hotremove,
+	NR_process_vm_access,
+	NR_fork_stress,
+	NR_mbind_pingpong,
+	NR_move_pages_pingpong,
+	NR_madv_stress,
+	NR_mbind_fuzz,
 	NR_OPERATIONS,
 };
 
 static const char *operation_name[] = {
+	[NR_start]			= "start",
+	[NR_exit]			= "exit",
+	[NR_mmap]			= "mmap",
+	[NR_mmap_numa]			= "mmap_numa",
+	[NR_access]			= "access",
+	[NR_busyloop]			= "busyloop",
+	[NR_munmap]			= "munmap",
+	[NR_mbind]			= "mbind",
+	[NR_move_pages]			= "move_pages",
+	[NR_mlock]			= "mlock",
+	[NR_mlock2]			= "mlock2",
 	[NR_memory_error_injection]	= "memory_error_injection",
-	[NR_mlock]	= "mlock",
-	[NR_test]	= "test",
-	[NR_mmap]	= "mmap",
+	[NR_auto_numa]			= "auto_numa",
+	[NR_mprotect]			= "mprotect",
+	[NR_change_cpuset]		= "change_cpuset",
+	[NR_migratepages]		= "migratepages",
+	[NR_memory_compaction]		= "memory_compaction",
+	[NR_allocate_more]		= "allocate_more",
+	[NR_madv_willneed]		= "madv_willneed",
+	[NR_madv_soft]			= "madv_soft",
+	[NR_iterate_mapping]		= "iterate_mapping",
+	[NR_mremap_stress]		= "mremap_stress",
+	[NR_hotremove]			= "hotremove",
+	[NR_process_vm_access]		= "process_vm_access",
+	[NR_fork_stress]		= "fork_stress",
+	[NR_mbind_pingpong]		= "mbind_pingpong",
+	[NR_move_pages_pingpong]	= "move_pages_pingpong",
+	[NR_madv_stress]		= "madv_stress",
+	[NR_mbind_fuzz]			= "mbind_fuzz",
 };
 
 static const char *op_supported_args[][10] = {
+	[NR_start]			= {},
+	[NR_exit]			= {},
+	[NR_mmap]			= {},
+	[NR_mmap_numa]			= {},
+	[NR_access]			= {},
+	[NR_busyloop]			= {},
+	[NR_munmap]			= {},
+	[NR_mbind]			= {},
+	[NR_move_pages]			= {},
+	[NR_mlock]			= {},
+	[NR_mlock2]			= {},
 	[NR_memory_error_injection]	= {"error_type"},
-	[NR_mlock]	= {"mlock", "fjfj", "sadf"},
-	[NR_test]	= {"test", "ffmm"},
-	[NR_mmap]	= {"test", "ffmm", "key2"},
-};
-
-struct op_control {
-	char *name;
-	int wait_before;
-	int wait_after;
-	char **args;
-	char **keys;
-	char **values;
-	int nr_args;
+	[NR_auto_numa]			= {},
+	[NR_mprotect]			= {},
+	[NR_change_cpuset]		= {},
+	[NR_migratepages]		= {"busyloop"},
+	[NR_memory_compaction]		= {},
+	[NR_allocate_more]		= {},
+	[NR_madv_willneed]		= {},
+	[NR_madv_soft]			= {},
+	[NR_iterate_mapping]		= {},
+	[NR_mremap_stress]		= {},
+	[NR_hotremove]			= {},
+	[NR_process_vm_access]		= {},
+	[NR_fork_stress]		= {},
+	[NR_mbind_pingpong]		= {},
+	[NR_move_pages_pingpong]	= {},
+	[NR_madv_stress]		= {},
+	[NR_mbind_fuzz]			= {},
 };
 
 static int get_op_index(struct op_control *opc) {
@@ -1077,10 +1084,9 @@ static int get_op_index(struct op_control *opc) {
 }
 
 static int parse_operation_arg(struct op_control *opc) {
-	int i = 0, op_idx, j;
-	char key, *value;
-	char buf[256]; /* TODO: malloc? */
+	int i, j;
 	int supported;
+	int op_idx = get_op_index(opc);
 
 	for (i = 0; i < opc->nr_args; i++) {
 		opc->keys[i] = calloc(1, 64);
@@ -1115,7 +1121,6 @@ static int parse_operation_arg(struct op_control *opc) {
 
 static void print_opc(struct op_control *opc) {
 	int i;
-	int op_idx = get_op_index(opc);
 
 	printf("===> op_name:%s", opc->name);
 	for (i = 0; i < opc->nr_args; i++) {
@@ -1133,7 +1138,7 @@ static void parse_operation_args(struct op_control *opc, char *str) {
 	char *ptr;
 	int i = 0, j, k;
 	char buf[256];
-	
+
 	memset(opc, 0, sizeof(struct op_control));
 	strcpy(buf, str);
 
@@ -1157,83 +1162,111 @@ static void parse_operation_args(struct op_control *opc, char *str) {
 	print_opc(opc);
 }
 
+static void need_numa() {
+	if (nr_nodes < 2)
+		errmsg("A minimum of 2 nodes is required for this test.\n");
+}
+
+static void do_wait_before(struct op_control *opc) {
+	char *sleep = opc_get_value(opc, "wait_before");
+
+	if (sleep) {
+		unsigned int sleep_us = strtoul(sleep, NULL, 0);
+
+		printf("wait %d usecs before_%s\n", sleep_us, opc->name);
+		usleep(sleep_us);
+	}
+	pprintf_wait(SIGUSR1, "before_%s\n", opc->name);
+}
+
+static void do_wait_after(struct op_control *opc) {
+	char *sleep = opc_get_value(opc, "wait_after");
+
+	if (sleep) {
+		unsigned int sleep_us = strtoul(sleep, NULL, 0);
+
+		printf("wait %d usecs after_%s\n", sleep_us, opc->name);
+		usleep(sleep_us);
+	}
+	pprintf_wait(SIGUSR1, "after_%s\n", opc->name);
+}
+
 char *op_strings[256];
 
 static void do_operation_loop(void) {
-	int i = 0;
+	int i;
 	struct op_control opc;
 
-	for (; op_strings[i] > 0; i++) {
+	for (i = 0; op_strings[i] > 0; i++) {
 		parse_operation_args(&opc, op_strings[i]);
 
 		if (opc.wait_before)
-			pprintf_wait(SIGUSR1, "before_%s\n", opc.name);
+			do_wait_before(&opc);
 
 		if (!strcmp(opc.name, "start")) {
 			;
 		} else if (!strcmp(opc.name, "exit")) {
 			;
 		} else if (!strcmp(opc.name, "mmap")) {
-			mmap_all_chunks();
+			do_mmap(&opc);
 		} else if (!strcmp(opc.name, "mmap_numa")) {
-			mmap_all_chunks_numa();
+			need_numa();
+			do_mmap_numa(&opc);
 		} else if (!strcmp(opc.name, "access")) {
-			access_all_chunks(NULL);
+			do_access(NULL);
 		} else if (!strcmp(opc.name, "busyloop")) {
-			do_busyloop();
+			do_busyloop(&opc);
 		} else if (!strcmp(opc.name, "munmap")) {
-			munmap_all_chunks();
+			do_munmap(&opc);
 		} else if (!strcmp(opc.name, "mbind")) {
 			do_mbind(mpol_mode_for_page_migration, 1);
 		} else if (!strcmp(opc.name, "move_pages")) {
-			do_move_pages();
+			do_move_pages(&opc);
 		} else if (!strcmp(opc.name, "mlock")) {
-			__do_mlock();
+			do_mlock(&opc);
 		} else if (!strcmp(opc.name, "mlock2")) {
-			__do_mlock2();
-		} else if (!strcmp(opc.name, "hugetlb_reserve")) {
-			__do_mlock2();
+			do_mlock2(&opc);
 		} else if (!strcmp(opc.name, "memory_error_injection")) {
-			do_memory_error_injection();
+			do_memory_error_injection(&opc);
 		} else if (!strcmp(opc.name, "auto_numa")) {
-			do_auto_numa();
+			do_auto_numa(&opc);
 		} else if (!strcmp(opc.name, "mprotect")) {
-			__do_mprotect();
+			do_mprotect(&opc);
 		} else if (!strcmp(opc.name, "change_cpuset")) {
-			do_change_cpuset();
+			do_change_cpuset(&opc);
 		} else if (!strcmp(opc.name, "migratepages")) {
-			do_migratepages();
+			do_migratepages(&opc);
 		} else if (!strcmp(opc.name, "memory_compaction")) {
-			do_memory_compaction();
+			do_memory_compaction(&opc);
 		} else if (!strcmp(opc.name, "allocate_more")) {
-			__do_allocate_more();
+			do_allocate_more(&opc);
 		} else if (!strcmp(opc.name, "madv_willneed")) {
-			__do_madv_willneed();
+			do_madv_willneed(&opc);
 		} else if (!strcmp(opc.name, "madv_soft")) {
-			do_madv_soft();
+			do_madv_soft(&opc);
 		} else if (!strcmp(opc.name, "iterate_mapping")) {
-			operate_with_mapping_iteration();
+			do_iterate_mapping(&opc);
 		} else if (!strcmp(opc.name, "mremap_stress")) {
-			__do_mremap_stress();
+			do_mremap_stress(&opc);
 		} else if (!strcmp(opc.name, "hotremove")) {
-			do_hotremove();
+			do_hotremove(&opc);
 		} else if (!strcmp(opc.name, "process_vm_access")) {
-			__do_process_vm_access();
+			do_process_vm_access(&opc);
 		} else if (!strcmp(opc.name, "fork_stress")) {
-			__do_fork_stress();
+			do_fork_stress(&opc);
 		} else if (!strcmp(opc.name, "mbind_pingpong")) {
-			__do_mbind_pingpong();
+			do_mbind_pingpong(&opc);
 		} else if (!strcmp(opc.name, "move_pages_pingpong")) {
-			__do_move_pages_pingpong();
+			do_move_pages_pingpong(&opc);
 		} else if (!strcmp(opc.name, "madv_stress")) {
-			_do_madv_stress();
+			do_madv_stress(&opc);
 		} else if (!strcmp(opc.name, "mbind_fuzz")) {
-			__do_mbind_fuzz();
+			do_mbind_fuzz(&opc);
 		} else
 			errmsg("unsupported op_string: %s\n", opc.name);
 
 		if (opc.wait_after)
-			pprintf_wait(SIGUSR1, "after_%s\n", opc.name);
+			do_wait_after(&opc);
 	}
 }
 
