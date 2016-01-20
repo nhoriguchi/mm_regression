@@ -5,8 +5,6 @@
 FLAVOR=__MARK_FLAVOR
 
 HUGETLB=200
-HUGETLB_MOUNT=$WDIR/mount
-
 MBIND_FUZZ_DURATION=5
 
 if [ "$FLAVOR" == simple ] ; then

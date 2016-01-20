@@ -6,7 +6,6 @@
 FLAVOR=__MARK_FLAVOR
 
 HUGETLB=200
-HUGETLB_MOUNT=$WDIR/mount
 
 if [ "$FLAVOR" == simple ] ; then
 	TEST_PROGRAM="$test_mincore -f $GTMPD/holefile -t 0xffff"

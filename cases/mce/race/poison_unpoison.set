@@ -17,7 +17,6 @@ case "$BACKEND" in
 	hugetlb_free|hugetlb_anon|hugetlb_shmem|hugetlb_file)
 		HUGETLB=300
 		HUGEPAGESIZE=2048 # kB
-		HUGETLB_MOUNT=$WDIR/hugetlbfs
 		;;
 esac
 

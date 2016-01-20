@@ -19,7 +19,6 @@ esac
 
 if [[ "$BACKEND" =~ hugetlb ]] ; then
 	HUGETLB=100
-	HUGETLB_MOUNT=$WDIR/hugetlbfs
 	EXPECTED_RETURN_CODE="START MLOCK_FAILED EXIT"
 elif [[ "$BACKEND" =~ thp ]] ; then
 	THP=true
