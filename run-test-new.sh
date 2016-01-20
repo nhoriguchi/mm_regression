@@ -40,9 +40,6 @@ if [ "$SHOW_TEST_VERSION" ] ; then
 	exit 0
 fi
 
-# keep backward compatibility with older version of test_core
-export NEWSTYLE=true
-
 [ "$RECIPEFILES" ] && RECIPEFILES="$(readlink -f $RECIPEFILES)"
 
 for rd in $RECIPEDIR ; do
@@ -70,6 +67,8 @@ trap stop_test_running SIGTERM
 echo_log "=========> start testing $(basename $TRDIR):$TESTNAME"
 echo_log "RECIPEFILES:"
 echo_log "${RECIPEFILES//$TRDIR\/cases\//}"
+
+make --quiet allrecipes > $GTMPD/full_recipe_list
 
 for recipe in $RECIPEFILES ; do
 	if [ ! -f "$recipe" ] ; then
