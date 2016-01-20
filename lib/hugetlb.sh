@@ -60,8 +60,16 @@ get_hugepage_inuse_node() {
 }
 
 show_hugetlb_pool() {
-    echo "hugetlb pool (total/free/rsvd/surp): $(get_hugepage_total)/$(get_hugepage_free)/$(get_hugepage_reserved)/$(get_hugepage_surplus)"
-	if [ "$NUMNODE" ] ; then
+	local total=$(get_hugepage_total)
+	local free=$(get_hugepage_free)
+	local reserved=$(get_hugepage_reserved)
+	local surplus=$(get_hugepage_surplus)
+
+    echo "hugetlb pool (total/free/rsvd/surp): $total/$free/$reserved/$surplus"
+	if [ ! "$NUMNODE" ] || [ "$NUMNODE" -eq 0 ] ; then
+		return
+	fi
+	if [ "$total" -ne 0 ] || [ "$free" -ne 0 ] || [ "$reserved" -ne 0 ] || [ "$surplus" -ne 0 ] ; then
 		for size in $(get_available_pool_size) ; do
 			for i in $(seq 0 $[NUMNODE - 1]) ; do
 				echo "node:$i, size:$size (total/free/inuse/surp): $(get_hugepage_total_node $i $size)/$(get_hugepage_free_node $i $size)/$(get_hugepage_inuse_node $i $size)/$(get_hugepage_surplus_node $i $size)"
@@ -122,4 +130,16 @@ set_and_check_hugetlb_pool() {
 
 set_hugetlb_overcommit() {
     sysctl vm.nr_overcommit_hugepages=$1
+}
+
+cleanup_hugetlb_config() {
+	if [ "$HUGETLB_MOUNT" ] ; then
+		rm -rf $HUGETLB_MOUNT/* 2>&1 > /dev/null
+		umount -f $HUGETLB_MOUNT 2>&1 > /dev/null
+	fi
+	sysctl -q vm.nr_hugepages=0
+	kill_all_subprograms
+	all_unpoison
+	ipcrm --all > /dev/null 2>&1
+	show_hugetlb_pool
 }
