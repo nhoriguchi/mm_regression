@@ -22,12 +22,10 @@ echo -n 0 > $GTMPD/__skipped # skip the testcase for a good reason
 # These counters are independent between each testcase, commit_counts() does
 # add values of per-testcase counters into total counters
 reset_per_testcase_counters() {
-	if [ ! "$1" ] ; then
-		echo -n 0 > $TMPD/_testcount
-		echo -n 0 > $TMPD/_success
-		echo -n 0 > $TMPD/_failure
-		echo -n 0 > $TMPD/_later
-	fi
+	echo -n 0 > $TMPD/_testcount
+	echo -n 0 > $TMPD/_success
+	echo -n 0 > $TMPD/_failure
+	echo -n 0 > $TMPD/_later
 }
 
 add_counts() {
