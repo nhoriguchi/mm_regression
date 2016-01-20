@@ -1,5 +1,6 @@
 require 'pp'
 require 'optparse'
+require 'tmpdir'
 
 class TestCaseSummary
   attr_accessor :testcaseid, :testcount, :success, :failure, :later
@@ -170,7 +171,6 @@ class TestSummary
   def initialize args
     parse_args args
     get_targets
-    get_full_recipes
 
     @run_summary = @targets.map {|t| RunSummary.new self, t}
 
@@ -204,7 +204,11 @@ class TestSummary
     @run_summary.each do |run|
       covered = 0
       uncovered = 0
-      @full_recipe_list.each do |recipe|
+      full_recipe_list = File.read("#{run.dir}/full_recipe_list").split("\n").map do |c|
+        c.gsub(/^cases\//, '')
+      end
+
+      full_recipe_list.each do |recipe|
         a = run.tc_summary.find {|tc| tc.testcaseid == recipe}
         if a.nil?
           puts "---- #{recipe}"
@@ -214,16 +218,15 @@ class TestSummary
           covered += 1
         end
       end
-      puts "Coverage: #{covered} / #{covered + uncovered} (#{100*covered/(covered+uncovered)}%)"
-    end
-  end
 
-  def get_full_recipes
-    @full_recipe_list = Dir.glob("#{@options[:recipedir]}/**/*").select do |g|
-      File.file? g and g !~ /\.set$/
-    end.map do |f|
-      f.gsub(/^#{@options[:recipedir]}\//, '')
-    end.sort
+      if covered + uncovered == 0
+        coverage = 0
+      else
+        coverage = 100*covered/(covered+uncovered)
+      end
+
+      puts "Coverage: #{covered} / #{covered + uncovered} (#{coverage}%)"
+    end
   end
 
   def sum_str
@@ -236,7 +239,6 @@ class TestSummary
   end
 
   def get_targets
-    @targets = []
     if @options[:latest]
       tmp = Dir.glob("#{@options[:workdir]}/*").select do |g|
         File.directory? g
@@ -246,8 +248,6 @@ class TestSummary
         puts "latest result dir is #{tmp[-1-i]}"
         @targets << tmp[-1-i]
       end
-    else
-      @targets << "#{@options[:workdir]}/#{@runname}"
     end
   end
 
@@ -284,10 +284,15 @@ class TestSummary
       end
     end.parse! args
 
-    @runname = args[0]
-    if @runname and File.directory? @runname  # work/<runname> form
-      @runname = File.basename @runname
-    else # just <runname> given, do nothing
+    @targets = args.map do |dat|
+      if File.directory? dat # maybe work/<runname> form
+        dat = File.expand_path dat
+      elsif File.exist? dat # maybe tar file
+        tmpdir = Dir.mktmpdir
+        system "tar -x --force-local -zf #{dat} -C #{tmpdir}"
+        dat = tmpdir + "/work_log_testrun" # TODO: better getter?
+      end
+      dat
     end
 
     check_args
