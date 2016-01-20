@@ -24,7 +24,7 @@ get_backend_pageflags() {
 			echo "huge,thp,mmap,anonymous=anonymous,mmap"
 			;;
 		pagecache)		# __RU_lA____M_____________________________
-			echo "huge,thp,mmap,anonymous=mmap"
+			echo "huge,thp,mmap,anonymous,file=mmap,file"
 			;;
 		hugetlb_all)    # _______________H_G_______________________
 			echo "huge,compound_head=huge,compound_head"
@@ -45,7 +45,8 @@ get_backend_pageflags() {
 		hugetlb_file)	# ___U_______M___H_G_______________________
 			echo "huge,mmap,anonymous,compound_head=huge,mmap,compound_head"
 			;;
-		ksm)			#
+		ksm)			# __RUDlA____Ma_b______x___________________
+			echo "ksm=ksm"
 			;;
 		thp)			# ___U_lA____Ma_bH______t__________________
 			echo "thp,mmap,anonymous,compound_head=thp,mmap,anonymous,compound_head"
@@ -72,11 +73,10 @@ prepare_mm_generic() {
 			hugepage_size_support_check || return 1
 		fi
 		set_and_check_hugetlb_pool $HUGETLB
-	fi
-
-	if [ "$HUGETLB_MOUNT" ] ; then
+		HUGETLB_MOUNT=$WDIR/hugetlbfs
 		rm -rf $HUGETLB_MOUNT/* > /dev/null 2>&1
 		umount -f $HUGETLB_MOUNT > /dev/null 2>&1
+		rm -rf $HUGETLB_MOUNT > /dev/null 2>&1
 		mkdir -p $HUGETLB_MOUNT > /dev/null 2>&1
 		mount -t hugetlbfs none $HUGETLB_MOUNT || return 1
 	fi
@@ -98,7 +98,7 @@ prepare_mm_generic() {
 		# show_stat_thp
 	fi
 
-	if [ "$BACKEND" = ksm ] ; then
+	if [ "$BACKEND" == ksm ] || [ "$KSM" ] ; then
 		ksm_on
 		show_ksm_params | tee $TMPD/ksm_params1
 	fi
@@ -125,13 +125,11 @@ cleanup_mm_generic() {
 	echo 3 > /proc/sys/vm/drop_caches
 	sync
 
-	if [ "$HUGETLB_MOUNT" ] ; then
-		rm -rf $HUGETLB_MOUNT/* 2>&1 > /dev/null
-		umount -f $HUGETLB_MOUNT 2>&1 > /dev/null
-	fi
-
 	if [ "$HUGETLB" ] ; then
 		set_and_check_hugetlb_pool 0
+		rm -rf $HUGETLB_MOUNT/* > /dev/null 2>&1
+		umount -f $HUGETLB_MOUNT > /dev/null 2>&1
+		rm -rf $HUGETLB_MOUNT > /dev/null 2>&1
 	fi
 
 	if [ "$HUGETLB_OVERCOMMIT" ] ; then
@@ -147,7 +145,7 @@ cleanup_mm_generic() {
 		# show_stat_thp
 	fi
 
-	if [ "$BACKEND" = ksm ] ; then
+	if [ "$BACKEND" == ksm ] || [ "$KSM" ] ; then
 		show_ksm_params | tee $TMPD/ksm_params2
 		ksm_off
 	fi
@@ -238,6 +236,7 @@ get_mm_stats() {
 		local tag=$2
 
 		get_mm_global_stats $tag
+		check_process_status || return 1
 
 		get_numa_maps $pid > $TMPD/numa_maps.$tag
 		get_smaps_block $pid smaps.$tag 700000 > /dev/null
@@ -247,4 +246,10 @@ get_mm_stats() {
 		cp /proc/$pid/sched $TMPD/proc_sched.$tag
 		taskset -p $pid > $TMPD/taskset.$tag
 	fi
+}
+
+check_process_status() {
+	local pid=$1
+
+	kill -0 $pid 2> /dev/null
 }
