@@ -19,59 +19,65 @@ fi
 _prepare() {
 	set_thp_always
 	set_and_check_hugetlb_pool 200
-    dd if=/dev/zero of=$GTMPD/holefile bs=4096 count=2 > /dev/null 2>&1
-    dd if=/dev/zero of=$GTMPD/holefile bs=4096 count=2 seek=2046 > /dev/null 2>&1
+	dd if=/dev/zero of=$GTMPD/holefile bs=4096 count=2 > /dev/null 2>&1
+	dd if=/dev/zero of=$GTMPD/holefile bs=4096 count=2 seek=2046 > /dev/null 2>&1
+}
+
+_cleanup() {
+	set_thp_always
+	set_and_check_hugetlb_pool 200
+	rm -f $GTMPD/holefile
 }
 
 _control() {
-    local pid="$1"
-    local line="$2"
+	local pid="$1"
+	local line="$2"
 
-    echo "$line" >> $TMPD/mincore
-    echo_log "$line"
-    case "$line" in
-        "start check")
-            kill -SIGUSR1 $pid
-            ;;
-        "entering busy loop")
-            cat /proc/$pid/maps > $TMPD/maps
-            ${PAGETYPES} -p $pid -rl > $TMPD/page-types
-            kill -SIGUSR1 $pid
-            ;;
-        "mincore exit")
-            kill -SIGUSR1 $pid
-            set_return_code "EXIT"
-            return 0
-            ;;
-        *)
-            ;;
-    esac
-    return 1
+	echo "$line" >> $TMPD/mincore
+	echo_log "$line"
+	case "$line" in
+		"start check")
+			kill -SIGUSR1 $pid
+			;;
+		"entering busy loop")
+			cat /proc/$pid/maps > $TMPD/maps
+			${PAGETYPES} -p $pid -rl > $TMPD/page-types
+			kill -SIGUSR1 $pid
+			;;
+		"mincore exit")
+			kill -SIGUSR1 $pid
+			set_return_code "EXIT"
+			return 0
+			;;
+		*)
+			;;
+	esac
+	return 1
 }
 
 # inside cheker you must tee output in you own.
 _check() {
-    check_system_default
-    check_mincore_map "mincore1" '\\b1\\{256\\}0\\{256\\}\\b' || return 1
-    check_mincore_map "mincore2" '\\b1\\{512\\}\\b' || return 1
-    check_mincore_map "mincore3" '\\b1\\{512\\}\\b' || return 1
-    check_mincore_map "mincore4" '\\b1\\{128\\}0\\{128\\}\\b' || return 1
-    check_mincore_map "mincore5" '\\b110\\{2044\\}11\\b' || return 1
-    check_mincore_map "mincore6" '\\b10\\b' || return 1
-    check_mincore_map "mincore7" '\\b10\\b' || return 1
+	check_system_default
+	check_mincore_map "mincore1" '\\b1\\{256\\}0\\{256\\}\\b' || return 1
+	check_mincore_map "mincore2" '\\b1\\{512\\}\\b' || return 1
+	check_mincore_map "mincore3" '\\b1\\{512\\}\\b' || return 1
+	check_mincore_map "mincore4" '\\b1\\{128\\}0\\{128\\}\\b' || return 1
+	check_mincore_map "mincore5" '\\b110\\{2044\\}11\\b' || return 1
+	check_mincore_map "mincore6" '\\b10\\b' || return 1
+	check_mincore_map "mincore7" '\\b10\\b' || return 1
 }
 
 check_mincore_map() {
-    local tag="$1"
-    local pattern="$2"
+	local tag="$1"
+	local pattern="$2"
 
-    count_testcount
-    grep "^$tag" $TMPD/mincore | grep "$pattern" > /dev/null
-    if [ $? -eq 0 ] ; then
-        count_success "correct mincore map in ${tag}."
-        return 0
-    else
-        count_failure "got incorrect mincore map in ${tag} $(grep "${tag}" $TMPD/mincore | cut -f2 -d:)"
-        return 1
-    fi
+	count_testcount
+	grep "^$tag" $TMPD/mincore | grep "$pattern" > /dev/null
+	if [ $? -eq 0 ] ; then
+		count_success "correct mincore map in ${tag}."
+		return 0
+	else
+		count_failure "got incorrect mincore map in ${tag} $(grep "${tag}" $TMPD/mincore | cut -f2 -d:)"
+		return 1
+	fi
 }
