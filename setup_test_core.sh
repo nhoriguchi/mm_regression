@@ -194,6 +194,8 @@ run_controller() {
 cleanup() {
 	# TODO: unneccessary?
 	local cleanfunc
+
+	kill_all_subprograms
 	if [ "$TEST_CLEANUP" ] ; then
 		cleanfunc=$TEST_CLEANUP
 		$TEST_CLEANUP
@@ -201,7 +203,6 @@ cleanup() {
 		cleanfunc=$DEFAULT_TEST_CLEANUP
 		$DEFAULT_TEST_CLEANUP
 	elif [ "$(type -t _cleanup)" = "function" ] ; then
-		kill_all_subprograms
 		_cleanup
 		cleanup_system_default
 	else
@@ -380,7 +381,7 @@ do_test_try() {
 	local ret=0
 	local failure_before="$(cat $TMPD/_failure)"
 
-    echo_log "===> testcase '$TEST_TITLE' start"
+    echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
     # check_test_flag && break
     # check_inclusion_of_fixedby_patch && break
 
@@ -397,8 +398,12 @@ do_test_try() {
     else
 		ret=0
     fi
-    echo_log "<=== testcase '$TEST_TITLE' end"
+    echo_log "<=== testcase '$TEST_TITLE' end" | tee /dev/kmsg
 	return $ret
+}
+
+warmup() {
+	$test_allocate_generic -B anonymous -N 1000 -L "mmap access" > /dev/null 2>&1
 }
 
 # Returns fail if at least one of trails fails. So at least HARD_RETRY times
@@ -406,8 +411,6 @@ do_test_try() {
 do_hard_try() {
 	local ret=0
 	local soft_try=$1
-
-    reset_per_testcase_counters $NEWSTYLE
 
 	if [ ! "$HARD_RETRY" ] ; then
 		do_test_try
@@ -431,6 +434,7 @@ do_hard_try() {
 				break
 				;;
 		esac
+		warmup
 	done
 	return $ret
 }
@@ -460,6 +464,7 @@ do_soft_try() {
 					echo_log "<===== Trial #$soft_try failed"
 					;;
 			esac
+			warmup
 		done
 	fi
 
