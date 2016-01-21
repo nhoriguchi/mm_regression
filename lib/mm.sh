@@ -236,7 +236,7 @@ get_mm_stats() {
 		local tag=$2
 
 		get_mm_global_stats $tag
-		check_process_status || return 1
+		check_process_status $pid || return 1
 
 		get_numa_maps $pid > $TMPD/numa_maps.$tag
 		get_smaps_block $pid smaps.$tag 700000 > /dev/null
