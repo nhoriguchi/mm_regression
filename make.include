@@ -7,7 +7,7 @@ cleanup_recipes:
 	@true
 
 update_recipes:
-	@make cleanup_recipes > /dev/null || true
+	@make cleanup_recipes > /dev/null 2>&1 || true
 	@make split_recipes > /dev/null || true
 	@true
 
