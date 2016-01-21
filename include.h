@@ -77,17 +77,6 @@ unsigned long backend_bitmap = 0;
 #define BE_HUGEPAGE	\
 	(BE_THP|BE_HUGETLB_ANON|BE_HUGETLB_SHMEM|BE_HUGETLB_FILE|BE_NORMAL_SHMEM)
 
-enum {
-	MCE_SRAO,
-	SYSFS_HARD,
-	SYSFS_SOFT,
-	MADV_HARD,
-	MADV_SOFT,
-	NR_INJECTION_TYPES,
-};
-int injection_type = -1;
-int access_after_injection;
-
 static int find_next_backend(int i) {
 	while (i < NR_BACKEND_TYPES) {
 		if (backend_bitmap & (1UL << i))
@@ -645,35 +634,36 @@ static void do_mmap_numa(struct op_control *opc) {
 
 /* inject only onto the first page, so allocating big region makes no sense. */
 static void do_memory_error_injection(struct op_control *opc) {
-	char rbuf[256];
-	unsigned long offset = 0;
-	int ret;
+	char *error_type = opc_get_value(opc, "error_type");
 
-	switch (injection_type) {
-	case MCE_SRAO:
-	case SYSFS_HARD:
-	case SYSFS_SOFT:
-		pprintf("waiting for injection from outside\n");
-		pause();
-		break;
-	case MADV_HARD:
-	case MADV_SOFT:
-		pprintf("error injection with madvise\n");
-		pause();
+	if (!error_type)
+		errmsg("parameter error_type not given\n");
+
+	if (!strcmp(error_type, "mce-srao")
+	    || !strcmp(error_type, "hard-offline")
+	    || !strcmp(error_type, "soft-offline")) {
+		pprintf_wait_func(NULL, opc, "waiting for injection from outside\n");
+	} else if (!strcmp(error_type, "madv_hard")
+		   || !strcmp(error_type, "madv_soft")) {
+		char rbuf[256];
+		unsigned long offset = 0;
+		int ret;
+
+		pprintf_wait_func(NULL, opc, "error injection with madvise\n");
 		pipe_read(rbuf);
 		offset = strtol(rbuf, NULL, 0);
 		Dprintf("madvise inject to addr %lx\n", chunkset[0].p + offset * PS);
-		if ((ret = madvise(chunkset[0].p + offset * PS, PS, injection_type == MADV_HARD ?
-			    MADV_HWPOISON : MADV_SOFT_OFFLINE)) != 0)
+		if ((ret = madvise(chunkset[0].p + offset * PS, PS,
+				   !strcmp(error_type, "madv_hard") ?
+				   MADV_HWPOISON : MADV_SOFT_OFFLINE)) != 0)
 			perror("madvise");
-		pprintf("after madvise injection\n");
-		pause();
-		break;
+		pprintf_wait_func(NULL, opc, "after madvise injection\n");
+	} else {
+		errmsg("unknown error_type: %s\n", error_type);
 	}
 
-	if (access_after_injection) {
-		pprintf("writing affected region\n");
-		pause();
+	if (opc_defined(opc, "access_after_injection")) {
+		pprintf_wait_func(NULL, opc, "writing affected region\n");
 		do_access(NULL);
 	}
 }
@@ -836,43 +826,17 @@ static void do_allocate_more(struct op_control *opc) {
 	memset(panon, 'a', size);
 }
 
-/* inject only onto the first page, so allocating big region makes no sense. */
-void __do_memory_error_injection(void) {
-	char rbuf[256];
-	unsigned long offset = 0;
-
-	switch (injection_type) {
-	case MCE_SRAO:
-	case SYSFS_HARD:
-	case SYSFS_SOFT:
-		pprintf("waiting for injection from outside\n");
-		pause();
-		break;
-	case MADV_HARD:
-	case MADV_SOFT:
-		pprintf("error injection with madvise\n");
-		pause();
-		pipe_read(rbuf);
-		offset = strtol(rbuf, NULL, 0);
-		Dprintf("madvise inject to addr %lx\n", chunkset[0].p + offset * PS);
-		if (madvise(chunkset[0].p + offset * PS, PS, injection_type == MADV_HARD ?
-			    MADV_HWPOISON : MADV_SOFT_OFFLINE) != 0)
-			perror("madvise");
-		pprintf("after madvise injection\n");
-		pause();
-		break;
-	}
-
-	if (access_after_injection) {
-		pprintf("writing affected region\n");
-		pause();
-		do_access(NULL);
-	}
-}
-
-static void __do_madv_stress() {
+static void __do_madv_stress(struct op_control *opc) {
 	int i, j;
-	int madv = (injection_type == MADV_HARD ? MADV_HWPOISON : MADV_SOFT_OFFLINE);
+	int madv;
+
+	char *madv_flag = opc_get_value(opc, "madv_flag");
+	if (!strcmp(madv_flag, "MADV_HWPOISON"))
+		madv = MADV_HWPOISON;
+	else if (!strcmp(madv_flag, "MADV_SOFT_OFFLINE"))
+		madv = MADV_SOFT_OFFLINE;
+	else
+		errmsg("unknown madv_flag: %s\n", madv_flag);
 
 	for (j = 0; j < nr_mem_types; j++) {
 		for (i = 0; i < nr_chunk; i++) {
@@ -888,8 +852,8 @@ static void __do_madv_stress() {
 }
 
 static void do_madv_stress(struct op_control *opc) {
-	__do_madv_stress();
-	if (access_after_injection)
+	__do_madv_stress(opc);
+	if (opc_defined(opc, "access_after_injection"))
 		do_access(NULL);
 }
 
@@ -1065,7 +1029,7 @@ static const char *op_supported_args[][10] = {
 	[NR_move_pages]			= {},
 	[NR_mlock]			= {"hp_partial"},
 	[NR_mlock2]			= {"hp_partial"},
-	[NR_memory_error_injection]	= {"error_type"},
+	[NR_memory_error_injection]	= {"error_type", "access_after_injection"},
 	[NR_auto_numa]			= {"busyloop"},
 	[NR_mprotect]			= {"hp_partial"},
 	[NR_change_cpuset]		= {"busyloop"},
@@ -1081,7 +1045,7 @@ static const char *op_supported_args[][10] = {
 	[NR_fork_stress]		= {},
 	[NR_mbind_pingpong]		= {},
 	[NR_move_pages_pingpong]	= {},
-	[NR_madv_stress]		= {},
+	[NR_madv_stress]		= {"madv_flag", "access_after_injection"},
 	[NR_mbind_fuzz]			= {},
 };
 

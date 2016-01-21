@@ -7,14 +7,18 @@ THP=true
 KSM=true
 
 BACKENDOPT="-B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -B hugetlb_file -B ksm -B normal_shmem"
-OPERATIONS="start mmap access madv_stress"
+OPBASE="start mmap access"
+OP_HARD1="$OPBASE madv_stress:madv_flag=MADV_HWPOISON"
+OP_SOFT1="$OPBASE madv_stress:madv_flag=MADV_SOFT_OFFLINE"
+OP_HARD2="$OPBASE madv_stress:madv_flag=MADV_HWPOISON:access_after_injection"
+OP_SOFT2="$OPBASE madv_stress:madv_flag=MADV_SOFT_OFFLINE:access_after_injection"
 
 _control() {
     for i in $(seq 10) ; do
-		$test_alloc_generic $BACKENDOPT -N 8 -e madv_hard -L "$OPERATIONS" > /dev/null 2>&1 &
-		$test_alloc_generic $BACKENDOPT -N 8 -e madv_soft -L "$OPERATIONS" > /dev/null 2>&1 &
-		$test_alloc_generic $BACKENDOPT -N 8 -e madv_hard -A -L "$OPERATIONS" > /dev/null 2>&1 &
-		$test_alloc_generic $BACKENDOPT -N 8 -e madv_soft -A -L "$OPERATIONS" > /dev/null 2>&1 &
+		$test_alloc_generic $BACKENDOPT -N 8 -L "$OP_HARD1" > /dev/null 2>&1 &
+		$test_alloc_generic $BACKENDOPT -N 8 -L "$OP_SOFT1" > /dev/null 2>&1 &
+		$test_alloc_generic $BACKENDOPT -N 8 -L "$OP_HARD2" > /dev/null 2>&1 &
+		$test_alloc_generic $BACKENDOPT -N 8 -L "$OP_SOFT2" > /dev/null 2>&1 &
     done
 	sleep 3
 

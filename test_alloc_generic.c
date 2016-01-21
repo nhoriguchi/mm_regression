@@ -33,9 +33,6 @@ static void setup(void) {
 		nr_p = 1; /* -n option shouldn't work */
 	}
 
-	if (access_after_injection && injection_type == -1)
-		err("-A is set, but -e is not set, which is meaningless.");
-
 	nr_chunk = (nr_p - 1) / CHUNKSIZE + 1;
 	nr_mem_types = get_nr_mem_types();
 	nr_all_chunks = nr_chunk * nr_mem_types;
@@ -53,7 +50,7 @@ int main(int argc, char *argv[]) {
 
 	signal(SIGUSR1, sig_handle);
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:e:B:AM:FL:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:B:M:FL:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -91,20 +88,6 @@ int main(int argc, char *argv[]) {
 					err("set_mempolicy");
 			}
 			break;
-		case 'e':
-			if (!strcmp(optarg, "mce-srao"))
-				injection_type = MCE_SRAO;
-			else if (!strcmp(optarg, "hard-offline"))
-				injection_type = SYSFS_HARD;
-			else if (!strcmp(optarg, "soft-offline"))
-				injection_type = SYSFS_SOFT;
-			else if (!strcmp(optarg, "madv_hard"))
-				injection_type = MADV_HARD;
-			else if (!strcmp(optarg, "madv_soft"))
-				injection_type = MADV_SOFT;
-			else
-				errmsg("invalid -e option %s\n", optarg);
-			break;
 		case 'B':
 			if (!strcmp(optarg, "pagecache")) {
 				backend_bitmap |= BE_PAGECACHE;
@@ -134,9 +117,6 @@ int main(int argc, char *argv[]) {
 				printf("backend_bitmap %lx, %d\n",
 				       backend_bitmap, get_nr_mem_types());
 			}
-			break;
-		case 'A':
-			access_after_injection = 1;
 			break;
 		case 'M':
 			/* this filter is used for choosing memblk to be hotremoved */
