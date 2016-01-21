@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 
 	signal(SIGUSR1, sig_handle);
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:e:B:Ad:M:RFL:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:e:B:Ad:M:FL:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -150,9 +150,6 @@ int main(int argc, char *argv[]) {
 		case 'M':
 			/* this filter is used for choosing memblk to be hotremoved */
 			parse_bits_mask(optarg);
-			break;
-		case 'R':
-			mapflag |= MAP_NORESERVE;
 			break;
 		case 'F':
 			forkflag = 1;

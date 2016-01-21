@@ -2,13 +2,11 @@
 #!1 MIGRATE_SRC: migratepages mbind move_pages madv_soft
 #!1 BACKGROUND: none
 #!1 OVERCOMMIT: overcommit noovercommit
-#!1 RESERVE: reserve noreserve
 
 #!2 BACKEND: hugetlb_anon
 #!2 MIGRATE_SRC: migratepages mbind move_pages madv_soft
 #!2 BACKGROUND: reserve
 #!2 OVERCOMMIT: overcommit noovercommit
-#!2 RESERVE: reserve noreserve
 
 # "allocate0 + noovercommit" case is meaningless testcases because test program
 # always fail to allocate hugepage from node 0 and killed by SIGBUS before trying
@@ -97,12 +95,9 @@ if [[ "$BACKEND" =~ hugetlb ]] && [ "$MIGRATE_SRC" != hotremove ] ; then
 		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
 	fi
 
-	if [ __MARK_RESERVE == noreserve ] ; then
-		NORESERVEFLAG=-R
-	fi
 	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
 
-	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 2 $NORESERVEFLAG $BUSYOPT -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 2 $BUSYOPT -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
 elif [[ "$BACKEND" =~ hugetlb ]] ; then # hotremove
 	HUGETLB=$[$MEMTOTAL/$HUGEPAGESIZE/2]
 	HUGETLB_ALLOCATED=$[HUGETLB*4/5]
