@@ -175,7 +175,6 @@ control_hugepage_migration() {
 					else
 						set_return_code MIGRATION_FAILED
 					fi
-
 					check_migration_hugeness
 					ret=$?
 					if [ "$ret" == 0 ] ; then

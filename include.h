@@ -77,8 +77,6 @@ unsigned long backend_bitmap = 0;
 #define BE_HUGEPAGE	\
 	(BE_THP|BE_HUGETLB_ANON|BE_HUGETLB_SHMEM|BE_HUGETLB_FILE|BE_NORMAL_SHMEM)
 
-int mpol_mode_for_page_migration = MPOL_PREFERRED;
-
 enum {
 	MCE_SRAO,
 	SYSFS_HARD,
@@ -386,8 +384,6 @@ static int do_work_memory(int (*func)(char *p, int size, void *arg), void *args)
 	return ret;
 }
 
-int hp_partial;
-
 /*
  * Memory block size is 128MB (1 << 27) = 32k pages (1 << 15)
  */
@@ -430,13 +426,14 @@ struct mbind_arg {
 	int mode;
 	unsigned flags;
 	struct bitmask *new_nodes;
+	int hp_partial;
 };
 
 static int __mbind_chunk(char *p, int size, void *args) {
 	int i;
 	struct mbind_arg *mbind_arg = (struct mbind_arg *)args;
 
-	if (hp_partial) {
+	if (mbind_arg->hp_partial) {
 		for (i = 0; i < (size - 1) / 512 + 1; i++)
 			mbind(p + i * HPS, PS,
 			      mbind_arg->mode, mbind_arg->new_nodes->maskp,
@@ -447,10 +444,12 @@ static int __mbind_chunk(char *p, int size, void *args) {
 		      mbind_arg->new_nodes->size + 1, mbind_arg->flags);
 }
 
-static void do_mbind(int mode, int nid) {
+/* TODO: make mode, nid configurable from caller */
+static void do_mbind(struct op_control *opc) {
 	struct mbind_arg mbind_arg = {
 		.mode = MPOL_BIND,
 		.flags = MPOL_MF_MOVE|MPOL_MF_STRICT,
+		.hp_partial = opc_defined(opc, "hp_partial"),
 	};
 
 	mbind_arg.new_nodes = numa_bitmask_alloc(nr_nodes);
@@ -586,7 +585,7 @@ static void do_hotremove(struct op_control *opc) {
 
 	pmemblk = memblock_check();
 
-	pprintf_wait_func(busyloop ? do_access : NULL, NULL,
+	pprintf_wait_func(opc_defined(opc, "busyloop") ? do_access : NULL, opc,
 			  "waiting for memory_hotremove: %d\n", pmemblk);
 }
 
@@ -612,12 +611,12 @@ static void do_madv_soft(struct op_control *opc) {
 
 static void do_auto_numa(struct op_control *opc) {
 	numa_sched_setaffinity_node(1);
-	pprintf_wait_func(busyloop ? do_access : NULL, NULL,
+	pprintf_wait_func(opc_defined(opc, "busyloop") ? do_access : NULL, opc,
 			  "waiting for auto_numa\n");
 }
 
 static void do_change_cpuset(struct op_control *opc) {
-	pprintf_wait_func(busyloop ? do_access : NULL, NULL,
+	pprintf_wait_func(opc_defined(opc, "busyloop") ? do_access : NULL, opc,
 			  "waiting for change_cpuset\n");
 }
 
@@ -711,15 +710,16 @@ static void do_process_vm_access(struct op_control *opc) {
 		err("set_mempolicy(MPOL_PREFERRED) to 0");
 
 	pid = fork_access();
-	pprintf_wait_func(busyloop ? do_access : NULL, NULL,
+	pprintf_wait_func(opc_defined(opc, "busyloop") ? do_access : NULL, opc,
 			  "waiting for process_vm_access\n");
 	do_work_memory(__process_vm_access_chunk, &pid);
 }
 
 static int __mlock_chunk(char *p, int size, void *args) {
 	int i;
+	struct op_control *opc = (struct op_control *)args;
 
-	if (hp_partial) {
+	if (opc_defined(opc, "hp_partial")) {
 		for (i = 0; i < (size - 1) / 512 + 1; i++)
 			mlock(p + i * HPS, PS);
 	} else
@@ -729,7 +729,7 @@ static int __mlock_chunk(char *p, int size, void *args) {
 static void do_mlock(struct op_control *opc) {
 	if (forkflag)
 		fork_access();
-	do_work_memory(__mlock_chunk, NULL);
+	do_work_memory(__mlock_chunk, opc);
 }
 
 /* only true for x86_64 */
@@ -737,8 +737,9 @@ static void do_mlock(struct op_control *opc) {
 
 static int __mlock2_chunk(char *p, int size, void *args) {
 	int i;
+	struct op_control *opc = (struct op_control *)args;
 
-	if (hp_partial) {
+	if (opc_defined(opc, "hp_partial")) {
 		for (i = 0; i < (size - 1) / 512 + 1; i++)
 			syscall(__NR_mlock2, p + i * HPS, PS, 1);
 	} else
@@ -748,13 +749,14 @@ static int __mlock2_chunk(char *p, int size, void *args) {
 static void do_mlock2(struct op_control *opc) {
 	if (forkflag)
 		fork_access();
-	do_work_memory(__mlock2_chunk, NULL);
+	do_work_memory(__mlock2_chunk, opc);
 }
 
 static int __mprotect_chunk(char *p, int size, void *args) {
 	int i;
+	struct op_control *opc = (struct op_control *)args;
 
-	if (hp_partial) {
+	if (opc_defined(opc, "hp_partial")) {
 		for (i = 0; i < (size - 1) / 512 + 1; i++)
 			mprotect(p + i * HPS, PS, protflag|PROT_EXEC);
 	} else
@@ -764,7 +766,7 @@ static int __mprotect_chunk(char *p, int size, void *args) {
 static void do_mprotect(struct op_control *opc) {
 	if (forkflag)
 		fork_access();
-	do_work_memory(__mprotect_chunk, NULL);
+	do_work_memory(__mprotect_chunk, opc);
 }
 
 static void allocate_transhuge(void *ptr)
@@ -953,8 +955,6 @@ static int iterate_mbind_pingpong(void *arg) {
 }
 
 static void do_mbind_pingpong(struct op_control *opc) {
-	int ret;
-	int node;
 	struct mbind_arg mbind_arg = {
 		.mode = MPOL_BIND,
 		.flags = MPOL_MF_MOVE|MPOL_MF_STRICT,
@@ -1043,6 +1043,10 @@ static const char *operation_name[] = {
 	[NR_mbind_fuzz]			= "mbind_fuzz",
 };
 
+/*
+ * TODO: hp_partial is relevant only for hugetlb/thp, so backend type check
+ * should be useful.
+ */
 static const char *op_supported_args[][10] = {
 	[NR_start]			= {},
 	[NR_exit]			= {},
@@ -1051,14 +1055,14 @@ static const char *op_supported_args[][10] = {
 	[NR_access]			= {},
 	[NR_busyloop]			= {},
 	[NR_munmap]			= {},
-	[NR_mbind]			= {},
+	[NR_mbind]			= {"hp_partial"},
 	[NR_move_pages]			= {},
-	[NR_mlock]			= {},
-	[NR_mlock2]			= {},
+	[NR_mlock]			= {"hp_partial"},
+	[NR_mlock2]			= {"hp_partial"},
 	[NR_memory_error_injection]	= {"error_type"},
-	[NR_auto_numa]			= {},
-	[NR_mprotect]			= {},
-	[NR_change_cpuset]		= {},
+	[NR_auto_numa]			= {"busyloop"},
+	[NR_mprotect]			= {"hp_partial"},
+	[NR_change_cpuset]		= {"busyloop"},
 	[NR_migratepages]		= {"busyloop"},
 	[NR_memory_compaction]		= {},
 	[NR_allocate_more]		= {},
@@ -1066,8 +1070,8 @@ static const char *op_supported_args[][10] = {
 	[NR_madv_soft]			= {},
 	[NR_iterate_mapping]		= {},
 	[NR_mremap_stress]		= {},
-	[NR_hotremove]			= {},
-	[NR_process_vm_access]		= {},
+	[NR_hotremove]			= {"busyloop"},
+	[NR_process_vm_access]		= {"busyloop"},
 	[NR_fork_stress]		= {},
 	[NR_mbind_pingpong]		= {},
 	[NR_move_pages_pingpong]	= {},
@@ -1219,7 +1223,7 @@ static void do_operation_loop(void) {
 		} else if (!strcmp(opc.name, "munmap")) {
 			do_munmap(&opc);
 		} else if (!strcmp(opc.name, "mbind")) {
-			do_mbind(mpol_mode_for_page_migration, 1);
+			do_mbind(&opc);
 		} else if (!strcmp(opc.name, "move_pages")) {
 			do_move_pages(&opc);
 		} else if (!strcmp(opc.name, "mlock")) {

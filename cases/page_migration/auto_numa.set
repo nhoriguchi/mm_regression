@@ -22,4 +22,4 @@ fi
 # option to node 0. And during waiting the memeat thread must keep accessing
 # the target region to drive NUMA hinting fault (done by -b).
 # TODO: replace -C/-b option with operation arg
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 20 -C 0 -b -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 20 -C 0 -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC:busyloop munmap:wait_before exit:wait_before'"

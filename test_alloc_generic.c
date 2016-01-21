@@ -42,12 +42,7 @@ static void setup(void) {
 	if (access_after_injection && injection_type == -1)
 		err("-A is set, but -e is not set, which is meaningless.");
 
-	if (!(backend_bitmap & BE_HUGEPAGE) && hp_partial) {
-		err("hp_partial (-P) option is useful only for hugepages");
-	}
-
 	nr_chunk = (nr_p - 1) / CHUNKSIZE + 1;
-
 	nr_mem_types = get_nr_mem_types();
 	nr_all_chunks = nr_chunk * nr_mem_types;
 
@@ -64,7 +59,7 @@ int main(int argc, char *argv[]) {
 
 	signal(SIGUSR1, sig_handle);
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:e:PB:Ad:M:RFO:C:L:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:e:B:Ad:M:RFO:C:L:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -115,9 +110,6 @@ int main(int argc, char *argv[]) {
 				injection_type = MADV_SOFT;
 			else
 				errmsg("invalid -e option %s\n", optarg);
-			break;
-		case 'P': /* do the operation for hugepage partially */
-			hp_partial = 1;
 			break;
 		case 'B':
 			if (!strcmp(optarg, "pagecache")) {

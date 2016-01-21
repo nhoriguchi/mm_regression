@@ -69,5 +69,5 @@ elif [ "$RACE_SRC" == race_with_mremap ] ; then
 else
 	# no race mbind/partial case
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_DISAPPEARED THP_SPLIT EXIT"
-	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -b -P -L 'start:wait_after mmap_numa access:wait_after mbind munmap:wait_before exit:wait_before'"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -b -L 'start:wait_after mmap_numa access:wait_after mbind:hp_partial munmap:wait_before exit:wait_before'"
 fi
