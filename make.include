@@ -1,11 +1,11 @@
-split_recipes: get_test_core
+split_recipes:
 	@ruby test_core/lib/split_recipe.rb
 
-cleanup_recipes: get_test_core
+cleanup_recipes:
 	@find cases -type f -name *.auto | xargs rm
 	@true
 
-update_recipes: get_test_core
+update_recipes:
 	@make cleanup_recipes > /dev/null || true
 	@make split_recipes > /dev/null || true
 	@true
@@ -14,9 +14,9 @@ summary:
 	@ruby test_core/lib/test_summar.rb
 	@true
 
-version: get_test_core
+version:
 	@bash test_core/run-test-new.sh -V
 
-allrecipes: get_test_core
+allrecipes:
 	@find cases -type f | bash test_core/lib/filter_recipe.sh
 	@true
