@@ -11,11 +11,12 @@ update_recipes:
 	@true
 
 summary:
-	@ruby test_core/lib/test_summar.rb
+	@ruby test_core/lib/test_summary.rb
 	@true
 
 version:
-	@bash test_core/run-test-new.sh -V
+	@git log -n1 --pretty="Test version: format:%H %s"
+	@git --git-dir test_core/.git log -n1 --pretty="Test Core version: format:%H %s"
 
 allrecipes:
 	@find cases -type f | bash test_core/lib/filter_recipe.sh
