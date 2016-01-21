@@ -8,7 +8,6 @@
 int flag = 1;
 
 void sig_handle(int signo) { ; }
-void sig_handle_flag(int signo) { flag = 0; }
 
 #define ADDR_INPUT 0x700000000000
 
@@ -567,12 +566,16 @@ static int memblock_check(void) {
 
 static void do_hotremove(struct op_control *opc) {
 	int pmemblk; /* preferred memory block for hotremove */
+	char *pageflags = opc_get_value(opc, "pageflags");
+
+	if (!pageflags)
+		errmsg("hotremove:pageflags parameter not given\n");
+	parse_bits_mask(pageflags);
 
 	if (set_mempolicy_node(MPOL_PREFERRED, 1) == -1)
 		err("set_mempolicy(MPOL_PREFERRED) to 1");
 
 	pmemblk = memblock_check();
-
 	pprintf_wait_func(opc_defined(opc, "busyloop") ? do_access : NULL, opc,
 			  "waiting for memory_hotremove: %d\n", pmemblk);
 }
@@ -1039,7 +1042,7 @@ static const char *op_supported_args[][10] = {
 	[NR_madv_soft]			= {},
 	[NR_iterate_mapping]		= {},
 	[NR_mremap_stress]		= {},
-	[NR_hotremove]			= {"busyloop"},
+	[NR_hotremove]			= {"busyloop", "pageflags"},
 	[NR_process_vm_access]		= {"busyloop"},
 	[NR_fork_stress]		= {},
 	[NR_mbind_pingpong]		= {},
