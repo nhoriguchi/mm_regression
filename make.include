@@ -1,8 +1,9 @@
 split_recipes:
-	@ruby test_core/lib/split_recipe.rb
+	@ruby test_core/lib/split_recipe.rb > /dev/null
+	@true
 
 cleanup_recipes:
-	@find cases -type f -name *.auto | xargs rm
+	@find cases -type f -name *.auto | xargs rm > /dev/null
 	@true
 
 update_recipes:
@@ -15,8 +16,9 @@ summary:
 	@true
 
 version:
-	@git log -n1 --pretty="Test version: format:%H %s"
-	@git --git-dir test_core/.git log -n1 --pretty="Test Core version: format:%H %s"
+	@git --no-pager log -n1 --pretty="Test version: format:%H %s"
+	@git --no-pager --git-dir test_core/.git log -n1 --pretty="Test Core version: format:%H %s"
+	@true
 
 allrecipes:
 	@find cases -type f | bash test_core/lib/filter_recipe.sh
