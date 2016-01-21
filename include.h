@@ -620,11 +620,17 @@ static void do_change_cpuset(struct op_control *opc) {
 			  "waiting for change_cpuset\n");
 }
 
-/* default (-1) means no preferred node */
-int preferred_cpu_node = -1;
-int preferred_mem_node = 0;
-
 static void do_mmap_numa(struct op_control *opc) {
+	char *p_cpu = opc_get_value(opc, "preferred_cpu_node");
+	char *p_mem = opc_get_value(opc, "preferred_mem_node");
+	int preferred_cpu_node = -1; /* default (-1) means no preferred node */
+	int preferred_mem_node = 0;
+
+	if (p_cpu)
+		preferred_cpu_node = strtol(p_cpu, NULL, 0);
+	if (p_mem)
+		preferred_mem_node = strtol(p_mem, NULL, 0);
+
 	if (preferred_cpu_node != -1)
 		numa_sched_setaffinity_node(preferred_cpu_node);
 
@@ -1051,7 +1057,7 @@ static const char *op_supported_args[][10] = {
 	[NR_start]			= {},
 	[NR_exit]			= {},
 	[NR_mmap]			= {},
-	[NR_mmap_numa]			= {},
+	[NR_mmap_numa]			= {"preferred_cpu_node", "preferred_mem_node"},
 	[NR_access]			= {},
 	[NR_busyloop]			= {},
 	[NR_munmap]			= {},

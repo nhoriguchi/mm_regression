@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 
 	signal(SIGUSR1, sig_handle);
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:e:B:Ad:M:RFO:C:L:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:e:B:Ad:M:RFL:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -156,12 +156,6 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'F':
 			forkflag = 1;
-			break;
-		case 'O':
-			preferred_mem_node = strtoul(optarg, NULL, 0);
-			break;
-		case 'C':
-			preferred_cpu_node = strtoul(optarg, NULL, 0);
 			break;
 		case 'L':
 			parse_operations(optarg);
