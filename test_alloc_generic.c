@@ -19,17 +19,11 @@
 
 /* TODO: validation options' combination more */
 static void setup(void) {
-	if (backend_bitmap & BE_PAGECACHE) {
-		if (!workdir)
-			err("you must set workdir with -d option to allocate pagecache");
+	if (backend_bitmap & BE_PAGECACHE)
 		create_regular_file();
-	}
 
-	if (backend_bitmap & BE_HUGETLB_FILE) {
-		if (!workdir)
-			err("you must set workdir with -d option to allocate hugetlbfs file");
+	if (backend_bitmap & BE_HUGETLB_FILE)
 		create_hugetlbfs_file();
-	}
 
 	if (backend_bitmap & BE_DEVMEM) {
 		if (backend_bitmap & ~BE_DEVMEM) {
@@ -59,7 +53,7 @@ int main(int argc, char *argv[]) {
 
 	signal(SIGUSR1, sig_handle);
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:e:B:Ad:M:FL:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bm:e:B:AM:FL:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -143,9 +137,6 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'A':
 			access_after_injection = 1;
-			break;
-		case 'd': /* tmpdir/workdir */
-			workdir = optarg;
 			break;
 		case 'M':
 			/* this filter is used for choosing memblk to be hotremoved */
