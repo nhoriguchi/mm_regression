@@ -21,7 +21,6 @@ unsigned long nodemask;
 #define BUFNR 0x10000 /* 65536 */
 #define CHUNKSIZE 0x1000 /* 4096 pages */
 
-int mapflag = MAP_ANONYMOUS|MAP_PRIVATE;
 int protflag = PROT_READ|PROT_WRITE;
 
 int nr_p = 512;

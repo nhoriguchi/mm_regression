@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 
 	signal(SIGUSR1, sig_handle);
 
-	while ((c = getopt(argc, argv, "vp:n:N:bm:B:M:FL:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bB:M:FL:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -72,21 +72,6 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'b':
 			busyloop = 1;
-			break;
-		case 'm':
-			/* TODO: fix dirty hack */
-			if (!strcmp(optarg, "private")) {
-				mapflag |= MAP_PRIVATE;
-				mapflag &= ~MAP_SHARED;
-			} else if (!strcmp(optarg, "shared")) {
-				mapflag &= ~MAP_PRIVATE;
-				mapflag |= MAP_SHARED;
-			} else {
-				nodemask = strtoul(optarg, NULL, 0);
-				printf("%lx\n", nodemask);
-				if (set_mempolicy(MPOL_BIND, &nodemask, nr_nodes) == -1)
-					err("set_mempolicy");
-			}
 			break;
 		case 'B':
 			if (!strcmp(optarg, "pagecache")) {
