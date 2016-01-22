@@ -134,6 +134,39 @@ static char *opc_get_value(struct op_control *opc, char *key) {
 	return NULL;
 }
 
+static void print_opc(struct op_control *opc) {
+	int i;
+
+	printf("===> op_name:%s", opc->name);
+	for (i = 0; i < opc->nr_args; i++) {
+		if (!strcmp(opc->values[i], ""))
+			printf(", %s", opc->keys[i]);
+		else
+			printf(", %s=%s", opc->keys[i], opc->values[i]);
+	}
+	printf("\n");
+}
+
+static char *opc_set_value(struct op_control *opc, char *key, char *value) {
+	int i;
+
+	for (i = 0; i < opc->nr_args; i++) {
+		if (!strcmp(opc->keys[i], key)) {
+			/* existing value is overwritten */
+			/* TODO: error check? */
+			return strcpy(opc->values[i], value);
+		}
+	}
+	/* key not found in existing args, so new arg is added */
+	/* TODO: remove arg? */
+	opc->keys[i] = calloc(1, 64);
+	opc->values[i] = calloc(1, 64);
+	opc->nr_args++;
+	strcpy(opc->keys[i], key);
+	strcpy(opc->values[i], value);
+	return NULL;
+}
+
 /*
  * @i is current chunk index. In the last chunk mmaped size will be truncated.
  */
@@ -296,14 +329,20 @@ static void prepare_memory(struct mem_chunk *mc, void *baseaddr,
 	}
 }
 
-static void access_memory(struct mem_chunk *mc) {
-	if (mc->mem_type == ZERO || mc->mem_type == HUGE_ZERO)
+static void access_memory(struct mem_chunk *mc, char *type) {
+	if (!type) { /* default access type of a given backend type */
+		if (mc->mem_type == ZERO || mc->mem_type == HUGE_ZERO)
+			read_memory(mc->p, mc->chunk_size);
+		else if (mc->mem_type == DEVMEM) {
+			memset(mc->p, 'a', PS);
+			memset(mc->p + 2 * PS, 'a', PS);
+		} else
+			memset(mc->p, 'a', mc->chunk_size);
+	} else if (!strcmp(type, "read")) {
 		read_memory(mc->p, mc->chunk_size);
-	else if (mc->mem_type == DEVMEM) {
-		memset(mc->p, 'a', PS);
-		memset(mc->p + 2 * PS, 'a', PS);
-	} else
+	} else if (!strcmp(type, "write")) {
 		memset(mc->p, 'a', mc->chunk_size);
+	}
 }
 
 static void do_mmap(struct op_control *opc) {
@@ -342,12 +381,16 @@ static void do_munmap(struct op_control *opc) {
 			munmap_memory(&chunkset[i + j * nr_chunk]);
 }
 
-static int do_access(void *arg) {
+static int do_access(void *ptr) {
 	int i, j;
+	struct op_control *opc = (struct op_control *)ptr;
+	char *type = opc_get_value(opc, "type");
 
+	if (type && !strcmp(type, "read") && !strcmp(type, "write"))
+		errmsg("invalid parameter access:type=%s\n", type);
 	for (j = 0; j < nr_mem_types; j++)
 		for (i = 0; i < nr_chunk; i++)
-			access_memory(&chunkset[i + j * nr_chunk]);
+			access_memory(&chunkset[i + j * nr_chunk], type);
 }
 
 static int do_work_memory(int (*func)(char *p, int size, void *arg), void *args) {
@@ -666,7 +709,7 @@ static void do_memory_error_injection(struct op_control *opc) {
 
 	if (opc_defined(opc, "access_after_injection")) {
 		pprintf_wait_func(NULL, opc, "writing affected region\n");
-		do_access(NULL);
+		do_access(opc);
 	}
 }
 
@@ -687,12 +730,12 @@ static int __process_vm_access_chunk(char *p, int size, void *args) {
 	/* printf("0x%lx bytes read, p[0] = %c\n", nread, p[0]); */
 }
 
-static pid_t fork_access(void) {
+static pid_t fork_access(struct op_control *opc) {
 	pid_t pid = fork();
 
 	if (!pid) {
 		/* Expecting COW, but it doesn't happend in zero page */
-		do_access(NULL);
+		do_access(opc);
 		pause();
 		return 0;
 	}
@@ -707,7 +750,7 @@ static void do_process_vm_access(struct op_control *opc) {
 	if (set_mempolicy_node(MPOL_PREFERRED, 0) == -1)
 		err("set_mempolicy(MPOL_PREFERRED) to 0");
 
-	pid = fork_access();
+	pid = fork_access(opc);
 	pprintf_wait_func(opc_defined(opc, "busyloop") ? do_access : NULL, opc,
 			  "waiting for process_vm_access\n");
 	do_work_memory(__process_vm_access_chunk, &pid);
@@ -726,7 +769,7 @@ static int __mlock_chunk(char *p, int size, void *args) {
 
 static void do_mlock(struct op_control *opc) {
 	if (forkflag)
-		fork_access();
+		fork_access(opc);
 	do_work_memory(__mlock_chunk, opc);
 }
 
@@ -746,7 +789,7 @@ static int __mlock2_chunk(char *p, int size, void *args) {
 
 static void do_mlock2(struct op_control *opc) {
 	if (forkflag)
-		fork_access();
+		fork_access(opc);
 	do_work_memory(__mlock2_chunk, opc);
 }
 
@@ -763,7 +806,7 @@ static int __mprotect_chunk(char *p, int size, void *args) {
 
 static void do_mprotect(struct op_control *opc) {
 	if (forkflag)
-		fork_access();
+		fork_access(opc);
 	do_work_memory(__mprotect_chunk, opc);
 }
 
@@ -786,35 +829,45 @@ static void allocate_transhuge(void *ptr)
 	}
 }
 
+struct memory_compaction_arg {
+	size_t ram;
+	size_t len;
+	void *ptr;
+};
+
+static int __do_memory_compaction(void *args) {
+	char *p;
+	struct memory_compaction_arg *mc_arg = (struct memory_compaction_arg *)args;
+
+	for (p = mc_arg->ptr; p < mc_arg->ptr + mc_arg->len; p += THPS) {
+		allocate_transhuge(p);
+		/* split transhuge page, keep last page */
+		if (madvise(p, THPS - PAGE_SIZE, MADV_DONTNEED))
+			err("MADV_DONTNEED");
+	}
+}
+
 static void do_memory_compaction(struct op_control *opc) {
-	size_t ram, len;
-	void *ptr, *p;
+	struct memory_compaction_arg mc_arg = {
+		.ram = 0,
+	};
 
-	ram = sysconf(_SC_PHYS_PAGES);
-	if (ram > SIZE_MAX / sysconf(_SC_PAGESIZE) / 4)
-		ram = SIZE_MAX / 4;
+	mc_arg.ram = sysconf(_SC_PHYS_PAGES);
+	if (mc_arg.ram > SIZE_MAX / sysconf(_SC_PAGESIZE) / 4)
+		mc_arg.ram = SIZE_MAX / 4;
 	else
-		ram *= sysconf(_SC_PAGESIZE);
-	Dprintf("===> %lx\n", ram);
-	len = ram;
-	Dprintf("===> %lx\n", len);
-	len -= len % THPS;
-	ptr = mmap((void *)ADDR_INPUT, len + THPS, PROT_READ | PROT_WRITE,
-			MAP_ANONYMOUS | MAP_NORESERVE | MAP_PRIVATE, -1, 0);
+		mc_arg.ram *= sysconf(_SC_PAGESIZE);
+	mc_arg.len = mc_arg.ram;
+	mc_arg.len -= mc_arg.len % THPS;
+	mc_arg.ptr = mmap((void *)ADDR_INPUT, mc_arg.len + THPS,
+			  PROT_READ | PROT_WRITE,
+			  MAP_ANONYMOUS | MAP_NORESERVE | MAP_PRIVATE, -1, 0);
 
-	if (madvise(ptr, len, MADV_HUGEPAGE))
+	if (madvise(mc_arg.ptr, mc_arg.len, MADV_HUGEPAGE))
 		err("MADV_HUGEPAGE");
 
-	/* TODO: move to pprintf_wait_func */
-	pprintf("entering busy loop\n");
-	while (flag) {
-		for (p = ptr; p < ptr + len; p += THPS) {
-			allocate_transhuge(p);
-			/* split transhuge page, keep last page */
-			if (madvise(p, THPS - PAGE_SIZE, MADV_DONTNEED))
-				err("MADV_DONTNEED");
-		}
-	}
+	pprintf_wait_func(__do_memory_compaction, &mc_arg,
+			  "now doing memory compaction\n");
 }
 
 static void do_allocate_more(struct op_control *opc) {
@@ -856,14 +909,14 @@ static void __do_madv_stress(struct op_control *opc) {
 static void do_madv_stress(struct op_control *opc) {
 	__do_madv_stress(opc);
 	if (opc_defined(opc, "access_after_injection"))
-		do_access(NULL);
+		do_access(opc);
 }
 
 static void do_fork_stress(struct op_control *opc) {
 	while (flag) {
 		pid_t pid = fork();
 		if (!pid) {
-			do_access(NULL);
+			do_access(opc);
 			return;
 		}
 		/* get status? */
@@ -909,7 +962,7 @@ static void do_madv_willneed(struct op_control *opc) {
 static void do_iterate_mapping(struct op_control *opc) {
 	while (flag) {
 		do_mmap(opc);
-		do_access(NULL);
+		do_access(opc);
 		do_munmap(opc);
 	}
 }
@@ -950,6 +1003,35 @@ static void do_move_pages_pingpong(struct op_control *opc) {
 	}
 }
 
+static void do_fork(struct op_control *opc) {
+	pid_t pid = fork();
+	if (!pid) {
+		opc->name = "access";
+		opc->wait_after = 1;
+		opc_set_value(opc, "type", "read");
+		testpipe = NULL;
+		do_access(opc);
+		return;
+	}
+}
+
+/* TODO: chunk should be thp */
+static int __do_split_thp_chunk(char *p, int size, void *args) {
+	int i;
+
+	for (i = 0; i * THPS < size; i++)
+		madvise(p + i * THPS, PS, MADV_DONTNEED);
+}
+
+static void do_split_thp(struct op_control *opc) {
+	if (opc_defined(opc, "only_pmd"))
+		do_work_memory(__do_split_thp_chunk, opc);
+	else {
+		opc_set_value(opc, "hp_partial", "");
+		do_mbind(opc);
+	}
+}
+
 enum {
 	NR_start,
 	NR_exit,
@@ -980,6 +1062,8 @@ enum {
 	NR_move_pages_pingpong,
 	NR_madv_stress,
 	NR_mbind_fuzz,
+	NR_fork,
+	NR_split_thp,
 	NR_OPERATIONS,
 };
 
@@ -1013,6 +1097,8 @@ static const char *operation_name[] = {
 	[NR_move_pages_pingpong]	= "move_pages_pingpong",
 	[NR_madv_stress]		= "madv_stress",
 	[NR_mbind_fuzz]			= "mbind_fuzz",
+	[NR_fork]			= "fork",
+	[NR_split_thp]			= "split_thp",
 };
 
 /*
@@ -1024,7 +1110,7 @@ static const char *op_supported_args[][10] = {
 	[NR_exit]			= {},
 	[NR_mmap]			= {},
 	[NR_mmap_numa]			= {"preferred_cpu_node", "preferred_mem_node"},
-	[NR_access]			= {},
+	[NR_access]			= {"type"},
 	[NR_busyloop]			= {},
 	[NR_munmap]			= {},
 	[NR_mbind]			= {"hp_partial"},
@@ -1049,6 +1135,8 @@ static const char *op_supported_args[][10] = {
 	[NR_move_pages_pingpong]	= {},
 	[NR_madv_stress]		= {"madv_flag", "access_after_injection"},
 	[NR_mbind_fuzz]			= {},
+	[NR_fork]			= {},
+	[NR_split_thp]			= {"only_pmd"},
 };
 
 static int get_op_index(struct op_control *opc) {
@@ -1093,19 +1181,6 @@ static int parse_operation_arg(struct op_control *opc) {
 			       opc->name, opc->keys[i]);
 	}
 	return 0;
-}
-
-static void print_opc(struct op_control *opc) {
-	int i;
-
-	printf("===> op_name:%s", opc->name);
-	for (i = 0; i < opc->nr_args; i++) {
-		if (!strcmp(opc->values[i], ""))
-			printf(", %s", opc->keys[i]);
-		else
-			printf(", %s=%s", opc->keys[i], opc->values[i]);
-	}
-	printf("\n");
 }
 
 char *op_args[256];
@@ -1189,7 +1264,7 @@ static void do_operation_loop(void) {
 			need_numa();
 			do_mmap_numa(&opc);
 		} else if (!strcmp(opc.name, "access")) {
-			do_access(NULL);
+			do_access(&opc);
 		} else if (!strcmp(opc.name, "busyloop")) {
 			do_busyloop(&opc);
 		} else if (!strcmp(opc.name, "munmap")) {
@@ -1238,6 +1313,10 @@ static void do_operation_loop(void) {
 			do_madv_stress(&opc);
 		} else if (!strcmp(opc.name, "mbind_fuzz")) {
 			do_mbind_fuzz(&opc);
+		} else if (!strcmp(opc.name, "fork")) {
+			do_fork(&opc);
+		} else if (!strcmp(opc.name, "split_thp")) {
+			do_split_thp(&opc);
 		} else
 			errmsg("unsupported op_string: %s\n", opc.name);
 
