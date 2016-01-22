@@ -227,24 +227,39 @@ get_mm_global_stats() {
 	fi
 }
 
+get_mm_stats_pid() {
+	local tag=$1
+	local pid=$2
+
+	check_process_status $pid || continue
+	get_numa_maps $pid > $TMPD/numa_maps.$tag
+	get_smaps_block $pid smaps.$tag 700000 > /dev/null
+	get_pagetypes $pid pagetypes.$tag -Nrla 0x700000000+0x10000000
+	get_pagemap $pid .mig.$tag -NrLa 0x700000000+0x10000000 > /dev/null
+	cp /proc/$pid/status $TMPD/proc_status.$tag
+	cp /proc/$pid/sched $TMPD/proc_sched.$tag
+	taskset -p $pid > $TMPD/taskset.$tag
+}
+
 get_mm_stats() {
 	if [ "$#" -eq 1 ] ; then # only global stats
 		local tag=$1
 		get_mm_global_stats $tag
-	elif [ "$#" -eq 2 ] ; then # process stats
+	elif [ "$#" -gt 1 ] ; then # process stats
 		local tag=$1
-		local pid=$2
+		local pid=
+		shift 1
 
 		get_mm_global_stats $tag
-		check_process_status $pid || return 1
 
-		get_numa_maps $pid > $TMPD/numa_maps.$tag
-		get_smaps_block $pid smaps.$tag 700000 > /dev/null
-		get_pagetypes $pid pagetypes.$tag -Nrla 0x700000000+0x10000000
-		get_pagemap $pid .mig.$tag -NrLa 0x700000000+0x10000000 > /dev/null
-		cp /proc/$pid/status $TMPD/proc_status.$tag
-		cp /proc/$pid/sched $TMPD/proc_sched.$tag
-		taskset -p $pid > $TMPD/taskset.$tag
+		if [ "$#" -eq 1 ] ; then
+			get_mm_stats_pid $tag $1
+		else
+			for pid in $@ ; do
+				echo "PID: $pid"
+				get_mm_stats_pid $tag.$pid $pid
+			done
+		fi
 	fi
 }
 
