@@ -41,7 +41,7 @@ _control() {
 		set_return_code ERROR
 		return
 	fi
-	get_mm_stats $pid 1
+	get_mm_stats 1 $pid
 
     random_unpoison $pid &
     local pid_unpoison=$!
@@ -71,7 +71,7 @@ _control() {
 		sleep $TIMEOUT
 	fi
 	kill -9 $pid_poison $pid_unpoison 2> /dev/null
-	get_mm_stats $pid 2
+	get_mm_stats 2 $pid
     kill -SIGUSR1 $pid
 
 	# Without below, some hugepage remains as surplus after cleanup_mm_generic()

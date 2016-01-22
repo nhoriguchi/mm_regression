@@ -24,11 +24,11 @@ control_mbind() {
             kill -SIGUSR1 $pid
             ;;
         "after_access")
-			get_mm_stats $pid 1
+			get_mm_stats 1 $pid
             kill -SIGUSR1 $pid
             ;;
         "before_munmap")
-			get_mm_stats $pid 2
+			get_mm_stats 2 $pid
 
 			if check_migration_pagemap ; then
 				set_return_code MIGRATION_PASSED

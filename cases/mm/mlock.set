@@ -34,7 +34,7 @@ _control() {
 	echo_log "$line"
 	case "$line" in
 		"after_mlock2")
-			get_mm_stats $pid 1
+			get_mm_stats 1 $pid
 
 			# looking at "unevictable" flag, not "mlocked" flag
 			if cut -f4 $TMPD/pagetypes.1 | grep u > /dev/null ; then

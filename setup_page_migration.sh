@@ -131,7 +131,7 @@ control_hugepage_migration() {
 		echo_log "$line"
 		case "$line" in
 			"after_start")
-				get_mm_stats $pid 0
+				get_mm_stats 0 $pid
 
 				if [ "$CGROUP" ] ; then
 					cgclassify -g $CGROUP $pid
@@ -145,7 +145,7 @@ control_hugepage_migration() {
 				kill -SIGUSR1 $pid
 				;;
 			"after_access")
-				get_mm_stats $pid 1
+				get_mm_stats 1 $pid
 
 				# TODO: better condition check
 				if [ "$RACE_SRC" == "race_with_gup" ] && [ "$MIGRATE_SRC" == "migratepages" ] ; then
@@ -167,7 +167,7 @@ control_hugepage_migration() {
 				kill -SIGUSR1 $pid
 				;;
 			"before_munmap")
-				get_mm_stats $pid 2
+				get_mm_stats 2 $pid
 
 				if [ "$MIGRATE_SRC" ] ; then
 					if check_migration_pagemap ; then
@@ -189,8 +189,8 @@ control_hugepage_migration() {
 				fi
 
 				# TODO: flag check enough?
-				if [ "$OPERATION_TYPE" == mlock ] ; then
-					get_pagetypes $pid pagetypes.2.mlocked -Nrla 0x700000000+0x10000000 -b mlocked > /dev/null
+				if [[ "$OPERATION_TYPE" =~ ^mlock ]] ; then
+					get_pagetypes $pid pagetypes.2.mlocked -Nrla 0x700000000+0x10000000 -b mlocked
 					if [ -s "$TMPD/pagetypes.2.mlocked" ] ; then
 						set_return_code MLOCKED
 					else
