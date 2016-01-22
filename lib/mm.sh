@@ -232,8 +232,8 @@ get_mm_stats() {
 		local tag=$1
 		get_mm_global_stats $tag
 	elif [ "$#" -eq 2 ] ; then # process stats
-		local pid=$1
-		local tag=$2
+		local tag=$1
+		local pid=$2
 
 		get_mm_global_stats $tag
 		check_process_status $pid || return 1
