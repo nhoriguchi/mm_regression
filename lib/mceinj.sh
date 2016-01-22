@@ -37,9 +37,9 @@ inject_error() {
     local tmpf=`mktemp`
 
     if [ "$ERRORTYPE" = "hard-offline" ] ; then
-        echo $[$TARGET * 4096] > /sys/devices/system/memory/hard_offline_page
+        echo $[$TARGET * 4096] > /sys/devices/system/memory/hard_offline_page 2> /dev/null
     elif [ "$ERRORTYPE" = "soft-offline" ] ; then
-        echo $[$TARGET * 4096] > /sys/devices/system/memory/soft_offline_page
+        echo $[$TARGET * 4096] > /sys/devices/system/memory/soft_offline_page 2> /dev/null
     elif [ "$ERRORTYPE" = "mce-srao" ] ; then
         cat <<EOF > ${tmpf}.mce-inject
 CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 2
