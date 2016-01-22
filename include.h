@@ -422,7 +422,7 @@ static int do_work_memory(int (*func)(char *p, int size, void *arg), void *args)
 #define MAX_MEMBLK	1024
 
 static void do_busyloop(struct op_control *opc) {
-	pprintf_wait_func(do_access, NULL, "entering busy loop\n");
+	pprintf_wait_func(do_access, opc, "entering busy loop\n");
 }
 
 static int set_mempolicy_node(int mode, int nid) {
