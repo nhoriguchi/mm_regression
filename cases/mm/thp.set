@@ -4,6 +4,7 @@
 . $TRDIR/setup_mmgeneric.sh
 
 THP=true
+SOFT_RETRY=5
 
 EXPECTED_RETURN_CODE="START EXIT"
 

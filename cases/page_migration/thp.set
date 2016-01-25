@@ -53,11 +53,11 @@ elif [ "$RACE_SRC" == race_with_fork ] ; then
 			local pid=$!
 			sleep 0.3
 			for j in $(seq 100) ; do
-				get_pagetypes $pid pagetypes.1 -Nrlb thp,compound_head=thp,compound_head > /dev/null
+				# get_pagetypes $pid pagetypes.1 -Nrlb thp,compound_head=thp,compound_head > /dev/null
 				do_migratepages $pid 0 1
-				get_pagetypes $pid pagetypes.2 -Nrlb thp,compound_head=thp,compound_head > /dev/null
+				# get_pagetypes $pid pagetypes.2 -Nrlb thp,compound_head=thp,compound_head > /dev/null
 				do_migratepages $pid 1 0
-				diff -u $TMPD/pagetypes.1 $TMPD/pagetypes.2 >&2
+				# diff -u $TMPD/pagetypes.1 $TMPD/pagetypes.2 >&2
 			done
 			kill -SIGUSR1 $pid 2> /dev/null
 		done

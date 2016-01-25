@@ -12,7 +12,7 @@ SOFT_RETRY=5
 TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'mmap access mlock2:wait_after exit:wait_before'"
 
 case "$BACKEND" in
-	"zero"|"huge zero")
+	"zero"|"huge_zero")
 		EXPECTED_RETURN_CODE="START MLOCK_FAILED EXIT"
 		;;
 	*)
@@ -54,4 +54,10 @@ _control() {
 			;;
 	esac
 	return 1
+}
+
+_cleanup() {
+	if [[ "$BACKEND" =~ hugetlb ]] ; then
+		cleanup_hugetlb_config
+	fi
 }

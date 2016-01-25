@@ -6,6 +6,8 @@
 
 . $TRDIR/setup_page_migration.sh
 
+SOFT_RETRY=5
+
 NUMA_NODE=2
 THP=10
 
