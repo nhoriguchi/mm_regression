@@ -32,18 +32,18 @@ if [ "$FLAVOR" == panic ] ; then
 	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_PANICKED"
 	TARGET_PAGETYPES="dirty,lru,mmap,anonymous=lru,mmap"
 	ERROR_TYPE=mce-srao
-	_control() { control_kvm_panic; }
-	_check() { check_kvm_panic; }
+	_control() { control_mce_kvm_panic; }
+	_check() { check_mce_kvm_panic; }
 elif [ "$FLAVOR" == mce-srar ] ; then
 	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS TEST"
 	TARGET_PAGETYPES="lru,mmap,anonymous=lru,mmap,anonymous"
-	_control() { control_kvm_action_required; }
-	# _check() { check_kvm_action_required; }
+	_control() { control_mce_kvm_action_required; }
+	# _check() { check_mce_kvm_action_required; }
 elif [ "$FLAVOR" == mce_on_qemu ] ; then
 	EXPECTED_RETURN_CODE="START GOT_TARGET_PFN EXIT"
 	ERROR_TYPE=mce-srao
-	_control() { control_kvm_inject_mce_on_qemu_page; }
-	_check() { check_kvm_inject_mce_on_qemu_page; }
+	_control() { control_mce_kvm_inject_mce_on_qemu_page; }
+	_check() { check_mce_kvm_inject_mce_on_qemu_page; }
 else
 	if [ "$FLAVOR" == clean_pagecache ] ; then
 		TARGET_PAGETYPES="dirty,lru,mmap,anonymous=lru,mmap"
@@ -56,11 +56,11 @@ else
 		EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
 	fi
 
-	_control() { control_kvm; }
+	_control() { control_mce_kvm; }
 	if [ "$ERROR_TYPE" == soft-offline ] ; then
-		_check() { check_kvm_soft_offline; }
+		_check() { check_mce_kvm_soft_offline; }
 		EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
 	else
-		_check() { check_kvm; }
+		_check() { check_mce_kvm; }
 	fi
 fi

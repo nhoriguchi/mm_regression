@@ -9,11 +9,8 @@ SSH_OPT="-o ConnectTimeout=5"
 
 [ ! "$VM" ] && echo_log "You must give VM name in recipe file" && return 1
 [ ! "$VMIP" ] && echo_log "You must give VM IP address in recipe file" && return 1
-[ ! "$PASSWD" ] && echo_log "You must give VM root password in recipe file" && return 1
 
-MEMEATER=$(dirname $(readlink -f $BASH_SOURCE))/memeater
 GPA2HPA=$(dirname $(readlink -f $BASH_SOURCE))/gpa2hpa.rb
-[ ! -x "$MEMEATER" ] && echo "memeater not found." >&2 && return 1
 GUESTMEMEATER=/usr/local/bin/memeater
 GUESTMEMEATERPID=0
 TARGETGVA=""
@@ -28,11 +25,10 @@ if [ "$memsize" -gt 2097152 ] ; then
 	return 1
 fi
 
-vm_restart_if_unconnectable
-
 # send helper tools to guest
 send_helper_to_guest() {
-	scp $MEMEATER $VMIP:$GUESTMEMEATER > /dev/null
+	scp $test_alloc_generic $VMIP:/usr/local/bin/test_alloc_generic > /dev/null
+	scp $memeater $VMIP:$GUESTMEMEATER > /dev/null
 	scp $PAGETYPES $VMIP:$GUESTPAGETYPES > /dev/null
 }
 
@@ -42,7 +38,7 @@ stop_guest_memeater() {
 	ssh $VMIP "pkill -f $GUESTMEMEATER > /dev/null 2>&1 </dev/null"
 }
 
-run_guest_memeater() {
+start_guest_memeater() {
 	stop_guest_memeater
 	echo_log "start running GUESTMEMEATER on VM ($VM:$VMIP)"
 	ssh $VMIP "$GUESTMEMEATER -f /tmp/mapping > /dev/null 2>&1 </dev/null &"
@@ -76,20 +72,20 @@ get_hpa() {
 	get_gpa_guest_memeater "$flagtype" || return 1
 	[ ! "$TARGETGPA" ] && echo_log "Failed to get GPA. Test skipped." && return 1
 	TARGETHPA=`ruby ${GPA2HPA} $VM $TARGETGPA`
-	echo_log "GVA:$TARGETGVA - GPA:$TARGETGPA - HPA:[$TARGETHPA]" | tee -a ${OFILE}
+	echo_log "GVA:$TARGETGVA - GPA:$TARGETGPA - HPA:[$TARGETHPA]"
 	[ ! "$TARGETHPA" ] && echo_log "Failed to get HPA. Test skipped." && return 1
 	if [ ! "$TARGETHPA" ] || [ "$TARGETHPA" == "0x" ] || [ "$TARGETHPA" == "0x0" ] ; then
 		echo_log "Failed to get HPA. Test skipped." && return 1
 	fi
-	echo_log -n "HPA status: " ; $PAGETYPES -a $TARGETHPA -Nlr | grep -v offset | tee -a ${OFILE}
-	echo_log -n "GPA status: " ; ssh $VMIP $GUESTPAGETYPES -a $TARGETGPA -Nlr | grep -v offset | tee -a ${OFILE}
+	echo_log -n "HPA status: " ; $PAGETYPES -a $TARGETHPA -Nlr | grep -v offset
+	echo_log -n "GPA status: " ; ssh $VMIP $GUESTPAGETYPES -a $TARGETGPA -Nlr | grep -v offset
 }
 
 guest_process_running() {
 	ssh -o ConnectTimeout=5 $VMIP "pgrep -f $GUESTMEMEATER" > /dev/null 2>&1 </dev/null
 }
 
-prepare_test() {
+prepare_mce_kvm() {
 	TARGETGVA=""
 	TARGETGPA=""
 	TARGETHPA=""
@@ -109,51 +105,51 @@ prepare_test() {
 	run_vm_serial_monitor
 }
 
-cleanup_test() {
+cleanup_mce_kvm() {
 	save_nr_corrupted_inject
 	all_unpoison
 	rm -f /tmp/mapping
 	stop_guest_memeater
 	vm_ssh_connectable && get_guest_kernel_message_after
-	get_guest_kernel_message | tee -a ${OFILE}
+	get_guest_kernel_message | tee -a $OFILE
 	stop_vm_serial_monitor
 	save_nr_corrupted_unpoison
 }
 
 check_guest_state() {
 	if vm_ssh_connectable ; then
-		echo_log "Guest OS still alive." | tee -a ${OFILE}
+		echo_log "Guest OS still alive."
 		set_return_code "GUEST_ALIVE"
 		if guest_process_running ; then
-			echo_log "And $GUESTMEMEATER still running." | tee -a ${OFILE}
+			echo_log "And $GUESTMEMEATER still running."
 			set_return_code "GUEST_PROC_ALIVE"
-			echo_log "let $GUESTMEMEATER access to error page" | tee -a ${OFILE}
+			echo_log "let $GUESTMEMEATER access to error page"
 
 			access_error
 			if vm_ssh_connectable ; then
 				if guest_process_running ; then
-					echo_log "$GUESTMEMEATER was still alive" | tee -a ${OFILE}
+					echo_log "$GUESTMEMEATER was still alive"
 					set_return_code "GUEST_PROC_ALIVE_LATER_ACCESS"
 				else
-					echo_log "$GUESTMEMEATER was killed" | tee -a ${OFILE}
+					echo_log "$GUESTMEMEATER was killed"
 					set_return_code "GUEST_PROC_KILLED_LATER_ACCESS"
 				fi
 			else
-				echo_log "Guest OS panicked." | tee -a ${OFILE}
+				echo_log "Guest OS panicked."
 				set_return_code "GUEST_PANICKED_LATER_ACCESS"
 			fi
 			return
 		else
-			echo_log "But $GUESTMEMEATER was killed." | tee -a ${OFILE}
+			echo_log "But $GUESTMEMEATER was killed."
 			set_return_code "GUEST_PROC_KILLED"
 			return
 		fi
 	else
-		echo_log "Guest OS panicked." | tee -a ${OFILE}
+		echo_log "Guest OS panicked."
 		set_return_code "GUEST_PANICKED"
 	fi
 	# Force shutdown if VM is not connected (then maybe it stalls.)
-	echo_log "Wait all kernel messages are output on serial console" | tee -a ${OFILE}
+	echo_log "Wait all kernel messages are output on serial console"
 	sleep 5
 	virsh destroy $VM
 	set_vmdirty
@@ -179,55 +175,52 @@ check_page_migrated() {
 	fi
 }
 
-control_kvm() {
-	run_guest_memeater || return 1
+control_mce_kvm() {
+	start_guest_memeater || return 1
 	sleep 0.2
 	echo_log "get_hpa"
 	get_hpa "$TARGET_PAGETYPES" || return 1
 	set_return_code "GOT_HPA"
-	echo_log "${MCEINJECT} -e $ERROR_TYPE -a ${TARGETHPA}"
-	${MCEINJECT} -e "$ERROR_TYPE" -a "${TARGETHPA}"
+	echo_log "$MCEINJECT -e $ERROR_TYPE -a ${TARGETHPA}"
+	$MCEINJECT -e "$ERROR_TYPE" -a "${TARGETHPA}"
 	check_guest_state
 }
 
-control_kvm_panic() {
+control_mce_kvm_panic() {
 	echo_log "start $FUNCNAME"
-	run_guest_memeater || return 1
+	start_guest_memeater || return 1
 	get_hpa "$TARGET_PAGETYPES" || return 1
 	set_return_code "GOT_HPA"
-	echo_log "echo 0 > /proc/sys/vm/memory_failure_recovery" | tee -a ${OFILE}
+	echo_log "echo 0 > /proc/sys/vm/memory_failure_recovery"
 	ssh $VMIP "echo 0 > /proc/sys/vm/memory_failure_recovery"
-	${MCEINJECT} -e "$ERROR_TYPE" -a "${TARGETHPA}"
+	$MCEINJECT -e "$ERROR_TYPE" -a "${TARGETHPA}"
 	if vm_connectable ; then
 		ssh $VMIP "echo 1 > /proc/sys/vm/memory_failure_recovery"
 	fi
 	check_guest_state
 }
 
-check_kvm() {
+check_mce_kvm() {
+	check_nr_hwcorrupted
 	check_kernel_message "${TARGETHPA}"
 	check_kernel_message_nobug
 	check_guest_kernel_message "${TARGETGPA}"
-	check_return_code "$EXPECTED_RETURN_CODE"
-	check_nr_hwcorrupted
 }
 
-check_kvm_panic() {
+check_mce_kvm_panic() {
+	check_nr_hwcorrupted
 	check_kernel_message "${TARGETHPA}"
 	check_guest_kernel_message "Kernel panic"
-	check_return_code "$EXPECTED_RETURN_CODE"
-	check_nr_hwcorrupted
 }
 
-check_kvm_soft_offline() {
+check_mce_kvm_soft_offline() {
+	check_nr_hwcorrupted
 	check_kernel_message_nobug
 	check_guest_kernel_message -v "${TARGETGPA}"
-	check_return_code "$EXPECTED_RETURN_CODE"
 	check_page_migrated "$TARGETGPA" "$TARGETHPA"
-	check_nr_hwcorrupted
 }
 
-control_kvm_inject_mce_on_qemu_page() {
+control_mce_kvm_inject_mce_on_qemu_page() {
 	local pid=$(cat /var/run/libvirt/qemu/$VM.pid)
 	$PAGETYPES -p $pid -Nrl -b lru | grep -v offset > $TMPD/pagetypes.1
 
@@ -243,7 +236,7 @@ control_kvm_inject_mce_on_qemu_page() {
 	set_return_code EXIT
 }
 
-check_kvm_inject_mce_on_qemu_page() {
+check_mce_kvm_inject_mce_on_qemu_page() {
 	check_kernel_message "${TARGETHPA}"
 	check_kernel_message_nobug
 }
@@ -256,11 +249,11 @@ _control() {
 }
 
 _prepare() {
-	prepare_test || return 1
+	prepare_mce_kvm || return 1
 }
 
 _cleanup() {
-	cleanup_test
+	cleanup_mce_kvm
 }
 
 _check() {
