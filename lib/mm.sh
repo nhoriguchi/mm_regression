@@ -26,6 +26,12 @@ get_backend_pageflags() {
 		pagecache)		# __RU_lA____M_____________________________
 			echo "huge,thp,mmap,anonymous,file=mmap,file"
 			;;
+		clean_pagecache)
+			echo "dirty,huge,thp,mmap,anonymous,file=mmap,file"
+			;;
+		dirty_pagecache)
+			echo "dirty,huge,thp,mmap,anonymous,file=dirty,mmap,file"
+			;;
 		hugetlb_all)    # _______________H_G_______________________
 			echo "huge,compound_head=huge,compound_head"
 			;;
