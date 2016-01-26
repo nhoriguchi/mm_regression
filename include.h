@@ -137,14 +137,14 @@ static char *opc_get_value(struct op_control *opc, char *key) {
 static void print_opc(struct op_control *opc) {
 	int i;
 
-	printf("===> op_name:%s", opc->name);
+	Dprintf("===> op_name:%s", opc->name);
 	for (i = 0; i < opc->nr_args; i++) {
 		if (!strcmp(opc->values[i], ""))
-			printf(", %s", opc->keys[i]);
+			Dprintf(", %s", opc->keys[i]);
 		else
-			printf(", %s=%s", opc->keys[i], opc->values[i]);
+			Dprintf(", %s=%s", opc->keys[i], opc->values[i]);
 	}
-	printf("\n");
+	Dprintf("\n");
 }
 
 static char *opc_set_value(struct op_control *opc, char *key, char *value) {
@@ -501,7 +501,7 @@ static int __mbind_fuzz_chunk(char *p, int size, void *args) {
 	unsigned long offset = (random() % nr_p) * PS;
 	unsigned long length = (random() % (nr_p - offset / PS)) * PS;
 
-	printf("%p: node:%x, offset:%x, length:%x\n", p, node, offset, length);
+	Dprintf("%p: node:%x, offset:%x, length:%x\n", p, node, offset, length);
 	numa_bitmask_setbit(mbind_arg->new_nodes, node);
 
 	mbind(p + offset, size + length, mbind_arg->mode,
@@ -930,10 +930,10 @@ static int __mremap_chunk(char *p, int csize, void *args) {
 	void *new;
 
 	if (back) {
-		printf("mremap p:%p+%lx -> %p\n", p + offset, csize, p);
+		Dprintf("mremap p:%p+%lx -> %p\n", p + offset, csize, p);
 		new = mremap(p + offset, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p);
 	} else {
-		printf("mremap p:%p+%lx -> %p\n", p, csize, p + offset);
+		Dprintf("mremap p:%p+%lx -> %p\n", p, csize, p + offset);
 		new = mremap(p, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p + offset);
 	}
 	return new == MAP_FAILED ? -1 : 0;
