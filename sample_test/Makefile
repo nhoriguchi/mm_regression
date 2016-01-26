@@ -42,13 +42,13 @@ list: get_test_core
 	@bash test_core/display_testcases.sh -a
 
 test2: all
-	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/sample_newtype
+	@bash test_core/run-test.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/sample_newtype
 
 test2/sff: all
-	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/dir1/dir2/recipe12
+	@bash test_core/run-test.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/dir1/dir2/recipe12
 
 test3: all
-	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/sample_sync_newtype
+	@bash test_core/run-test.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/sample_sync_newtype
 
 test4: all
-	@bash test_core/run-test-new.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) -d cases
+	@bash test_core/run-test.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) -d cases

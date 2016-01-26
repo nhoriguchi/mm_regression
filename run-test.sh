@@ -1,75 +1,155 @@
 #!/bin/bash
 
-TCDIR=$(dirname $(readlink -f $BASH_SOURCE))
-export TESTNAME="test"
-VERBOSE=""
-TESTCASE_FILTER=""
+DEVEL_MODE=
+# VERBOSE might be set as an environment variable
+# RECIPEFILES might be set as an environment variable
+# RECIPEDIR might be set as an environment variable
+# TESTCASE_FILTER might be set as an environment variable
+SHOW_TEST_VERSION=
+# PRIORITY_LEVEL might be set as an environment variable
 
-# script mode: execute recipe file as a single bash script.
-SCRIPT=false
-
-# subprocess mode where each testcase is processed in a separate process
-# so functions and/or environment variable are free from conflict.
-SUBPROCESS=false
-
-while getopts vs:t:f:Sp OPT ; do
+while getopts vs:t:f:Spd:r:DV OPT ; do
     case $OPT in
-        "v" ) VERBOSE="-v" ;;
-        "s" ) KERNEL_SRC="${OPTARG}" ;;
-        "t" ) export TESTNAME="${OPTARG}" ;;
-        "f" ) export TESTCASE_FILTER="${OPTARG}" ;;
-        "S" ) SCRIPT=true ;;
-		"p" ) SUBPROCESS=true ;;
+        v) VERBOSE="$OPTARG" ;;
+        s) KERNEL_SRC="$OPTARG" ;;
+        t) TESTNAME="$OPTARG" ;;
+        f) TESTCASE_FILTER="$TESTCASE_FILTER $OPTARG" ;;
+        S) SCRIPT=true ;;
+		p) SUBPROCESS=true ;;
+		d) RECIPEDIR="$OPTARG" ;;
+		r) RECIPEFILES="$RECIPEFILES $OPTARG" ;;
+		D) DEVEL_MODE=true ;;
+		V) SHOW_TEST_VERSION=true ;;
+		P) PRIORITY_LEVEL=$OPTARG ;;
     esac
 done
 
 shift $[OPTIND-1]
-RECIPEFILE=$1
 
-[ ! -e "$RECIPEFILE" ] && exit 1
-
+export TCDIR=$(dirname $(readlink -f $BASH_SOURCE))
 # Assuming that current directory is the root directory of the current test.
-export TRDIR=$PWD # $(dirname $(readlink -f $RECIPEFILE))
+export TRDIR=$PWD
 
 . $TCDIR/setup_generic.sh
 . $TCDIR/setup_test_core.sh
-. $TCDIR/lib/recipe.sh
-. $TCDIR/lib/patch.sh
 
 # record current revision of test suite and test_core tool
-echo "Current test: $(basename $TRDIR)"
-( cd $TRDIR ; echo "Test version: $(git log -n1 --pretty="format:%H %s")" )
-( cd $TCDIR ; echo "Test Core version: $(git log -n1 --pretty="format:%H %s")" )
-
-# workaround for compatibility with older test_core
-export TMPD=$GTMPD
-export OFILE=$TMPD/result
-mkdir -p $TMPD
-
-# original recipe can 'embed' other small parts
-parse_recipefile $RECIPEFILE .tmp.$RECIPEFILE
-
-# less .tmp.$RECIPEFILE
-
-if [ "$SCRIPT" == true ] ; then
-    bash .tmp.${RECIPEFILE}
-else
-    while read line ; do
-        [ ! "$line" ] && continue
-        [[ $line =~ ^# ]] && continue
-
-        if [ "$line" = do_test_sync ] ; then
-            if [ ! "$TEST_PROGRAM" ] ; then
-                echo "no TEST_PROGRAM given for '${TEST_TITLE}'. Check your recipe."
-                exit 1
-            fi
-            do_test "$TEST_PROGRAM -p ${PIPE} ${VERBOSE}"
-        elif [ "$line" = do_test_async ] ; then
-            do_test_async
-        else
-            eval $line
-        fi
-    done < .tmp.${RECIPEFILE}
+if [ "$SHOW_TEST_VERSION" ] ; then
+	echo "Current test: $(basename $TRDIR)"
+	echo "TESTNAME/RUNNAME: $TESTNAME"
+	( cd $TRDIR ; echo "Test version: $(git log -n1 --pretty="format:%H %s")" )
+	( cd $TCDIR ; echo "Test Core version: $(git log -n1 --pretty="format:%H %s")" )
+	exit 0
 fi
 
-show_summary
+[ "$RECIPEFILES" ] && RECIPEFILES="$(readlink -f $RECIPEFILES)"
+
+for rd in $RECIPEDIR ; do
+	if [ -d "$rd" ] ; then
+		for rf in $(find $(readlink -f $rd) -type f) ; do
+			RECIPEFILES="$RECIPEFILES $rf"
+		done
+	fi
+done
+
+[ ! "$RECIPEFILES" ] && echo "RECIPEFILES not given or not exist." >&2 && exit 1
+export RECIPEFILES
+
+[ ! "$PRIORITY_LEVEL" ] && export PRIORITY_LEVEL=10 # default
+
+[ ! "$VERBOSE" ] && VERBOSE=1 # default verbose level
+export VERBOSE
+
+. $TCDIR/lib/recipe.sh
+. $TCDIR/lib/patch.sh
+. $TCDIR/lib/common.sh
+
+stop_test_running() {
+	ps x -o  "%p %r %y %x %c" | grep $$
+	kill -9 -$(ps --no-header -o "%r" $$)
+}
+
+trap stop_test_running SIGTERM
+
+echo_log "=========> start testing $(basename $TRDIR):$TESTNAME"
+echo_log "RECIPEFILES:"
+echo_log "${RECIPEFILES//$TRDIR\/cases\//}"
+
+make --quiet allrecipes > $GTMPD/full_recipe_list
+
+echo_log "set /proc/sys/kernel/panic_on_oops"
+echo 1 > /proc/sys/kernel/panic_on_oops
+
+for recipe in $RECIPEFILES ; do
+	if [ ! -f "$recipe" ] ; then
+		"Recipe $recipe must be a regular file." >&2
+		continue
+	fi
+
+	recipe_relpath=${recipe##$PWD/cases/}
+	# recipe_id=${recipe_relpath//\//_}
+
+	check_remove_suffix $recipe || continue
+
+	if [ "$TESTCASE_FILTER" ] ; then
+		filtered=$(echo "$recipe_relpath" | grep $(_a="" ; for f in $TESTCASE_FILTER ; do _a="$_a -e $f" ; done ; echo $_a))
+	fi
+
+	if [ "$TESTCASE_FILTER" ] && [ ! "$filtered" ] ; then
+		echo_verbose "======= SKIPPED: Recipe: $recipe_relpath"
+		continue
+	fi
+
+	parse_recipefile $recipe .tmp.recipe
+
+	(
+		export TEST_TITLE=$recipe_relpath
+		export TMPD=$GTMPD/$recipe_relpath
+		export TMPF=$TMPD
+		export OFILE=$TMPD/result
+
+		if check_testcase_already_run ; then
+			echo_log "### You already have workfiles for recipe $recipe_relpath with TESTNAME: $TESTNAME, so skipped. If you really want to run with removing old work directory, please give environment variable AGAIN=true."
+			continue
+		fi
+
+		if [ -d $TMPD ] ; then
+			rm -rf $TMPD/* > /dev/null 2>&1
+		else
+			mkdir -p $TMPD > /dev/null 2>&1
+		fi
+
+		echo_log "======> Recipe: $recipe_relpath start"
+		date +%s > $TMPD/start_time
+
+		# prepare empty testcount file at first because it's used to check
+		# testcase result from summary script.
+		reset_per_testcase_counters
+		init_return_code
+
+		mv .tmp.recipe $TMPD/_recipe
+		. $TMPD/_recipe
+		ret=$?
+		if [ "$SKIP_THIS_TEST" ] ; then
+			echo_log "This testcase is marked to be skipped by developer."
+			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		elif [ "$ret" -ne 0 ] ; then
+			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		elif [ "$PRIORITY" ] && [ "$PRIORITY_LEVEL" -le "$PRIORITY" ] ; then
+			echo_log "This testcase is skipped due to the low priority ($PRIORITY). To run this, set PRIORITY_LEVEL (current value is $PRIORITY_LEVEL) <= $PRIORITY"
+			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		else
+echo "$PRIORITY_LEVEL (-P) <= $PRIORITY"
+			do_soft_try
+		fi
+
+		date +%s > $TMPD/end_time
+		echo_log "<====== Recipe: $recipe_relpath done"
+	) &
+	testcase_pid=$!
+
+	wait $testcase_pid
+done
+
+ruby $TCDIR/lib/test_summary.rb $GTMPD
+echo_log "<========= end testing $(basename $TRDIR):$TESTNAME"
