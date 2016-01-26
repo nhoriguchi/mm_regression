@@ -11,12 +11,11 @@ SSH_OPT="-o ConnectTimeout=5"
 [ ! "$VMIP" ] && echo_log "You must give VM IP address in recipe file" && return 1
 
 GPA2HPA=$(dirname $(readlink -f $BASH_SOURCE))/gpa2hpa.rb
-GUESTMEMEATER=/usr/local/bin/memeater
-GUESTMEMEATERPID=0
+guest_test_alloc=/usr/local/bin/test_alloc_generic
+GUESTPAGETYPES=/usr/local/bin/page-types
 TARGETGVA=""
 TARGETGPA=""
 TARGETHPA=""
-GUESTSERIALMONITORPID=""
 
 # check VM RAM size is not greater than 2GB
 memsize=$(virsh dominfo $VM | grep "Used memory:" | tr -s ' ' | cut -f3 -d' ')
@@ -27,62 +26,76 @@ fi
 
 # send helper tools to guest
 send_helper_to_guest() {
-	scp $test_alloc_generic $VMIP:/usr/local/bin/test_alloc_generic > /dev/null
-	scp $memeater $VMIP:$GUESTMEMEATER > /dev/null
+	scp $test_alloc_generic $VMIP:$guest_test_alloc > /dev/null
 	scp $PAGETYPES $VMIP:$GUESTPAGETYPES > /dev/null
 }
 
 # define helper functions below
 
 stop_guest_memeater() {
-	ssh $VMIP "pkill -f $GUESTMEMEATER > /dev/null 2>&1 </dev/null"
+	ssh $VMIP "pkill -9 -f $guest_test_alloc > /dev/null 2>&1 </dev/null"
 }
 
 start_guest_memeater() {
 	stop_guest_memeater
-	echo_log "start running GUESTMEMEATER on VM ($VM:$VMIP)"
-	ssh $VMIP "$GUESTMEMEATER -f /tmp/mapping > /dev/null 2>&1 </dev/null &"
-	GUESTMEMEATERPID=`ssh $VMIP "pgrep -f $GUESTMEMEATER"`
-	[ ! "$GUESTMEMEATERPID" ] && echo_log "$usemem not running. Test aborts." >&2 && return 1
+
+	echo_log "start running test_alloc_generic on VM ($VM:$VMIP)"
+	ssh $VMIP "$guest_test_alloc -B pagecache -N 2 -f read -L 'mmap access:type=read:wait_after access:type=read:wait_after' > /dev/null 2>&1 </dev/null &"
+	ssh $VMIP "$guest_test_alloc -B pagecache -N 2 -f write -L 'mmap access:type=write:wait_after access:type=write:wait_after' > /dev/null 2>&1 </dev/null &"
+	ssh $VMIP "$guest_test_alloc -B anonymous -B thp -N 2 -L 'mmap access:wait_after access:wait_after' > /dev/null 2>&1 </dev/null &"
+	ssh $VMIP "pgrep -f $guest_test_alloc" | tr '\n' ' ' > $TMPD/guest_memeater_pids.1
+	if [ ! -s $TMPD/guest_memeater_pids.1 ] ; then
+		echo "Failed to start guest memeater $guest_test_alloc" >&2
+		return 1
+	fi
 	return 0
 }
 
 get_gpa_guest_memeater() {
 	local flagtype=$1
-	scp $VMIP:/tmp/mapping /tmp/mapping > /dev/null 2>&1
-	local start=$(printf "0x%lx" $[$(sort /tmp/mapping | sort | head -n1)/4096])
-	local end=$(printf "0x%lx" $[$(sort /tmp/mapping | sort | tail -n1)/4096 + 256])
-	local cmd="$GUESTPAGETYPES -p ${GUESTMEMEATERPID} -b ${flagtype} -rNL"
-	local line=
-	while read line ; do
-		cmd="$cmd -a $[line/4096]+256"
-	done < /tmp/mapping
-	echo_log "$cmd"
-	ssh $VMIP "$cmd" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest-page-types
-	local lines=`wc -l $TMPD/guest-page-types | cut -f1 -d' '`
-	[ "$lines" -eq 0 ] && echo_log "Page on pid:$GUESTMEMEATERPID not found." >&2 && return 1
+	# scp $VMIP:/tmp/mapping /tmp/mapping > /dev/null 2>&1
+	# local start=$(printf "0x%lx" $[$(sort /tmp/mapping | sort | head -n1)/4096])
+	# local end=$(printf "0x%lx" $[$(sort /tmp/mapping | sort | tail -n1)/4096 + 256])
+	# local cmd="$GUESTPAGETYPES -p ${GUESTMEMEATERPID} -b ${flagtype} -rNL"
+	# local line=
+	# while read line ; do
+	# 	cmd="$cmd -a $[line/4096]+256"
+	# done < /tmp/mapping
+	# echo_log "$cmd"
+	# ssh $VMIP "$cmd" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest-page-types
+	# local lines=`wc -l $TMPD/guest-page-types | cut -f1 -d' '`
+	# [ "$lines" -eq 0 ] && echo_log "Page on pid:$GUESTMEMEATERPID not found." >&2 && return 1
+	# [ "$lines" -gt 2 ] && lines=`ruby -e "p rand($lines) + 1"`
+	# TARGETGVA=0x`cat $TMPD/guest-page-types | sed -n ${lines}p | cut -f1 -d ' '`
+	# TARGETGPA=0x`cat $TMPD/guest-page-types | sed -n ${lines}p | cut -f2 -d ' '`
+
+	ssh $VMIP "for pid in $(cat $TMPD/guest_memeater_pids.1) ; do $GUESTPAGETYPES -p \$pid -NrL -b $flagtype -a 0x700000000+0x10000000 ; done" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest_page_types
+
+	local lines=`wc -l $TMPD/guest_page_types | cut -f1 -d' '`
+	[ "$lines" -eq 0 ] && echo_log "Page ($flagtype) not exist on guest memeater." >&2 && return 1
 	[ "$lines" -gt 2 ] && lines=`ruby -e "p rand($lines) + 1"`
-	TARGETGVA=0x`cat $TMPD/guest-page-types | sed -n ${lines}p | cut -f1 -d ' '`
-	TARGETGPA=0x`cat $TMPD/guest-page-types | sed -n ${lines}p | cut -f2 -d ' '`
+	echo "# of pages $flagtypes: $lines"
+	TARGETGVA=0x`cat $TMPD/guest_page_types | sed -n ${lines}p | cut -f1 -d ' '`
+	TARGETGPA=0x`cat $TMPD/guest_page_types | sed -n ${lines}p | cut -f2 -d ' '`
+	[ "$TARGETGPA" == 0x ] && echo_log "Failed to get GPA. Test skipped." && return 1
+	TARGETHPA=`ruby $GPA2HPA $VM $TARGETGPA`
+	if [ ! "$TARGETHPA" ] || [ "$TARGETHPA" == "0x" ] || [ "$TARGETHPA" == "0x0" ] ; then
+		echo_log "Failed to get HPA. Test skipped." && return 1
+	fi
+	echo_log "GVA:$TARGETGVA => GPA:$TARGETGPA => HPA:$TARGETHPA"
 	return 0
 }
 
 get_hpa() {
 	local flagtype="$1"
 	get_gpa_guest_memeater "$flagtype" || return 1
-	[ ! "$TARGETGPA" ] && echo_log "Failed to get GPA. Test skipped." && return 1
-	TARGETHPA=`ruby ${GPA2HPA} $VM $TARGETGPA`
-	echo_log "GVA:$TARGETGVA - GPA:$TARGETGPA - HPA:[$TARGETHPA]"
-	[ ! "$TARGETHPA" ] && echo_log "Failed to get HPA. Test skipped." && return 1
-	if [ ! "$TARGETHPA" ] || [ "$TARGETHPA" == "0x" ] || [ "$TARGETHPA" == "0x0" ] ; then
-		echo_log "Failed to get HPA. Test skipped." && return 1
-	fi
 	echo_log -n "HPA status: " ; $PAGETYPES -a $TARGETHPA -Nlr | grep -v offset
 	echo_log -n "GPA status: " ; ssh $VMIP $GUESTPAGETYPES -a $TARGETGPA -Nlr | grep -v offset
 }
 
 guest_process_running() {
-	ssh -o ConnectTimeout=5 $VMIP "pgrep -f $GUESTMEMEATER" > /dev/null 2>&1 </dev/null
+	ssh $VMIP "pgrep -f $guest_test_alloc" | tr '\n' ' ' > $TMPD/guest_memeater_pids.2
+	diff -q $TMPD/guest_memeater_pids.1 $TMPD/guest_memeater_pids.2 > /dev/null
 }
 
 prepare_mce_kvm() {
@@ -96,7 +109,6 @@ prepare_mce_kvm() {
 
 	vm_restart_if_unconnectable
 	vmdirty && vm_restart_wait || sleep 1
-	rm -f /tmp/mapping
 	stop_guest_memeater
 	send_helper_to_guest
 
@@ -108,7 +120,6 @@ prepare_mce_kvm() {
 cleanup_mce_kvm() {
 	save_nr_corrupted_inject
 	all_unpoison
-	rm -f /tmp/mapping
 	stop_guest_memeater
 	vm_ssh_connectable && get_guest_kernel_message_after
 	get_guest_kernel_message | tee -a $OFILE
@@ -121,17 +132,17 @@ check_guest_state() {
 		echo_log "Guest OS still alive."
 		set_return_code "GUEST_ALIVE"
 		if guest_process_running ; then
-			echo_log "And $GUESTMEMEATER still running."
+			echo_log "And $guest_test_alloc still running."
 			set_return_code "GUEST_PROC_ALIVE"
-			echo_log "let $GUESTMEMEATER access to error page"
+			echo_log "let $guest_test_alloc access to error page"
 
 			access_error
 			if vm_ssh_connectable ; then
 				if guest_process_running ; then
-					echo_log "$GUESTMEMEATER was still alive"
+					echo_log "$guest_test_alloc was still alive"
 					set_return_code "GUEST_PROC_ALIVE_LATER_ACCESS"
 				else
-					echo_log "$GUESTMEMEATER was killed"
+					echo_log "$guest_test_alloc was killed"
 					set_return_code "GUEST_PROC_KILLED_LATER_ACCESS"
 				fi
 			else
@@ -140,7 +151,7 @@ check_guest_state() {
 			fi
 			return
 		else
-			echo_log "But $GUESTMEMEATER was killed."
+			echo_log "But $guest_test_alloc was killed."
 			set_return_code "GUEST_PROC_KILLED"
 			return
 		fi
@@ -156,7 +167,8 @@ check_guest_state() {
 }
 
 access_error() {
-	ssh $VMIP "kill -SIGUSR1 ${GUESTMEMEATERPID}"
+	ssh $VMIP "pkill -SIGUSR1 -f $guest_test_alloc > /dev/null 2>&1 </dev/null"
+	sleep 0.2 # need short time for access operation to finish.
 }
 
 check_page_migrated() {
@@ -178,7 +190,7 @@ check_page_migrated() {
 control_mce_kvm() {
 	start_guest_memeater || return 1
 	sleep 0.2
-	echo_log "get_hpa"
+	echo_log "get_hpa $TARGET_PAGETYPES"
 	get_hpa "$TARGET_PAGETYPES" || return 1
 	set_return_code "GOT_HPA"
 	echo_log "$MCEINJECT -e $ERROR_TYPE -a ${TARGETHPA}"
