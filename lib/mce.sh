@@ -1,6 +1,5 @@
 #!/bin/bashp
 
-GUESTPAGETYPES=/usr/local/bin/page-types
 MCEINJECT=$(dirname $(readlink -f $BASH_SOURCE))/mceinj.sh
 
 SYSFS_MCHECK=/sys/devices/system/machinecheck
