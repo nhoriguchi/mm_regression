@@ -77,7 +77,6 @@ echo_log "${RECIPEFILES//$TRDIR\/cases\//}"
 
 make --quiet allrecipes > $GTMPD/full_recipe_list
 
-echo_log "set /proc/sys/kernel/panic_on_oops"
 echo 1 > /proc/sys/kernel/panic_on_oops
 
 for recipe in $RECIPEFILES ; do
@@ -139,7 +138,6 @@ for recipe in $RECIPEFILES ; do
 			echo_log "This testcase is skipped due to the low priority ($PRIORITY). To run this, set PRIORITY_LEVEL (current value is $PRIORITY_LEVEL) <= $PRIORITY"
 			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
 		else
-echo "$PRIORITY_LEVEL (-P) <= $PRIORITY"
 			do_soft_try
 		fi
 
