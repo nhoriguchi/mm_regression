@@ -14,12 +14,12 @@ vm_ssh_connectable() {
 
 # Start VM and wait until the VM become connectable.
 vm_start_wait() {
-    cat <<EOF > ${TMPF}.vm_start_wait.exp
+    cat <<EOF > $TMPD/vm_start_wait.exp
 #!/usr/bin/expect
 
 set timeout 1
 set timecount 100
-log_file -noappend ${TMPF}.vm_start_wait.log
+log_file -noappend $TMPD/vm_start_wait.log
 
 spawn virsh console $VM
 
@@ -41,9 +41,9 @@ interact
 EOF
     echo "starting domain $VM ..."
     virsh start $VM > /dev/null 2>&1
-    expect ${TMPF}.vm_start_wait.exp > /dev/null 2>&1
-    [ ! -e ${TMPF}.vm_start_wait.log ] && echo "expect failed." && return 1
-    grep "VM start finished" ${TMPF}.vm_start_wait.log > /dev/null
+    expect $TMPD/vm_start_wait.exp > /dev/null 2>&1
+    [ ! -e $TMPD/vm_start_wait.log ] && echo "expect failed." && return 1
+    grep "VM start finished" $TMPD/vm_start_wait.log > /dev/null
     if [ $? -eq 0 ] ; then
         if vm_ssh_connectable ; then return 0 ; fi
         sleep 5
@@ -80,12 +80,12 @@ vm_restart_if_unconnectable() {
 }
 
 vm_serial_monitor() {
-    cat <<EOF > ${TMPF}.vm_serial_monitor.exp
+    cat <<EOF > $TMPD/vm_serial_monitor.exp
 #!/usr/bin/expect
 
 set timeout 5
 set target $VM
-log_file -noappend ${TMPF}.vm_serial_monitor.log
+log_file -noappend $TMPD/vm_serial_monitor.log
 
 spawn virsh console $VM
 expect "Escape character is"
@@ -95,7 +95,7 @@ sleep 10
 send -- ""
 interact
 EOF
-    expect ${TMPF}.vm_serial_monitor.exp > /dev/null 2>&1
+    expect $TMPD/vm_serial_monitor.exp > /dev/null 2>&1
 }
 
 run_vm_serial_monitor() {
@@ -111,23 +111,23 @@ stop_vm_serial_monitor() {
 
 get_guest_kernel_message() {
     echo "####### GUEST CONSOLE #######"
-    if [ -e "${TMPF}.dmesg_guest_after" ] ; then
-        diff ${TMPF}.dmesg_guest_before ${TMPF}.dmesg_guest_after | \
-            grep -v '^< ' | tee ${TMPF}.dmesg_guest_diff
+    if [ -e "$TMPD/dmesg_guest_after" ] ; then
+        diff $TMPD/dmesg_guest_before $TMPD/dmesg_guest_after | \
+            grep -v '^< ' | tee $TMPD/dmesg_guest_diff
     else
-        layout_guest_dmesg ${TMPF}.vm_serial_monitor.log | \
-            tee ${TMPF}.dmesg_guest_diff
+        layout_guest_dmesg $TMPD/vm_serial_monitor.log | \
+            tee $TMPD/dmesg_guest_diff
     fi
     echo "####### GUEST CONSOLE END #######"
 }
 
 get_guest_kernel_message_before() {
-    ssh ${SSH_OPT} $VMIP dmesg > ${TMPF}.dmesg_guest_before
-    rm ${TMPF}.dmesg_guest_after 2> /dev/null
+    ssh ${SSH_OPT} $VMIP dmesg > $TMPD/dmesg_guest_before
+    rm $TMPD/dmesg_guest_after 2> /dev/null
 }
 
 get_guest_kernel_message_after() {
-    ssh ${SSH_OPT} $VMIP dmesg > ${TMPF}.dmesg_guest_after
+    ssh ${SSH_OPT} $VMIP dmesg > $TMPD/dmesg_guest_after
 }
 
 layout_guest_dmesg() {
@@ -148,7 +148,7 @@ check_guest_kernel_message() {
     local word="$1"
     if [ "$word" ] ; then
         count_testcount
-        grep "$word" ${TMPF}.dmesg_guest_diff > /dev/null 2>&1
+        grep "$word" $TMPD/dmesg_guest_diff > /dev/null 2>&1
         if [ $? -eq 0 ] ; then
             if [ "$inverse" ] ; then
                 count_failure "guest kernel message shows unexpected word '$word'."
