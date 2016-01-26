@@ -16,16 +16,22 @@ HUGEPAGESIZE=2048
 POISON_ITERATION=100
 TIMEOUT=5
 
+if [ "$BACKEND" == zero ] || [ "$BACKEND" == huge_zero ] ; then
+	PRIORITY=15 # low priority
+fi
+
 random_poison() {
+	echo "random_poison thread running ..."
 	while read line ; do
-		$MCEINJECT -e "$ERROR_TYPE" -a "$line"
+		$MCEINJECT -e "$ERROR_TYPE" -a "$line" > /dev/null 2>&1
 		[ "$ERROR_TYPE" == mce-srao ] && sleep 1
 	done < $TMPD/target_pfns
 }
 
 random_unpoison() {
+	echo "random_unpoison thread running ..."
 	while true ; do
-        all_unpoison
+        all_unpoison > /dev/null 2>&1
     done
 }
 

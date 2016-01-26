@@ -12,6 +12,10 @@ TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
 RACE_ITERATIONS=20
 MONARCH_TIMEOUT=20000000
 
+if [ "$BACKEND" == zero ] || [ "$BACKEND" == huge_zero ] ; then
+	PRIORITY=15 # low priority
+fi
+
 # TODO: goto common place
 case "$BACKEND" in
 	thp)

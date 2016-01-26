@@ -23,6 +23,10 @@ ERROR_TYPE=__MARK_ERROR_TYPE
 ACCESS_LATER_OPTION=
 [ __MARK_ACCESS_LATER = later_access ] && ACCESS_LATER_OPTION=-A
 
+if [ "$BACKEND" == zero ] ; then
+	PRIORITY=15 # low priority
+fi
+
 echo "FLAVOR: $FLAVOR"
 if [ "$FLAVOR" == panic ] ; then
 	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_PANICKED"

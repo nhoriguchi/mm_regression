@@ -14,6 +14,7 @@ TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'mmap access mlock2:wait_a
 case "$BACKEND" in
 	"zero"|"huge_zero")
 		EXPECTED_RETURN_CODE="START MLOCK_FAILED EXIT"
+		PRIORITY=15 # low priority
 		;;
 	*)
 		EXPECTED_RETURN_CODE="START MLOCKED EXIT"
