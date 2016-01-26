@@ -27,7 +27,7 @@ int nr_chunk = 1;
 int busyloop = 0;
 
 char *workdir = "work";
-char *file;
+char *filebase = "testfile";
 int fd;
 int hugetlbfd;
 
@@ -105,6 +105,12 @@ struct op_control {
 	char **keys;
 	char **values;
 	int nr_args;
+};
+
+struct backend {
+	int type;
+	int npages;
+	char *file;
 };
 
 /*
@@ -186,12 +192,23 @@ static void read_memory(char *p, int size) {
 	}
 }
 
+static void create_workdir(void) {
+	char dpath[256];
+	char buf[PS];
+
+	sprintf(dpath, "%s", workdir);
+	if (mkdir(dpath, 0700))
+		if (errno != EEXIST) /* 'already exist' is ok */
+			errmsg("failed to mkdir %s\n", workdir);
+}
+
 static void create_regular_file(void) {
 	int i;
 	char fpath[256];
 	char buf[PS];
 
-	sprintf(fpath, "%s/testfile", workdir);
+	create_workdir();
+	sprintf(fpath, "%s/%s", workdir, filebase);
 	fd = open(fpath, O_CREAT|O_RDWR, 0755);
 	if (fd == -1)
 		err("open");
@@ -211,7 +228,7 @@ static void create_hugetlbfs_file(void) {
 	char buf[PS];
 	char *phugetlb;
 
-	sprintf(fpath, "%s/hugetlbfs/testfile", workdir);
+	sprintf(fpath, "%s/hugetlbfs/%s", workdir, filebase);
 	hugetlbfd = open(fpath, O_CREAT|O_RDWR, 0755);
 	if (hugetlbfd == -1)
 		err("open");
@@ -839,7 +856,9 @@ static int __do_memory_compaction(void *args) {
 	char *p;
 	struct memory_compaction_arg *mc_arg = (struct memory_compaction_arg *)args;
 
-	for (p = mc_arg->ptr; p < mc_arg->ptr + mc_arg->len; p += THPS) {
+	for (p = mc_arg->ptr;
+	     (unsigned long)p < (unsigned long)mc_arg->ptr + mc_arg->len;
+	     p += THPS) {
 		allocate_transhuge(p);
 		/* split transhuge page, keep last page */
 		if (madvise(p, THPS - PAGE_SIZE, MADV_DONTNEED))
@@ -1111,7 +1130,7 @@ static const char *op_supported_args[][10] = {
 	[NR_mmap]			= {},
 	[NR_mmap_numa]			= {"preferred_cpu_node", "preferred_mem_node"},
 	[NR_access]			= {"type"},
-	[NR_busyloop]			= {},
+	[NR_busyloop]			= {"type"},
 	[NR_munmap]			= {},
 	[NR_mbind]			= {"hp_partial"},
 	[NR_move_pages]			= {},
@@ -1327,6 +1346,19 @@ static void do_operation_loop(void) {
 
 static void parse_operations(char *str) {
 	char delimiter[] = " ";
+	char *ptr;
+	int i = 0;
+
+	ptr = strtok(str, delimiter);
+	op_strings[i++] = ptr;
+	while (ptr) {
+		ptr = strtok(NULL, delimiter);
+		op_strings[i++] = ptr;
+	}
+}
+
+static void parse_backend_option(char *str) {
+	char delimiter[] = ":";
 	char *ptr;
 	int i = 0;
 
