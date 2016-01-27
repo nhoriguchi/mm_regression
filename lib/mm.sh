@@ -236,7 +236,7 @@ get_mm_stats_pid() {
 	local tag=$1
 	local pid=$2
 
-	check_process_status $pid || continue
+	check_process_status $pid || return
 	get_numa_maps $pid > $TMPD/numa_maps.$tag
 	get_smaps_block $pid smaps.$tag 700000 > /dev/null
 	get_pagetypes $pid pagetypes.$tag -Nrla 0x700000000+0x10000000
@@ -256,7 +256,6 @@ get_mm_stats() {
 		shift 1
 
 		get_mm_global_stats $tag
-
 		if [ "$#" -eq 1 ] ; then
 			get_mm_stats_pid $tag $1
 		else
