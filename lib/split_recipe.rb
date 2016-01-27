@@ -2,15 +2,22 @@
 # Generate small recipeset from recipeset file "<recipe>.set"
 #
 require 'pp'
+require 'fileutils'
 
 class SplitRecipe
   def initialize f
     @text = File.read(f)
     parse_rule_sets f
-    @rule_sets.each do |key, rs|
-      ary = rs.map {|k, v| [k].product v}
-      rules = ary.shift.product(*ary).map {|a| Hash[a]}
-      generate_auto_recipes f, rules
+
+    if @rule_sets.empty?
+      outfile = f.gsub(".set", ".auto")
+      FileUtils.cp f, outfile
+    else
+      @rule_sets.each do |key, rs|
+        ary = rs.map {|k, v| [k].product v}
+        rules = ary.shift.product(*ary).map {|a| Hash[a]}
+        generate_auto_recipes f, rules
+      end
     end
   end
 
