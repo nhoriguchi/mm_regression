@@ -22,10 +22,9 @@ _control() {
 	done
 	sleep 3
 
+	# TODO: still fail with remaining surplus
 	kill_all_subprograms
 	unpoison_all
-
-	# Without below, some hugepage remains as surplus after cleanup_mm_generic()
 	cleanup_hugetlb_config
 
 	set_return_code EXIT
