@@ -1,0 +1,41 @@
+#!1 FLAVOR: free dontneed
+
+. $TRDIR/setup_mmgeneric.sh
+
+THP=true
+FLAVOR=__MARK_FLAVOR
+
+# TODO: background memory pressure?
+EXPECTED_RETURN_CODE="START EXIT"
+TEST_PROGRAM="$test_alloc_generic -v -B anonymous -B pagecache -B thp -N 10 -L 'mmap access:wait_after madvise:advice=$FLAVOR:wait_after munmap:wait_before exit:wait_before'"
+
+_control() {
+    local pid="$1"
+    local line="$2"
+
+	if [ "$pid" ] ; then # sync mode
+		echo_log "=> $line"
+		case "$line" in
+			"after_access")
+				get_mm_stats 1 $pid
+				kill -SIGUSR1 $pid
+				;;
+			"after_madvise")
+				get_mm_stats 1.5 $pid
+				kill -SIGUSR1 $pid
+				;;
+			"before_munmap")
+				get_mm_stats 2 $pid
+				kill -SIGUSR1 $pid
+				;;
+			"before_exit")
+				kill -SIGUSR1 $pid
+				set_return_code EXIT
+				return 0
+				;;
+			*)
+				;;
+		esac
+		return 1
+	fi
+}
