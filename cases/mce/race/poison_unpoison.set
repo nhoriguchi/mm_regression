@@ -16,9 +16,11 @@ HUGEPAGESIZE=2048
 POISON_ITERATION=100
 TIMEOUT=5
 
-if [ "$BACKEND" == zero ] || [ "$BACKEND" == huge_zero ] ; then
-	PRIORITY=15 # low priority
-fi
+case "$BACKEND" in
+	buddy|zero|huge_zero)
+		PRIORITY=15 # low priority
+		;;
+esac
 
 random_poison() {
 	echo "random_poison thread running ..."
