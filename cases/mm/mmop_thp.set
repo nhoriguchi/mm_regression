@@ -1,5 +1,3 @@
-# TODO: move to mmgeneric
-
 #!1 OPERATION_TYPE: mlock mprotect
 #!1 FLAVOR: full partial
 #!1 FORK: nofork fork
