@@ -8,22 +8,25 @@ KSM=true
 
 BACKENDOPT="-B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -B hugetlb_file -B ksm -B normal_shmem"
 OPBASE="start mmap access"
-OP_HARD1="$OPBASE madv_stress:madv_flag=MADV_HWPOISON"
-OP_SOFT1="$OPBASE madv_stress:madv_flag=MADV_SOFT_OFFLINE"
-OP_HARD2="$OPBASE madv_stress:madv_flag=MADV_HWPOISON:access_after_injection"
-OP_SOFT2="$OPBASE madv_stress:madv_flag=MADV_SOFT_OFFLINE:access_after_injection"
+OP_HARD1="$OPBASE madvise:advice=hwpoison"
+OP_SOFT1="$OPBASE madvise:advice=soft_offline"
+OP_HARD2="$OPBASE madvise:advice=hwpoison access"
+OP_SOFT2="$OPBASE madvise:advice=soft_offline access"
 
 _control() {
-    for i in $(seq 10) ; do
+	for i in $(seq 10) ; do
 		$test_alloc_generic $BACKENDOPT -N 8 -L "$OP_HARD1" > /dev/null 2>&1 &
 		$test_alloc_generic $BACKENDOPT -N 8 -L "$OP_SOFT1" > /dev/null 2>&1 &
 		$test_alloc_generic $BACKENDOPT -N 8 -L "$OP_HARD2" > /dev/null 2>&1 &
 		$test_alloc_generic $BACKENDOPT -N 8 -L "$OP_SOFT2" > /dev/null 2>&1 &
-    done
+	done
 	sleep 3
+
+	kill_all_subprograms
+	unpoison_all
 
 	# Without below, some hugepage remains as surplus after cleanup_mm_generic()
 	cleanup_hugetlb_config
 
-    set_return_code EXIT
+	set_return_code EXIT
 }

@@ -640,26 +640,6 @@ static void do_hotremove(struct op_control *opc) {
 			  "waiting for memory_hotremove: %d\n", pmemblk);
 }
 
-static int __madv_soft_chunk(char *p, int size, void *args) {
-	int i;
-	int ret;
-
-	for (i = 0; i < size / HPS; i++) {
-		ret = madvise(p + i * HPS, 4096, MADV_SOFT_OFFLINE);
-		if (ret)
-			break;
-	}
-	return ret;
-}
-
-/* unpoison option? */
-static void do_madv_soft(struct op_control *opc) {
-	/* int loop = 10; */
-	/* int do_unpoison = 1; */
-
-	do_work_memory(__madv_soft_chunk, NULL);
-}
-
 static void do_auto_numa(struct op_control *opc) {
 	numa_sched_setaffinity_node(1);
 	pprintf_wait_func(opc_defined(opc, "busyloop") ? do_access : NULL, opc,
@@ -900,37 +880,6 @@ static void do_allocate_more(struct op_control *opc) {
 	memset(panon, 'a', size);
 }
 
-static void __do_madv_stress(struct op_control *opc) {
-	int i, j;
-	int madv;
-
-	char *madv_flag = opc_get_value(opc, "madv_flag");
-	if (!strcmp(madv_flag, "MADV_HWPOISON"))
-		madv = MADV_HWPOISON;
-	else if (!strcmp(madv_flag, "MADV_SOFT_OFFLINE"))
-		madv = MADV_SOFT_OFFLINE;
-	else
-		errmsg("unknown madv_flag: %s\n", madv_flag);
-
-	for (j = 0; j < nr_mem_types; j++) {
-		for (i = 0; i < nr_chunk; i++) {
-			struct mem_chunk *tmp = &chunkset[i + j * nr_chunk];
-
-			if (madvise(tmp->p, PS, madv) == -1) {
-				fprintf(stderr, "chunk:%p, backend:%d\n",
-					tmp->p, tmp->mem_type);
-				perror("madvise");
-			}
-		}
-	}
-}
-
-static void do_madv_stress(struct op_control *opc) {
-	__do_madv_stress(opc);
-	if (opc_defined(opc, "access_after_injection"))
-		do_access(opc);
-}
-
 static void do_fork_stress(struct op_control *opc) {
 	while (flag) {
 		pid_t pid = fork();
@@ -1097,6 +1046,14 @@ static void do_madvise(struct op_control *opc) {
 	do_work_memory(__do_madvise_chunk, &advice);
 }
 
+/* unpoison option? */
+static void do_madv_soft(struct op_control *opc) {
+	/* int loop = 10; */
+	/* int do_unpoison = 1; */
+	opc_set_value(opc, "advice", "soft_offline");
+	do_madvise(opc);
+}
+
 enum {
 	NR_start,
 	NR_exit,
@@ -1124,7 +1081,6 @@ enum {
 	NR_fork_stress,
 	NR_mbind_pingpong,
 	NR_move_pages_pingpong,
-	NR_madv_stress,
 	NR_mbind_fuzz,
 	NR_fork,
 	NR_split_thp,
@@ -1159,7 +1115,6 @@ static const char *operation_name[] = {
 	[NR_fork_stress]		= "fork_stress",
 	[NR_mbind_pingpong]		= "mbind_pingpong",
 	[NR_move_pages_pingpong]	= "move_pages_pingpong",
-	[NR_madv_stress]		= "madv_stress",
 	[NR_mbind_fuzz]			= "mbind_fuzz",
 	[NR_fork]			= "fork",
 	[NR_split_thp]			= "split_thp",
@@ -1197,7 +1152,6 @@ static const char *op_supported_args[][10] = {
 	[NR_fork_stress]		= {},
 	[NR_mbind_pingpong]		= {},
 	[NR_move_pages_pingpong]	= {},
-	[NR_madv_stress]		= {"madv_flag", "access_after_injection"},
 	[NR_mbind_fuzz]			= {},
 	[NR_fork]			= {},
 	[NR_split_thp]			= {"only_pmd"},
@@ -1372,8 +1326,6 @@ static void do_operation_loop(void) {
 			do_mbind_pingpong(&opc);
 		} else if (!strcmp(opc.name, "move_pages_pingpong")) {
 			do_move_pages_pingpong(&opc);
-		} else if (!strcmp(opc.name, "madv_stress")) {
-			do_madv_stress(&opc);
 		} else if (!strcmp(opc.name, "mbind_fuzz")) {
 			do_mbind_fuzz(&opc);
 		} else if (!strcmp(opc.name, "fork")) {
