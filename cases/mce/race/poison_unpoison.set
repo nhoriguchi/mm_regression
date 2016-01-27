@@ -33,17 +33,17 @@ random_poison() {
 random_unpoison() {
 	echo "random_unpoison thread running ..."
 	while true ; do
-        all_unpoison > /dev/null 2>&1
-    done
+		all_unpoison > /dev/null 2>&1
+	done
 }
 
 _control() {
-    local pid=
+	local pid=
 
 	$test_alloc_generic -B $BACKEND -N 32 -L 'mmap access'
 	echo_log "$test_alloc_generic -B $BACKEND -N 32 -L 'mmap access busyloop' &"
 	$test_alloc_generic -B $BACKEND -N 32 -L 'mmap access busyloop' &
-    pid=$!
+	pid=$!
 	sleep 0.1
 	if ! check_process_status $pid ; then
 		set_return_code ERROR
@@ -51,8 +51,8 @@ _control() {
 	fi
 	get_mm_stats 1 $pid
 
-    random_unpoison $pid &
-    local pid_unpoison=$!
+	random_unpoison $pid &
+	local pid_unpoison=$!
 	echo_log "background unpoisoner ($pid_unpoison) running ..."
 	echo_log "target pageflags: $TARGET_PAGEFLAGS"
 
@@ -70,8 +70,8 @@ _control() {
 			;;
 	esac
 
-    random_poison $pid &
-    local pid_poison=$!
+	random_poison $pid &
+	local pid_poison=$!
 	if [ ! -s $TMPD/target_pfns ] ; then
 		set_return_code NO_TARGET_PFN
 	else
@@ -80,10 +80,10 @@ _control() {
 	fi
 	kill -9 $pid_poison $pid_unpoison 2> /dev/null
 	get_mm_stats 2 $pid
-    kill -SIGUSR1 $pid
+	echo "kill -SIGUSR1 $pid"
+	check_process_status $pid && kill -SIGUSR1 $pid
 
-	# Without below, some hugepage remains as surplus after cleanup_mm_generic()
 	cleanup_hugetlb_config
 
-    set_return_code EXIT
+	set_return_code EXIT
 }
