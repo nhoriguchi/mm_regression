@@ -6,9 +6,10 @@ DEVEL_MODE=
 # RECIPEDIR might be set as an environment variable
 # TESTCASE_FILTER might be set as an environment variable
 SHOW_TEST_VERSION=
-# PRIORITY_LEVEL might be set as an environment variable
+# HIGHEST_PRIORITY might be set as an environment variable
+# LOWEST_PRIORITY might be set as an environment variable
 
-while getopts vs:t:f:Spd:r:DV OPT ; do
+while getopts vs:t:f:Spd:r:DVh:l: OPT ; do
     case $OPT in
         v) VERBOSE="$OPTARG" ;;
         s) KERNEL_SRC="$OPTARG" ;;
@@ -20,7 +21,8 @@ while getopts vs:t:f:Spd:r:DV OPT ; do
 		r) RECIPEFILES="$RECIPEFILES $OPTARG" ;;
 		D) DEVEL_MODE=true ;;
 		V) SHOW_TEST_VERSION=true ;;
-		P) PRIORITY_LEVEL=$OPTARG ;;
+		h) HIGHEST_PRIORITY=$OPTARG ;;
+		l) LOWEST_PRIORITY=$OPTARG ;;
     esac
 done
 
@@ -55,7 +57,8 @@ done
 [ ! "$RECIPEFILES" ] && echo "RECIPEFILES not given or not exist." >&2 && exit 1
 export RECIPEFILES
 
-[ ! "$PRIORITY_LEVEL" ] && export PRIORITY_LEVEL=10 # default
+[ ! "$HIGHEST_PRIORITY" ] && export HIGHEST_PRIORITY=0 # default
+[ ! "$LOWEST_PRIORITY" ] && export LOWEST_PRIORITY=10 # default
 
 [ ! "$VERBOSE" ] && VERBOSE=1 # default verbose level
 export VERBOSE
@@ -78,6 +81,11 @@ echo_log "${RECIPEFILES//$TRDIR\/cases\//}"
 make --quiet allrecipes > $GTMPD/full_recipe_list
 
 echo 1 > /proc/sys/kernel/panic_on_oops
+
+skip_testcase_out_priority() {
+	echo_log "This testcase is skipped because the testcase priority ($PRIORITY) is not within given priority range [$HIGHEST_PRIORITY, $LOWEST_PRIORITY]. To run this, set HIGEST_PRIORITY and LOWEST_PRIORITY to contain PRIORITY ($PRIORITY)"
+	echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+}
 
 for recipe in $RECIPEFILES ; do
 	if [ ! -f "$recipe" ] ; then
@@ -126,6 +134,8 @@ for recipe in $RECIPEFILES ; do
 		reset_per_testcase_counters
 		init_return_code
 
+		PRIORITY=10 # TODO: better place?
+
 		mv .tmp.recipe $TMPD/_recipe
 		. $TMPD/_recipe
 		ret=$?
@@ -134,9 +144,10 @@ for recipe in $RECIPEFILES ; do
 			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
 		elif [ "$ret" -ne 0 ] ; then
 			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
-		elif [ "$PRIORITY" ] && [ "$PRIORITY_LEVEL" -le "$PRIORITY" ] ; then
-			echo_log "This testcase is skipped due to the low priority ($PRIORITY). To run this, set PRIORITY_LEVEL (current value is $PRIORITY_LEVEL) <= $PRIORITY"
-			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		elif [ "$PRIORITY" ] && [ "$HIGHEST_PRIORITY" -gt "$PRIORITY" ] ; then
+			skip_testcase_out_priority
+		elif [ "$PRIORITY" ] && [ "$LOWEST_PRIORITY" -lt "$PRIORITY" ] ; then
+			skip_testcase_out_priority
 		else
 			do_soft_try
 		fi
