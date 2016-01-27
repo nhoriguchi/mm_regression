@@ -970,14 +970,6 @@ static void do_mremap_stress(struct op_control *opc) {
 	}
 }
 
-static int __madv_willneed_chunk(char *p, int size, void *args) {
-	return madvise(p, size, MADV_WILLNEED);
-}
-
-static void do_madv_willneed(struct op_control *opc) {
-	do_work_memory(__madv_willneed_chunk, NULL);
-}
-
 static void do_iterate_mapping(struct op_control *opc) {
 	while (flag) {
 		do_mmap(opc);
@@ -1124,7 +1116,6 @@ enum {
 	NR_migratepages,
 	NR_memory_compaction,
 	NR_allocate_more,
-	NR_madv_willneed,
 	NR_madv_soft,
 	NR_iterate_mapping,
 	NR_mremap_stress,
@@ -1160,7 +1151,6 @@ static const char *operation_name[] = {
 	[NR_migratepages]		= "migratepages",
 	[NR_memory_compaction]		= "memory_compaction",
 	[NR_allocate_more]		= "allocate_more",
-	[NR_madv_willneed]		= "madv_willneed",
 	[NR_madv_soft]			= "madv_soft",
 	[NR_iterate_mapping]		= "iterate_mapping",
 	[NR_mremap_stress]		= "mremap_stress",
@@ -1199,7 +1189,6 @@ static const char *op_supported_args[][10] = {
 	[NR_migratepages]		= {"busyloop"},
 	[NR_memory_compaction]		= {},
 	[NR_allocate_more]		= {},
-	[NR_madv_willneed]		= {},
 	[NR_madv_soft]			= {},
 	[NR_iterate_mapping]		= {},
 	[NR_mremap_stress]		= {},
@@ -1367,8 +1356,6 @@ static void do_operation_loop(void) {
 			do_memory_compaction(&opc);
 		} else if (!strcmp(opc.name, "allocate_more")) {
 			do_allocate_more(&opc);
-		} else if (!strcmp(opc.name, "madv_willneed")) {
-			do_madv_willneed(&opc);
 		} else if (!strcmp(opc.name, "madv_soft")) {
 			do_madv_soft(&opc);
 		} else if (!strcmp(opc.name, "iterate_mapping")) {

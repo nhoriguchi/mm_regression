@@ -2,7 +2,7 @@
 
 . $TRDIR/setup_mmgeneric.sh
 
-TEST_PROGRAM="$test_alloc_generic -B anonymous -n 0x3800 -L 'start:wait_after mmap access:wait_after madv_willneed munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="$test_alloc_generic -B anonymous -n 0x3800 -L 'start:wait_after mmap access:wait_after madvise:advice=willneed munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="START EXIT"
 
 __prepare_memcg() {
@@ -56,12 +56,10 @@ _control() {
 
     echo_log "$line"
     case "$line" in
-        # "malloc_madv_willneed start")
         "after_start")
             cgclassify -g cpu,memory:test1 $pid || set_return_code CGCLASSIFY_FAIL
             kill -SIGUSR1 $pid
             ;;
-        # "call madvise with MADV_WILLNEED")
         "after_access")
             echo 3 > /proc/sys/vm/drop_caches
             gawk '
@@ -80,7 +78,6 @@ _control() {
             cgset -r memory.limit_in_bytes=0x8000000 test1 || set_return_code CGSET_FAIL
             kill -SIGUSR1 $pid
             ;;
-        # "malloc_madv_willneed exit")
         "before_munmap")
             gawk '
                 BEGIN {gate=0;}
