@@ -79,12 +79,11 @@ prepare_mm_generic() {
 			hugepage_size_support_check || return 1
 		fi
 		set_and_check_hugetlb_pool $HUGETLB
-		HUGETLB_MOUNT=$WDIR/hugetlbfs
-		rm -rf $HUGETLB_MOUNT/* > /dev/null 2>&1
-		umount -f $HUGETLB_MOUNT > /dev/null 2>&1
-		rm -rf $HUGETLB_MOUNT > /dev/null 2>&1
-		mkdir -p $HUGETLB_MOUNT > /dev/null 2>&1
-		mount -t hugetlbfs none $HUGETLB_MOUNT || return 1
+		rm -rf $WDIR/hugetlbfs/* > /dev/null 2>&1
+		umount -f $WDIR/hugetlbfs > /dev/null 2>&1
+		rm -rf $WDIR/hugetlbfs > /dev/null 2>&1
+		mkdir -p $WDIR/hugetlbfs > /dev/null 2>&1
+		mount -t hugetlbfs none $WDIR/hugetlbfs || return 1
 	fi
 
 	if [ "$HUGETLB_OVERCOMMIT" ] ; then
@@ -133,9 +132,9 @@ cleanup_mm_generic() {
 
 	if [ "$HUGETLB" ] ; then
 		set_and_check_hugetlb_pool 0
-		rm -rf $HUGETLB_MOUNT/* > /dev/null 2>&1
-		umount -f $HUGETLB_MOUNT > /dev/null 2>&1
-		rm -rf $HUGETLB_MOUNT > /dev/null 2>&1
+		rm -rf $WDIR/hugetlbfs/* > /dev/null 2>&1
+		umount -f $WDIR/hugetlbfs > /dev/null 2>&1
+		rm -rf $WDIR/hugetlbfs > /dev/null 2>&1
 	fi
 
 	if [ "$HUGETLB_OVERCOMMIT" ] ; then

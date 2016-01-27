@@ -133,9 +133,9 @@ set_hugetlb_overcommit() {
 }
 
 cleanup_hugetlb_config() {
-	if [ "$HUGETLB_MOUNT" ] ; then
-		rm -rf $HUGETLB_MOUNT/* 2>&1 > /dev/null
-		umount -f $HUGETLB_MOUNT 2>&1 > /dev/null
+	if [ "$WDIR/hugetlbfs" ] ; then
+		rm -rf $WDIR/hugetlbfs/* 2>&1 > /dev/null
+		umount -f $WDIR/hugetlbfs 2>&1 > /dev/null
 	fi
 	sysctl -q vm.nr_hugepages=0
 	kill_all_subprograms
