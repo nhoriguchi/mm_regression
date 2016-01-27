@@ -1051,6 +1051,60 @@ static void do_split_thp(struct op_control *opc) {
 	}
 }
 
+static int __do_madvise_chunk(char *p, int size, void *args) {
+	return madvise(p, size, *(int *)args);
+}
+
+/* this new feature might not be available in distro's header */
+#define MADV_FREE	8
+
+static void do_madvise(struct op_control *opc) {
+	char *adv;
+	int advice;
+
+	adv = opc_get_value(opc, "advice");
+	if (!adv)
+		errmsg("%s need to set advice:MADV_*\n", __func__);
+	if (!strcmp(adv, "normal"))
+		advice = MADV_NORMAL;
+	else if (!strcmp(adv, "random"))
+		advice = MADV_RANDOM;
+	else if (!strcmp(adv, "sequential"))
+		advice = MADV_SEQUENTIAL;
+	else if (!strcmp(adv, "willneed"))
+		advice = MADV_WILLNEED;
+	else if (!strcmp(adv, "dontneed"))
+		advice = MADV_DONTNEED;
+	else if (!strcmp(adv, "free"))
+		advice = MADV_FREE;
+	else if (!strcmp(adv, "remove"))
+		advice = MADV_REMOVE;
+	else if (!strcmp(adv, "dontfork"))
+		advice = MADV_DONTFORK;
+	else if (!strcmp(adv, "fork"))
+		advice = MADV_DOFORK;
+	else if (!strcmp(adv, "hwpoison"))
+		advice = MADV_HWPOISON;
+	else if (!strcmp(adv, "soft_offline"))
+		advice = MADV_SOFT_OFFLINE;
+	else if (!strcmp(adv, "mergeable"))
+		advice = MADV_MERGEABLE;
+	else if (!strcmp(adv, "unmergeable"))
+		advice = MADV_UNMERGEABLE;
+	else if (!strcmp(adv, "hugepage"))
+		advice = MADV_HUGEPAGE;
+	else if (!strcmp(adv, "nohugepage"))
+		advice = MADV_NOHUGEPAGE;
+	else if (!strcmp(adv, "dontdump"))
+		advice = MADV_DONTDUMP;
+	else if (!strcmp(adv, "dodump"))
+		advice = MADV_DODUMP;
+	else
+		errmsg("unsupported madvice: %s\n", adv);
+
+	do_work_memory(__do_madvise_chunk, &advice);
+}
+
 enum {
 	NR_start,
 	NR_exit,
@@ -1083,6 +1137,7 @@ enum {
 	NR_mbind_fuzz,
 	NR_fork,
 	NR_split_thp,
+	NR_madvise,
 	NR_OPERATIONS,
 };
 
@@ -1118,6 +1173,7 @@ static const char *operation_name[] = {
 	[NR_mbind_fuzz]			= "mbind_fuzz",
 	[NR_fork]			= "fork",
 	[NR_split_thp]			= "split_thp",
+	[NR_madvise]			= "madvise",
 };
 
 /*
@@ -1156,6 +1212,7 @@ static const char *op_supported_args[][10] = {
 	[NR_mbind_fuzz]			= {},
 	[NR_fork]			= {},
 	[NR_split_thp]			= {"only_pmd"},
+	[NR_madvise]			= {"advice"},
 };
 
 static int get_op_index(struct op_control *opc) {
@@ -1336,6 +1393,8 @@ static void do_operation_loop(void) {
 			do_fork(&opc);
 		} else if (!strcmp(opc.name, "split_thp")) {
 			do_split_thp(&opc);
+		} else if (!strcmp(opc.name, "madvise")) {
+			do_madvise(&opc);
 		} else
 			errmsg("unsupported op_string: %s\n", opc.name);
 
