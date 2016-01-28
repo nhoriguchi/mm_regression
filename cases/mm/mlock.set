@@ -5,7 +5,7 @@ MLOCK_VERSION=__MARK_MLOCK_VERSION
 BACKEND=__MARK_BACKEND
 
 # tp can be occasionally killed
-SOFT_RETRY=5
+[ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
 
 . $TRDIR/setup_mmgeneric.sh
 

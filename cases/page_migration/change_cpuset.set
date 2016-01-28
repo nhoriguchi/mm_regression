@@ -9,7 +9,7 @@ THP=1
 CGROUP=cpu,cpuset,memory:test1
 MIGRATE_SRC=change_cpuset
 
-SOFT_RETRY=5
+[ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
 
 # TODO: other backend
 

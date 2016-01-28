@@ -6,7 +6,7 @@
 FLAVOR=__MARK_FLAVOR
 
 HUGETLB=200
-SOFT_RETRY=5
+[ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
 
 if [ "$FLAVOR" == simple ] ; then
 	TEST_PROGRAM="$test_mincore -f $GTMPD/holefile -t 0xffff"
