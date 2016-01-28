@@ -6,8 +6,19 @@ THP=true
 FLAVOR=__MARK_FLAVOR
 
 # TODO: background memory pressure?
-EXPECTED_RETURN_CODE="START EXIT"
-TEST_PROGRAM="$test_alloc_generic -v -B anonymous -B pagecache -B thp -N 10 -L 'mmap access:wait_after madvise:advice=$FLAVOR:wait_after munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="$test_alloc_generic -v -B anonymous -B pagecache -B thp -B normal_shmem -N 10 -L 'mmap access:wait_after madvise:advice=$FLAVOR:wait_after munmap exit:wait_before'"
+
+if [ "$FLAVOR" == free ] ; then
+	EXPECTED_RETURN_CODE="START INCORE EXIT"
+elif [ "$FLAVOR" == dontneed ] ; then
+	EXPECTED_RETURN_CODE="START EXIT"
+fi
+
+check_incore() {
+	if [ -s $TMPD/pagetypes.2 ] ; then
+		set_return_code INCORE
+	fi
+}
 
 _control() {
     local pid="$1"
@@ -21,11 +32,8 @@ _control() {
 				kill -SIGUSR1 $pid
 				;;
 			"after_madvise")
-				get_mm_stats 1.5 $pid
-				kill -SIGUSR1 $pid
-				;;
-			"before_munmap")
 				get_mm_stats 2 $pid
+				check_incore
 				kill -SIGUSR1 $pid
 				;;
 			"before_exit")
