@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 
 	signal(SIGUSR1, sig_handle);
 
-	while ((c = getopt(argc, argv, "vp:n:N:bB:FL:f:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:bB:L:f:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -102,9 +102,6 @@ int main(int argc, char *argv[]) {
 				printf("backend_bitmap %lx, %d\n",
 				       backend_bitmap, get_nr_mem_types());
 			}
-			break;
-		case 'F':
-			forkflag = 1;
 			break;
 		case 'L':
 			parse_operations(optarg);

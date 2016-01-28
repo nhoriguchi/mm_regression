@@ -31,8 +31,6 @@ char *filebase = "testfile";
 int fd;
 int hugetlbfd;
 
-int forkflag;
-
 struct mem_chunk {
 	int mem_type;
 	int chunk_size;
@@ -773,8 +771,6 @@ static int __mlock_chunk(char *p, int size, void *args) {
 }
 
 static void do_mlock(struct op_control *opc) {
-	if (forkflag)
-		fork_access(opc);
 	do_work_memory(__mlock_chunk, opc);
 }
 
@@ -793,8 +789,6 @@ static int __mlock2_chunk(char *p, int size, void *args) {
 }
 
 static void do_mlock2(struct op_control *opc) {
-	if (forkflag)
-		fork_access(opc);
 	do_work_memory(__mlock2_chunk, opc);
 }
 
@@ -810,8 +804,6 @@ static int __mprotect_chunk(char *p, int size, void *args) {
 }
 
 static void do_mprotect(struct op_control *opc) {
-	if (forkflag)
-		fork_access(opc);
 	do_work_memory(__mprotect_chunk, opc);
 }
 
@@ -973,6 +965,7 @@ static void do_move_pages_pingpong(struct op_control *opc) {
 
 static void do_fork(struct op_control *opc) {
 	pid_t pid = fork();
+
 	if (!pid) {
 		opc->name = "access";
 		opc->wait_after = 1;
