@@ -218,13 +218,13 @@ control_hugepage_migration() {
 				return 0
 				;;
 			"waiting for migratepages")
-				echo "calling do_migratepages for $pid"
+				echo_log "calling do_migratepages for $pid"
 				do_migratepages $pid
-				echo $?
+				echo_log "return $?"
 				kill -SIGUSR1 $pid
 				;;
 			"waiting for change_cpuset")
-				echo "changing cpuset.mems 0 to 1"
+				echo_log "changing cpuset.mems 0 to 1"
 				cgset -r cpuset.mems=0 test1
 				cgset -r cpuset.mems=1 test1
 				kill -SIGUSR1 $pid
