@@ -1,10 +1,7 @@
 #!1 MIGRATE_SRC: migratepages move_pages
-#!1 RACE_SRC: iterate_mapping gup
+#!1 RACE_SRC: iterate_mapping gup mremap_stress
 
-#!2 MIGRATE_SRC: migratepages move_pages
-#!2 RACE_SRC: mremap_stress
-
-# TODO: race with gup/migration
+# TODO: race with madv_free
 
 . $TRDIR/setup_page_migration.sh
 
