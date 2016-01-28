@@ -7,7 +7,7 @@ EXPECTED_RETURN_CODE="START CGCLASSIFY_PASS MIGRATION_PASSED HUGEPAGE_MIGRATED E
 TEST_PROGRAM="$test_alloc_generic -B hugetlb_anon -N 10 -L 'start:wait_after mmap_numa access:wait_after migratepages munmap:wait_before exit:wait_before'"
 MIGRATE_SRC=migratepages
 
-SOFT_RETRY=5
+[ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
 
 CGROUP=cpu,memory,hugetlb:test1
 
