@@ -442,14 +442,22 @@ static void do_busyloop(struct op_control *opc) {
 	pprintf_wait_func(do_access, opc, "entering busy loop\n");
 }
 
-static int set_mempolicy_node(int mode, int nid) {
-	/* Assuming that max node number is < 64 */
-	unsigned long nodemask = 1UL << nid;
+/* borrowed from ltp:testcases/kernel/mem/include/mem.h */
+#define BITS_PER_LONG           (8 * sizeof(long))
+#define MAXNODES		256
+static inline void set_node(unsigned long *array, unsigned int node)
+{
+        array[node / BITS_PER_LONG] |= 1UL << (node % BITS_PER_LONG);
+}
 
+static int set_mempolicy_node(int mode, int nid) {
+	unsigned long nmask[MAXNODES / BITS_PER_LONG] = { 0 };
+
+	set_node(nmask, nid);
 	if (mode == MPOL_DEFAULT)
-		set_mempolicy(mode, NULL, nr_nodes);
+		set_mempolicy(mode, NULL, MAXNODES);
 	else
-		set_mempolicy(mode, &nodemask, nr_nodes);
+		set_mempolicy(mode, nmask, MAXNODES);
 }
 
 static int numa_sched_setaffinity_node(int nid) {
