@@ -90,11 +90,11 @@ class RunSummary
 
   def sum_str
     tmp = []
-    if @test_summary.options[:verbose]
-      @tc_summary.each do |tc|
-        tmp << "  " + tc.sum_str
-      end
-    end
+    # if @test_summary.options[:verbose]
+    #   @tc_summary.each do |tc|
+    #     tmp << "  " + tc.sum_str
+    #   end
+    # end
     tmp << "PASS #{@testcase_pass.count}, FAIL #{@testcase_fail.count}, NONE #{@testcase_none.count}, SKIP #{@testcase_skip.count}, WARN #{@testcase_warn.count}"
     tmp << "checkcount #{@testcount}, checkpass #{@success}, checkfail #{@failure}, checklater #{@later}"
     if @test_summary.options[:verbose]
@@ -109,10 +109,10 @@ class RunSummary
       tmp << tc.failure_str
     end
     @testcase_none.each do |tc|
-      tmp << "#{tc.testcaseid}: didn't start properly, check prepare routine or environment"
+      tmp << "#{tc.testcaseid}: NONE"
     end
     @testcase_warn.each do |tc|
-      tmp << "#{tc.testcaseid}: not finished properly, maybe panicked or stalled?"
+      tmp << "#{tc.testcaseid}: WARN"
       tmp << tc.failure_str
     end
     tmp.join("\n")
