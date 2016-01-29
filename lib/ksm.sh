@@ -22,3 +22,9 @@ get_full_scans()     { cat $KSMDIR/full_scans;     }
 show_ksm_params() {
     echo "KSM params: run:`get_pages_run`, shared:`get_pages_shared`, sharing:`get_pages_sharing`, unshared:`get_pages_unshared`, volatile:`get_pages_volatile`, scans:`get_full_scans`"
 }
+
+# TODO: distro dependency
+stop_ksm_service() {
+	systemctl stop ksmtuned
+	systemctl stop ksm
+}
