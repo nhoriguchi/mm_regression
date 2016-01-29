@@ -70,9 +70,10 @@ export VERBOSE
 stop_test_running() {
 	ps x -o  "%p %r %y %x %c" | grep $$
 	kill -9 -$(ps --no-header -o "%r" $$)
+	kill_all_subprograms
 }
 
-trap stop_test_running SIGTERM
+trap stop_test_running SIGTERM SIGINT
 
 echo_log "=========> start testing $(basename $TRDIR):$TESTNAME"
 echo_log "RECIPEFILES:"
