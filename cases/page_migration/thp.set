@@ -24,7 +24,7 @@ if [ "$RACE_SRC" == race_with_gup ] ; then
 elif [ "$RACE_SRC" == race_with_process_vm_access ] ; then
 	# TODO: really need busyloop flag?
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
-	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -b -L 'start:wait_after mmap_numa access:wait_after process_vm_access munmap:wait_before exit:wait_before'"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa access:wait_after process_vm_access:busyloop munmap:wait_before exit:wait_before'"
 elif [ "$RACE_SRC" == race_with_map_fault_unmap ] ; then
 	_control() {
 		for i in $(seq 5) ; do

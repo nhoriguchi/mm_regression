@@ -716,49 +716,6 @@ static void do_memory_error_injection(struct op_control *opc) {
 	}
 }
 
-static int __process_vm_access_chunk(char *p, int size, void *args) {
-	int i;
-	struct iovec local[1024];
-	struct iovec remote[1024];
-	ssize_t nread;
-	pid_t pid = *(pid_t *)args;
-
-	for (i = 0; i < size / HPS; i++) {
-		local[i].iov_base = p + i * HPS;
-		local[i].iov_len = HPS;
-		remote[i].iov_base = p + i * HPS;
-		remote[i].iov_len = HPS;
-	}
-	nread = process_vm_readv(pid, local, size / HPS, remote, size / HPS, 0);
-	/* printf("0x%lx bytes read, p[0] = %c\n", nread, p[0]); */
-}
-
-static pid_t fork_access(struct op_control *opc) {
-	pid_t pid = fork();
-
-	if (!pid) {
-		/* Expecting COW, but it doesn't happend in zero page */
-		do_access(opc);
-		pause();
-		return 0;
-	}
-
-	return pid;
-}
-
-static void do_process_vm_access(struct op_control *opc) {
-	pid_t pid;
-
-	/* node 0 is preferred */
-	if (set_mempolicy_node(MPOL_PREFERRED, 0) == -1)
-		err("set_mempolicy(MPOL_PREFERRED) to 0");
-
-	pid = fork_access(opc);
-	pprintf_wait_func(opc_defined(opc, "busyloop") ? do_access : NULL, opc,
-			  "waiting for process_vm_access\n");
-	do_work_memory(__process_vm_access_chunk, &pid);
-}
-
 static int __mlock_chunk(char *p, int size, void *args) {
 	int i;
 	struct op_control *opc = (struct op_control *)args;
@@ -963,7 +920,7 @@ static void do_move_pages_pingpong(struct op_control *opc) {
 	}
 }
 
-static void do_fork(struct op_control *opc) {
+static pid_t do_fork(struct op_control *opc) {
 	pid_t pid = fork();
 
 	if (!pid) {
@@ -972,8 +929,10 @@ static void do_fork(struct op_control *opc) {
 		opc_set_value(opc, "type", "read");
 		testpipe = NULL;
 		do_access(opc);
-		return;
+		return 0;
 	}
+
+	return pid;
 }
 
 /* TODO: chunk should be thp */
@@ -1073,6 +1032,33 @@ static void do_madv_soft(struct op_control *opc) {
 	/* int do_unpoison = 1; */
 	opc_set_value(opc, "advice", "soft_offline");
 	do_madvise(opc);
+}
+
+static int __process_vm_access_chunk(char *p, int size, void *args) {
+	int i;
+	struct iovec local[1024];
+	struct iovec remote[1024];
+	ssize_t nread;
+	pid_t pid = *(pid_t *)args;
+
+	for (i = 0; i < size / HPS; i++) {
+		local[i].iov_base = p + i * HPS;
+		local[i].iov_len = HPS;
+		remote[i].iov_base = p + i * HPS;
+		remote[i].iov_len = HPS;
+	}
+	nread = process_vm_readv(pid, local, size / HPS, remote, size / HPS, 0);
+	/* printf("0x%lx bytes read, p[0] = %c\n", nread, p[0]); */
+}
+
+static void do_process_vm_access(struct op_control *opc) {
+	pid_t pid;
+
+	pid = do_fork(opc);
+	/* TODO: this waiting is not beautiful, need update */
+	pprintf_wait_func(opc_defined(opc, "busyloop") ? do_access : NULL, opc,
+			  "waiting for process_vm_access\n");
+	do_work_memory(__process_vm_access_chunk, &pid);
 }
 
 enum {
