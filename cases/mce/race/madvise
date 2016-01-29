@@ -8,13 +8,13 @@ KSM=true
 
 BACKENDOPT="-B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -B hugetlb_file -B ksm -B normal_shmem"
 OPBASE="start mmap access"
-OP_HARD1="$OPBASE madvise:advice=hwpoison"
-OP_SOFT1="$OPBASE madvise:advice=soft_offline"
-OP_HARD2="$OPBASE madvise:advice=hwpoison access"
-OP_SOFT2="$OPBASE madvise:advice=soft_offline access"
+OP_HARD1="$OPBASE madvise:size=4096:advice=hwpoison:head"
+OP_SOFT1="$OPBASE madvise:size=4096:advice=soft_offline"
+OP_HARD2="$OPBASE madvise:size=4096:advice=hwpoison access"
+OP_SOFT2="$OPBASE madvise:size=4096:advice=soft_offline access"
 
 _control() {
-	for i in $(seq 10) ; do
+	for i in $(seq 16) ; do
 		$test_alloc_generic $BACKENDOPT -N 8 -L "$OP_HARD1" > /dev/null 2>&1 &
 		$test_alloc_generic $BACKENDOPT -N 8 -L "$OP_SOFT1" > /dev/null 2>&1 &
 		$test_alloc_generic $BACKENDOPT -N 8 -L "$OP_HARD2" > /dev/null 2>&1 &

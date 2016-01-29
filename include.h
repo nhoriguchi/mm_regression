@@ -993,58 +993,78 @@ static void do_split_thp(struct op_control *opc) {
 	}
 }
 
+struct madvise_arg {
+	int advice;
+	int size;
+};
+
 static int __do_madvise_chunk(char *p, int size, void *args) {
-	return madvise(p, size, *(int *)args);
+	struct madvise_arg *madv_arg = (struct madvise_arg *)args;
+
+	if (madv_arg->size) {
+		int i, ret;
+
+		for (i = 0; i < (size - 1) / 512 + 1; i++) {
+			ret = madvise(p + i * HPS, madv_arg->size,
+				      madv_arg->advice);
+			if (ret)
+				return ret;
+		}
+	} else
+		return madvise(p, size, madv_arg->advice);
 }
 
 /* this new feature might not be available in distro's header */
 #define MADV_FREE	8
 
 static void do_madvise(struct op_control *opc) {
-	char *adv;
-	int advice;
+	char *tmp;
+	struct madvise_arg madv_arg = {};
 
-	adv = opc_get_value(opc, "advice");
-	if (!adv)
+	tmp = opc_get_value(opc, "advice");
+	if (!tmp)
 		errmsg("%s need to set advice:MADV_*\n", __func__);
-	if (!strcmp(adv, "normal"))
-		advice = MADV_NORMAL;
-	else if (!strcmp(adv, "random"))
-		advice = MADV_RANDOM;
-	else if (!strcmp(adv, "sequential"))
-		advice = MADV_SEQUENTIAL;
-	else if (!strcmp(adv, "willneed"))
-		advice = MADV_WILLNEED;
-	else if (!strcmp(adv, "dontneed"))
-		advice = MADV_DONTNEED;
-	else if (!strcmp(adv, "free"))
-		advice = MADV_FREE;
-	else if (!strcmp(adv, "remove"))
-		advice = MADV_REMOVE;
-	else if (!strcmp(adv, "dontfork"))
-		advice = MADV_DONTFORK;
-	else if (!strcmp(adv, "fork"))
-		advice = MADV_DOFORK;
-	else if (!strcmp(adv, "hwpoison"))
-		advice = MADV_HWPOISON;
-	else if (!strcmp(adv, "soft_offline"))
-		advice = MADV_SOFT_OFFLINE;
-	else if (!strcmp(adv, "mergeable"))
-		advice = MADV_MERGEABLE;
-	else if (!strcmp(adv, "unmergeable"))
-		advice = MADV_UNMERGEABLE;
-	else if (!strcmp(adv, "hugepage"))
-		advice = MADV_HUGEPAGE;
-	else if (!strcmp(adv, "nohugepage"))
-		advice = MADV_NOHUGEPAGE;
-	else if (!strcmp(adv, "dontdump"))
-		advice = MADV_DONTDUMP;
-	else if (!strcmp(adv, "dodump"))
-		advice = MADV_DODUMP;
+	if (!strcmp(tmp, "normal"))
+		madv_arg.advice = MADV_NORMAL;
+	else if (!strcmp(tmp, "random"))
+		madv_arg.advice = MADV_RANDOM;
+	else if (!strcmp(tmp, "sequential"))
+		madv_arg.advice = MADV_SEQUENTIAL;
+	else if (!strcmp(tmp, "willneed"))
+		madv_arg.advice = MADV_WILLNEED;
+	else if (!strcmp(tmp, "dontneed"))
+		madv_arg.advice = MADV_DONTNEED;
+	else if (!strcmp(tmp, "free"))
+		madv_arg.advice = MADV_FREE;
+	else if (!strcmp(tmp, "remove"))
+		madv_arg.advice = MADV_REMOVE;
+	else if (!strcmp(tmp, "dontfork"))
+		madv_arg.advice = MADV_DONTFORK;
+	else if (!strcmp(tmp, "fork"))
+		madv_arg.advice = MADV_DOFORK;
+	else if (!strcmp(tmp, "hwpoison"))
+		madv_arg.advice = MADV_HWPOISON;
+	else if (!strcmp(tmp, "soft_offline"))
+		madv_arg.advice = MADV_SOFT_OFFLINE;
+	else if (!strcmp(tmp, "mergeable"))
+		madv_arg.advice = MADV_MERGEABLE;
+	else if (!strcmp(tmp, "unmergeable"))
+		madv_arg.advice = MADV_UNMERGEABLE;
+	else if (!strcmp(tmp, "hugepage"))
+		madv_arg.advice = MADV_HUGEPAGE;
+	else if (!strcmp(tmp, "nohugepage"))
+		madv_arg.advice = MADV_NOHUGEPAGE;
+	else if (!strcmp(tmp, "dontdump"))
+		madv_arg.advice = MADV_DONTDUMP;
+	else if (!strcmp(tmp, "dodump"))
+		madv_arg.advice = MADV_DODUMP;
 	else
-		errmsg("unsupported madvice: %s\n", adv);
+		errmsg("unsupported madvice: %s\n", tmp);
 
-	do_work_memory(__do_madvise_chunk, &advice);
+	if (tmp = opc_get_value(opc, "size"))
+		madv_arg.size = strtoul(tmp, NULL, 0);
+
+	do_work_memory(__do_madvise_chunk, &madv_arg);
 }
 
 /* unpoison option? */
@@ -1156,7 +1176,7 @@ static const char *op_supported_args[][10] = {
 	[NR_mbind_fuzz]			= {},
 	[NR_fork]			= {},
 	[NR_split_thp]			= {"only_pmd"},
-	[NR_madvise]			= {"advice"},
+	[NR_madvise]			= {"advice", "size"},
 };
 
 static int get_op_index(struct op_control *opc) {
