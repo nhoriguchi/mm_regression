@@ -1,5 +1,6 @@
 #!2 MIGRATE_SRC: migratepages
 #!2 RACE_SRC: race_with_gup race_with_process_vm_access race_with_map_fault_unmap race_with_fork race_with_mremap
+# race_with_madv_free
 
 #!3 MIGRATE_SRC: mbind
 #!3 OPERATION: partial
