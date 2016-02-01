@@ -71,6 +71,7 @@ stop_test_running() {
 	ps x -o  "%p %r %y %x %c" | grep $$
 	kill -9 -$(ps --no-header -o "%r" $$)
 	kill_all_subprograms
+	exit
 }
 
 trap stop_test_running SIGTERM SIGINT
