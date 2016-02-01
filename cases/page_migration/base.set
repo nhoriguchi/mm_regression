@@ -1,0 +1,29 @@
+#!1 BACKEND: hugetlb_anon thp
+#!1 MIGRATE_SRC: migratepages mbind move_pages madv_soft
+#!1 OPERATION_SRC: busy idle
+
+. $TRDIR/setup_page_migration.sh
+
+BACKEND=__MARK_BACKEND
+MIGRATE_SRC=__MARK_MIGRATE_SRC
+OPERATION_SRC=__MARK_OPERATION_SRC
+
+[ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
+
+if [ "$OPERATION_SRC" == busy ] ; then
+	BUSYOPT=-b
+fi
+
+NUMA_NODE=2
+
+PIPETIMEOUT=20
+
+if [[ "$BACKEND" =~ hugetlb ]] ; then
+	HUGETLB=100
+	HUGEPAGESIZE=2048 # kB
+	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
+elif  [[ "$BACKEND" =~ thp ]] ; then
+	THP=true
+	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
+fi
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 10 $BUSYOPT -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"

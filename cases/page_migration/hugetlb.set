@@ -1,0 +1,72 @@
+#!1 MIGRATE_SRC: migratepages mbind move_pages madv_soft
+#!1 BACKGROUND: reserve
+#!1 OVERCOMMIT: overcommit noovercommit
+
+# "allocate0 + noovercommit" case is meaningless testcases because test program
+# always fail to allocate hugepage from node 0 and killed by SIGBUS before trying
+# to page migration.
+
+#!2 MIGRATE_SRC: migratepages mbind move_pages madv_soft
+#!2 BACKGROUND: allocate0 allocate1
+#!2 OVERCOMMIT: overcommit
+
+#!3 MIGRATE_SRC: migratepages mbind move_pages madv_soft
+#!3 BACKGROUND: allocate1
+#!3 OVERCOMMIT: noovercommit
+
+. $TRDIR/setup_page_migration.sh
+
+BACKEND=hugetlb_anon
+MIGRATE_SRC=__MARK_MIGRATE_SRC
+BACKGROUND=__MARK_BACKGROUND
+OPERATION_SRC=__MARK_OPERATION_SRC
+
+[ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
+
+NUMA_NODE=2
+HUGEPAGESIZE=2048 # kB
+
+EXPECTED_RETURN_CODE=""
+
+PIPETIMEOUT=20
+
+HUGETLB=100
+if [ __MARK_OVERCOMMIT == overcommit ] ; then
+	HUGETLB_OVERCOMMIT=10
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE SET_OVERCOMMIT"
+fi
+
+if [ "$BACKGROUND" == reserve ] ; then
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE RESERVE"
+	RESERVE_HUGEPAGE=$[HUGETLB - 2]
+elif [ "$BACKGROUND" == allocate0 ] ; then
+	ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
+	ALLOCATE_NODE=0
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ALLOCATE"
+elif [ "$BACKGROUND" == allocate1 ] ; then
+	ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
+	ALLOCATE_NODE=1
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ALLOCATE"
+fi
+
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE START"
+
+if [ "$BACKGROUND" == reserve ] ; then
+	if [ __MARK_OVERCOMMIT == overcommit ] ; then
+		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
+	else
+		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_FAILED HUGEPAGE_NOT_MIGRATED"
+	fi
+elif [ "$BACKGROUND" == allocate0 ] || [ "$BACKGROUND" == allocate1 ] ; then
+	if [ __MARK_OVERCOMMIT == overcommit ] ; then
+		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
+	else
+		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_FAILED HUGEPAGE_NOT_MIGRATED"
+	fi
+else
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
+fi
+
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
+
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 2 -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
