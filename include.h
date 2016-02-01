@@ -360,6 +360,24 @@ static void access_memory(struct mem_chunk *mc, char *type) {
 	}
 }
 
+static int check_memory(struct mem_chunk *mc) {
+	uint64_t kpflags;
+	char buf[2000];
+
+	switch (mc->mem_type) {
+	case KSM:
+		printf("--- %d\n", getpid());
+		sprintf(buf, "/src/linux-dev/tools/vm/page-types -p %d -Nrl -a 0x700000000+0x1000000 | head", getpid());
+		/* printf("--2\n"); */
+		system(buf);
+		/* printf("--\n"); */
+		/* get_pflags(mc->p, &kpflags, 1); */
+		/* printf("flags: %s\n", kpflags); */
+		;;;;
+		break;
+	}
+}
+
 static void do_mmap(struct op_control *opc) {
 	int i, j = 0, k, backend;
 	void *baseaddr;
@@ -400,12 +418,16 @@ static int do_access(void *ptr) {
 	int i, j;
 	struct op_control *opc = (struct op_control *)ptr;
 	char *type = opc_get_value(opc, "type");
+	int check = opc_defined(opc, "check");
 
 	if (type && !strcmp(type, "read") && !strcmp(type, "write"))
 		errmsg("invalid parameter access:type=%s\n", type);
 	for (j = 0; j < nr_mem_types; j++)
-		for (i = 0; i < nr_chunk; i++)
+		for (i = 0; i < nr_chunk; i++) {
 			access_memory(&chunkset[i + j * nr_chunk], type);
+			if (check)
+				check_memory(&chunkset[i + j * nr_chunk]);
+		}
 }
 
 static int do_work_memory(int (*func)(char *p, int size, void *arg), void *args) {
@@ -876,6 +898,11 @@ static void do_mremap_stress(struct op_control *opc) {
 	}
 }
 
+static void do_mremap(struct op_control *opc) {
+	int back = 0;
+	do_work_memory(__mremap_chunk, (void *)&back);
+}
+
 static void do_iterate_mapping(struct op_control *opc) {
 	while (flag) {
 		do_mmap(opc);
@@ -1001,7 +1028,7 @@ static void do_madvise(struct op_control *opc) {
 		madv_arg.advice = MADV_DONTFORK;
 	else if (!strcmp(tmp, "fork"))
 		madv_arg.advice = MADV_DOFORK;
-	else if (!strcmp(tmp, "hwpoison"))
+	else if (!strcmp(tmp, "hwpoison") || !strcmp(tmp, "hard_offline"))
 		madv_arg.advice = MADV_HWPOISON;
 	else if (!strcmp(tmp, "soft_offline"))
 		madv_arg.advice = MADV_SOFT_OFFLINE;
@@ -1031,6 +1058,7 @@ static void do_madv_soft(struct op_control *opc) {
 	/* int loop = 10; */
 	/* int do_unpoison = 1; */
 	opc_set_value(opc, "advice", "soft_offline");
+	opc_set_value(opc, "size", "4096");
 	do_madvise(opc);
 }
 
@@ -1082,6 +1110,7 @@ enum {
 	NR_allocate_more,
 	NR_madv_soft,
 	NR_iterate_mapping,
+	NR_mremap,
 	NR_mremap_stress,
 	NR_hotremove,
 	NR_process_vm_access,
@@ -1116,6 +1145,7 @@ static const char *operation_name[] = {
 	[NR_allocate_more]		= "allocate_more",
 	[NR_madv_soft]			= "madv_soft",
 	[NR_iterate_mapping]		= "iterate_mapping",
+	[NR_mremap]			= "mremap",
 	[NR_mremap_stress]		= "mremap_stress",
 	[NR_hotremove]			= "hotremove",
 	[NR_process_vm_access]		= "process_vm_access",
@@ -1137,7 +1167,7 @@ static const char *op_supported_args[][10] = {
 	[NR_exit]			= {},
 	[NR_mmap]			= {},
 	[NR_mmap_numa]			= {"preferred_cpu_node", "preferred_mem_node"},
-	[NR_access]			= {"type"},
+	[NR_access]			= {"type", "check"},
 	[NR_busyloop]			= {"type"},
 	[NR_munmap]			= {},
 	[NR_mbind]			= {"hp_partial"},
@@ -1153,6 +1183,7 @@ static const char *op_supported_args[][10] = {
 	[NR_allocate_more]		= {},
 	[NR_madv_soft]			= {},
 	[NR_iterate_mapping]		= {},
+	[NR_mremap]			= {},
 	[NR_mremap_stress]		= {},
 	[NR_hotremove]			= {"busyloop", "pageflags"},
 	[NR_process_vm_access]		= {"busyloop"},
@@ -1321,6 +1352,8 @@ static void do_operation_loop(void) {
 			do_madv_soft(&opc);
 		} else if (!strcmp(opc.name, "iterate_mapping")) {
 			do_iterate_mapping(&opc);
+		} else if (!strcmp(opc.name, "mremap")) {
+			do_mremap(&opc);
 		} else if (!strcmp(opc.name, "mremap_stress")) {
 			do_mremap_stress(&opc);
 		} else if (!strcmp(opc.name, "hotremove")) {
