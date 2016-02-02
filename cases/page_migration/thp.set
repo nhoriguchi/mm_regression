@@ -1,5 +1,5 @@
 #!2 MIGRATE_SRC: migratepages
-#!2 RACE_SRC: race_with_gup race_with_process_vm_access race_with_map_fault_unmap race_with_fork race_with_mremap
+#!2 RACE_SRC: race_with_gup race_with_process_vm_access race_with_map_fault_unmap race_with_fork race_with_mremap race_with_procpid
 # race_with_madv_free
 
 #!3 MIGRATE_SRC: mbind
@@ -22,6 +22,36 @@ if [ "$RACE_SRC" == race_with_gup ] ; then
 	# madv_soft calls get_user_pages()
 	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -b -L 'start:wait_after mmap_numa access:wait_after madv_soft munmap:wait_before exit:wait_before'"
 	# BUG_ON in mm/vmscan.c:1430
+elif [ "$RACE_SRC" == race_with_procpid ] ; then
+	EXPECTED_RETURN_CODE="START EXIT"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -L 'mmap_numa access madv_soft:wait_before:wait_after'"
+	_control() {
+		local pid="$1"
+		local line="$2"
+
+		echo_log "$line"
+		case "$line" in
+			"before_madv_soft")
+				( while true ; do
+					  $PAGETYPES -p $pid -Nlr -a 0x700000000+0x10000000 >> $TMPF/.1
+					  cat /proc/$pid/numa_maps >> $TMPF/.2
+					  cat /proc/$pid/maps >> $TMPF/.3
+					  cat /proc/$pid/smaps >> $TMPF/.4
+				  done ) &
+				echo $! > $TMPD/procpid_pid
+				kill -SIGUSR1 $pid
+				;;
+			"after_madv_soft")
+				kill -9 $(cat $TMPD/procpid_pid)
+				kill -SIGUSR1 $pid
+				set_return_code EXIT
+				return 0
+				;;
+			*)
+				;;
+		esac
+		return 1
+	}
 elif [ "$RACE_SRC" == race_with_process_vm_access ] ; then
 	# TODO: really need busyloop flag?
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
