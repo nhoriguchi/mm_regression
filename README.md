@@ -21,20 +21,23 @@ HOWTO
 ## run test
 - If you want to run a testcase defined in a recipe file cases/foo, you run
   the following command:
-
-    RECIPEFILES=cases/foo make test
+```
+RECIPEFILES=cases/foo make test
+```
 
 - You can give multiple recipes like:
-
-    RECIPEFILES="cases/foo cases/bar" make test
-
+```
+RECIPEFILES="cases/foo cases/bar" make test
+```
 - RECIPEFILES is handled as a file pathname, so you can use '*'
-
-    RECIPEFILES="cases/foo*" make test
+```
+RECIPEFILES="cases/foo*" make test
+```
 
 - 'make allrecipes' combined with grep gives you very easy/powerful filtering:
-
-    RECIPEFILES="$(make allrecipes | grep foo)" make test
+```
+RECIPEFILES="$(make allrecipes | grep foo)" make test
+```
 
 - There're some other useful options/environment variables:
   - RUNNAME: you can give ID for each run, which is mainly useful to separate
@@ -67,11 +70,12 @@ HOWTO
 - Test result are stored under work/$RUNNAME. The results of each testcase
   is saved under work/$RUNNAME/$RECIPEID.
 - A test summary script is available:
-
-    [build7:~/upstream/mm_regression]$ ruby test_core/lib/test_summary.rb work/debug
+```
+    [build7:~/mm_regression]$ ruby test_core/lib/test_summary.rb work/debug
     /root/mm_regression/work/debug
     PASS 112, FAIL 7, NONE 0, SKIP 10, WARN 1
     checkcount 477, checkpass 410, checkfail 44, checklater 23
+```
 
 ## Contact
 - Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>
