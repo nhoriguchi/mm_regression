@@ -106,11 +106,9 @@ prepare_mm_generic() {
 	# These service changes /sys/kernel/mm/ksm/run, which is not fine for us.
 	stop_ksm_service
 	if [ "$BACKEND" == ksm ] || [ "$KSM" ] ; then
-		echo "KSM is necessary, enable it."
 		ksm_on
 		show_ksm_params | tee $TMPD/ksm_params1
 	else
-		echo "KSM not necessary, disable it."
 		ksm_off
 	fi
 

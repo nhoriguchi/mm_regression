@@ -25,6 +25,6 @@ show_ksm_params() {
 
 # TODO: distro dependency
 stop_ksm_service() {
-	systemctl stop ksmtuned
-	systemctl stop ksm
+	systemctl stop ksmtuned > /dev/null 2>&1
+	systemctl stop ksm > /dev/null 2>&1
 }
