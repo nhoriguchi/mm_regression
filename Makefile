@@ -22,7 +22,7 @@ get_test_core:
 	@true
 
 get_rpms:
-	@yum install -q -y numactl* > /dev/null 2>&1
+	@yum install -q -y numactl* > /dev/null 2>&1 || true
 	@true
 
 install: $(exe)
