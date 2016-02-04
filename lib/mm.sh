@@ -99,8 +99,16 @@ prepare_mm_generic() {
 	if [ "$THP" ] ; then
 		# TODO: how can we make sure that there's no thp on the test system?
 		set_thp_params_for_testing
-		set_thp_madvise
+		if [ "$THP" == always ] ; then
+			set_thp_always
+		else
+			set_thp_madvise
+		fi
 		# show_stat_thp
+	else
+		# TODO: split existing thp forcibly via debugfs?
+		echo "disable THP"
+		set_thp_never
 	fi
 
 	# These service changes /sys/kernel/mm/ksm/run, which is not fine for us.
@@ -182,7 +190,6 @@ get_smaps_block() {
 	local file=$2
 	local start=$3 # address (hexagonal but no '0x' prefix)
 
-	cp /proc/$pid/smaps $TMPD/$file
 	if [ "$start" ] ; then
 		gawk '
 			BEGIN {gate = 0;}
@@ -194,7 +201,9 @@ get_smaps_block() {
 				}
 			}
 			{if (gate == 1) {print $0;}}
-		' $TMPD/$file
+		' /proc/$pid/smaps > $TMPD/$file
+	else
+		cp /proc/$pid/smaps > $TMPD/$file
 	fi
 }
 
@@ -230,6 +239,7 @@ get_mm_global_stats() {
 	local tag=$1
 
 	show_hugetlb_pool > $TMPD/hugetlb_pool.$tag
+	cp /proc/meminfo $TMPD/meminfo.$tag
 	cp /proc/vmstat $TMPD/vmstat.$tag
 	if [ "$CGROUP" ] ; then
 		cgget -g $CGROUP > $TMPD/cgroup.$tag
@@ -242,7 +252,7 @@ get_mm_stats_pid() {
 
 	check_process_status $pid || return
 	get_numa_maps $pid > $TMPD/numa_maps.$tag
-	get_smaps_block $pid smaps.$tag 700000 > /dev/null
+	get_smaps_block $pid smaps.$tag 70 > /dev/null
 	get_pagetypes $pid pagetypes.$tag -Nrla 0x700000000+0x10000000
 	get_pagemap $pid .mig.$tag -NrLa 0x700000000+0x10000000 > /dev/null
 	cp /proc/$pid/status $TMPD/proc_status.$tag
