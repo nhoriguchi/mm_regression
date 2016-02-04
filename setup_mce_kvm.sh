@@ -107,11 +107,14 @@ prepare_mce_kvm() {
 		check_mce_capability || return 1 # MCE SRAO not supported
 	fi
 
-	vm_restart_if_unconnectable
-	vmdirty && vm_restart_wait || sleep 1
+	prepare_mm_generic || return 1
+	# unconditionally restart vm because memory background might change
+	# (thp <=> anon)
+	virsh destroy $VM
+	echo 3 > /proc/sys/vm/drop_caches ; sync
+	vm_restart_wait || sleep 1
 	stop_guest_memeater
 	send_helper_to_guest
-
 	save_nr_corrupted_before
 	get_guest_kernel_message_before
 	run_vm_serial_monitor
@@ -124,6 +127,7 @@ cleanup_mce_kvm() {
 	vm_ssh_connectable && get_guest_kernel_message_after
 	get_guest_kernel_message | tee -a $OFILE
 	stop_vm_serial_monitor
+	cleanup_mm_generic
 	save_nr_corrupted_unpoison
 }
 
