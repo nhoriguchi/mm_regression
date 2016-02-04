@@ -12,6 +12,9 @@ TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
 THP=100
 HUGETLB=300
 HUGEPAGESIZE=2048
+if [ "$BACKEND" == ksm ] ; then
+	KSM=true
+fi
 
 POISON_ITERATION=100
 TIMEOUT=5
