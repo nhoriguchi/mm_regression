@@ -1,11 +1,4 @@
-##!1 BACKEND: anonymous pagecache ksm zero
-##!1 ERROR_TYPE: mce-srao hard-offline soft-offline madv_hard madv_soft
-
 #!1 FLAVOR: panic mce-srar mce_on_qemu
-
-#!2 FLAVOR: clean_pagecache dirty_pagecache anonymous thp
-#!2 ERROR_TYPE: mce-srao hard-offline soft-offline
-##!2 HOSTBACKEND: hostanon hostthp
 
 # environment variable VM should be given via environment variable
 # VM=f21a
@@ -18,19 +11,6 @@ VMIP=$(sshvm -i -n default $VM 2> /dev/null)
 [ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
 
 FLAVOR=__MARK_FLAVOR
-ERROR_TYPE=__MARK_ERROR_TYPE
-# HOSTBACKEND=__MARK_HOSTBACKEND
-
-# TODO: handling host backend
-# if [ __MARK_HOSTBACKEND == hostanon ] ; then
-# 	unset THP
-# elif [ __MARK_HOSTBACKEND == hostthp ] ; then
-# 	THP=true
-# fi
-
-if [ "$BACKEND" == zero ] ; then
-	PRIORITY=15 # low priority
-fi
 
 echo "FLAVOR: $FLAVOR"
 if [ "$FLAVOR" == panic ] ; then
@@ -49,23 +29,4 @@ elif [ "$FLAVOR" == mce_on_qemu ] ; then
 	ERROR_TYPE=mce-srao
 	_control() { control_mce_kvm_inject_mce_on_qemu_page; }
 	_check() { check_mce_kvm_inject_mce_on_qemu_page; }
-else
-	TARGET_PAGETYPES="$(get_backend_pageflags $FLAVOR)"
-	if [ "$FLAVOR" == clean_pagecache ] ; then
-		EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
-	elif [ "$FLAVOR" == dirty_pagecache ] ; then
-		EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
-	elif [ "$FLAVOR" == anonymous ] ; then
-		EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
-	elif [ "$FLAVOR" == thp ] ; then
-		EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
-	fi
-
-	_control() { control_mce_kvm; }
-	if [ "$ERROR_TYPE" == soft-offline ] ; then
-		_check() { check_mce_kvm_soft_offline; }
-		EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
-	else
-		_check() { check_mce_kvm; }
-	fi
 fi
