@@ -2,7 +2,7 @@
 
 . $TRDIR/setup_mmgeneric.sh
 
-TEST_PROGRAM="$test_alloc_generic -B anonymous -n 0x3800 -L 'start:wait_after mmap access:wait_after madvise:advice=willneed munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="$test_alloc_generic -v -B anonymous -n 0x3800 -L 'start:wait_after mmap access:wait_after madvise:advice=willneed munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="START EXIT"
 
 __prepare_memcg() {
@@ -61,37 +61,13 @@ _control() {
             kill -SIGUSR1 $pid
             ;;
         "after_access")
-            echo 3 > /proc/sys/vm/drop_caches
-            gawk '
-                BEGIN {gate=0;}
-                /^[0-9]/ {
-                    if ($0 ~ /^700000000000/) {
-                        gate = 1;
-                    } else {
-                        gate = 0;
-                    }
-                }
-                {if (gate==1) {print $0;}}
-            ' /proc/$pid/smaps > $TMPD/smaps_before
-            cp /proc/meminfo $TMPD/meminfo_before
-            $PAGETYPES -r -p $pid -a 0x700000000,0x700003800 > $TMPD/page-types.1
+			get_mm_stats 1 $pid
             cgset -r memory.limit_in_bytes=0x8000000 test1 || set_return_code CGSET_FAIL
+			$PAGETYPES -p $pid -r -a 0x700000000+0x10000000
             kill -SIGUSR1 $pid
             ;;
         "before_munmap")
-            gawk '
-                BEGIN {gate=0;}
-                /^[0-9]/ {
-                    if ($0 ~ /^700000000000/) {
-                        gate = 1;
-                    } else {
-                        gate = 0;
-                    }
-                }
-                {if (gate==1) {print $0;}}
-            ' /proc/$pid/smaps > $TMPD/smaps_after
-            cp /proc/meminfo $TMPD/meminfo_after
-            $PAGETYPES -r -p $pid -a 0x700000000,0x700003800 > $TMPD/page-types.2
+			get_mm_stats 2 $pid
             kill -SIGUSR1 $pid
 			;;
 		"before_exit")
@@ -108,22 +84,22 @@ _control() {
 _check() {
     FALSENEGATIVE=true
     count_testcount
-    if [ "$(grep ^Swap: $TMPD/smaps_before 2> /dev/null | awk '{print $2}')" -gt 0 ] ; then
+    if [ "$(grep ^Swap: $TMPD/smaps.1 2> /dev/null | awk '{print $2}')" -gt 0 ] ; then
         count_success "swap used"
     else
         count_failure "swap not used"
     fi
     count_testcount
-    if [ "$(grep ^Swap: $TMPD/smaps_after 2> /dev/null | awk '{print $2}')" -eq 0 ] ; then
+    if [ "$(grep ^Swap: $TMPD/smaps.2 2> /dev/null | awk '{print $2}')" -eq 0 ] ; then
         count_success "swapped in forcibly"
     else
-        count_failure "swap still remains ($(grep ^Swap: $TMPD/smaps_after | awk '{print $2}') kB) after madvise(MADV_WILLNEED)"
+        count_failure "swap still remains ($(grep ^Swap: $TMPD/smaps.2 | awk '{print $2}') kB) after madvise(MADV_WILLNEED)"
     fi
     FALSENEGATIVE=false
 
     count_testcount
-    local sc1=$(grep ^SwapCached: $TMPD/meminfo_before 2> /dev/null | awk '{print $2}')
-    local sc2=$(grep ^SwapCached: $TMPD/meminfo_after 2> /dev/null | awk '{print $2}')
+    local sc1=$(grep ^SwapCached: $TMPD/meminfo.1 2> /dev/null | awk '{print $2}')
+    local sc2=$(grep ^SwapCached: $TMPD/meminfo.2 2> /dev/null | awk '{print $2}')
     if [ "$sc1" -lt "$sc2" ] ; then
         count_success "some swap data is loaded on swapcache forcibly"
     else
