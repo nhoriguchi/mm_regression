@@ -54,7 +54,7 @@ EOF
         if vm_ssh_connectable ; then return 0 ; fi
     fi
     echo "VM start failed."
-    exit 1
+    return 1
 }
 
 VMDIRTY=false
