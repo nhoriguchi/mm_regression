@@ -9,11 +9,20 @@ vm_connectable() {
 }
 
 vm_ssh_connectable() {
-	ssh ${SSH_OPT} $VMIP date > /dev/null 2>&1
+	ssh -o ConnectTimeout=3 $VMIP date > /dev/null 2>&1
+}
+
+vm_ssh_connectable_one() {
+	local vm=$1
+	local vmip=$(sshvm -i $vm 2> /dev/null)
+
+	ssh ${SSH_OPT} $vmip date > /dev/null 2>&1
 }
 
 # Start VM and wait until the VM become connectable.
 vm_start_wait() {
+	local vm=$1
+
 	cat <<EOF > $TMPD/vm_start_wait.exp
 #!/usr/bin/expect
 
@@ -21,7 +30,7 @@ set timeout 1
 set timecount 100
 log_file -noappend $TMPD/vm_start_wait.log
 
-spawn virsh console $VM
+spawn virsh console $vm
 
 expect "Escape character is"
 send "\n"
@@ -39,14 +48,14 @@ while {\$timecount > 0} {
 send -- ""
 interact
 EOF
-	echo "starting domain $VM ..."
-	virsh start $VM > /dev/null 2>&1
+	echo "starting domain $vm ..."
+	virsh start $vm > /dev/null 2>&1
 	expect $TMPD/vm_start_wait.exp > /dev/null 2>&1
 	[ ! -e $TMPD/vm_start_wait.log ] && echo "expect failed." && return 1
 	grep "VM start finished" $TMPD/vm_start_wait.log > /dev/null
 	if [ $? -eq 0 ] ; then
-		for i in $(seq 15) ; do
-			vm_ssh_connectable && return 0
+		for i in $(seq 20) ; do
+			vm_ssh_connectable_one $vm && return 0
 			sleep 2
 		done
 	fi
@@ -87,7 +96,7 @@ vm_restart_if_unconnectable() {
 	if ! vm_ssh_connectable ; then
 		echo "$VM reboot at first"
 		virsh destroy $VM > /dev/null 2>&1
-		vm_start_wait > /dev/null 2>&1
+		vm_start_wait $VM > /dev/null 2>&1
 	fi
 }
 
