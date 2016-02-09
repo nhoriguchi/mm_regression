@@ -71,6 +71,21 @@ vm_restart_wait() {
     clear_vmdirty
 }
 
+vm_restart_wait_one() {
+	local vm=$1
+
+	echo -n "Rebooting $vm ..."
+	virsh destroy $vm > /dev/null 2>&1
+	vm_start_wait $vm > /dev/null 2>&1
+	if [ $? -eq 0 ] ; then
+		echo "Rebooting done."
+		return 0
+	else
+		echo "vm ($vm) failed to start."
+		return 1
+	fi
+}
+
 vm_restart_if_unconnectable() {
     if ! vm_ssh_connectable ; then
         echo "$VM reboot at first"
