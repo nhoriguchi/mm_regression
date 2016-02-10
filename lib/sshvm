@@ -1,0 +1,107 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require 'tmpdir'
+require 'rexml/document'
+require 'pp'
+require 'optparse'
+
+options = {:network => "default"}
+OptionParser.new do |opts|
+  opts.banner = "Usage: #{$0} TBD"
+  opts.on("-i", "--ip", "just dislay IP address") do
+    options[:justip] = true
+  end
+  opts.on("-n network", "--network", "set virtual network to which the vm is connected (default: default)") do |n|
+    options[:network] = n
+  end
+  opts.on("-h host", "--host", "set host/hypervisor") do |h|
+    options[:host] = h
+  end
+end.parse! ARGV
+
+options[:guest] = ARGV[0]
+cmd = ARGV[1]
+raise if options[:guest].nil?
+
+if options[:host].nil?
+  options[:host] = "localhost"
+elsif options[:host].empty?
+  puts "trying direct connection"
+  if cmd.nil?
+    system "ssh #{options[:guest]}"
+  else
+    system "ssh #{options[:guest]} #{cmd}"
+  end
+  exit
+end
+
+# assuming that libvirtd is running. If otherwise, just use normal ssh
+tmp = `ssh #{options[:host]} systemctl is-active sshd`.chomp
+if tmp != "active"
+  $stderr.puts "Host server (#{options[:host]}) need run libvirtd service"
+  exit
+end
+
+Dir.mktmpdir("dnsmasq") do |dir|
+  tmp = []
+  system "ssh #{options[:host]} systemctl reload libvirtd"
+  system "rsync -ave ssh #{options[:host]}:/var/lib/libvirt/dnsmasq/*.status #{dir} > /dev/null"
+  Dir.glob("#{dir}/*").each do |file|
+    text = File.read(file)
+    tmp << (JSON.parse text) if ! text.empty?
+  end
+  tmp.flatten!
+
+  if tmp.empty?
+    puts "reading /var/lib/libvirt/dnsmasq/*.status@#{options[:host]} failed"
+    system "rsync -ave ssh #{options[:host]}:/var/lib/libvirt/dnsmasq/#{options[:network]}.leases #{dir} > /dev/null"
+    Dir.glob("#{dir}/*.leases").each do |file|
+      text = File.read(file)
+      text.split("\n").each do |line|
+        next if line.empty?
+        tmp2 = {}
+        tmp2["expiry-time"] = line.split(/\s+/)[0].to_i
+        tmp2["mac-address"] = line.split(/\s+/)[1]
+        tmp2["ip-address"] = line.split(/\s+/)[2]
+        tmp << tmp2 if ! tmp2.empty?
+      end
+    end
+  end
+
+  system "virsh --connect qemu+ssh://#{options[:host]}/system dumpxml #{options[:guest]} > #{dir}/vm.xml"
+
+  doc = REXML::Document.new(open("#{dir}/vm.xml"))
+  # puts doc.elements['domain/devices/interface/@type==network']
+  # mac = doc.elements["domain/devices/interface[@type='network']/mac/@address"]
+  mac = doc.elements["domain/devices/interface[@type='network']/source[@network='#{options[:network]}']/parent::*/mac/@address"]
+
+  final = nil
+  tmp.each do |rec|
+    if rec["mac-address"] == mac.to_s
+      if final.nil?
+        final = rec
+      elsif final["expiry-time"] < rec["expiry-time"]
+        final = rec
+      end
+    end
+  end
+
+  # p final
+  ip = final["ip-address"]
+
+  if ip.nil?
+    STDERR.puts "failed to get IP address"
+    exit 1
+  else
+    if options[:justip]
+      puts ip
+    else
+      if cmd.nil?
+        system "ssh #{ip}"
+      else
+        system "ssh #{ip} #{cmd}"
+      end
+    end
+  end
+end
