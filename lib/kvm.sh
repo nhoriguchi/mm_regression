@@ -12,11 +12,12 @@ vm_ssh_connectable() {
 	ssh -o ConnectTimeout=3 $VMIP date > /dev/null 2>&1
 }
 
+# assuming that sshvm is located under PATH
 vm_ssh_connectable_one() {
 	local vm=$1
 	local vmip=$(sshvm -i $vm 2> /dev/null)
 
-	ssh ${SSH_OPT} $vmip date > /dev/null 2>&1
+	ssh -o ConnectTimeout=3 $vmip date > /dev/null 2>&1
 }
 
 # Start VM and wait until the VM become connectable.
@@ -48,18 +49,21 @@ while {\$timecount > 0} {
 send -- ""
 interact
 EOF
-	echo "starting domain $vm ..."
-	virsh start $vm > /dev/null 2>&1
+	if [ "$(virsh domstate $vm)" == "running" ] ; then
+		echo "domain $vm already running."
+	else
+		echo "starting domain $vm ... "
+		virsh start $vm > /dev/null 2>&1
+	fi
 	expect $TMPD/vm_start_wait.exp > /dev/null 2>&1
 	[ ! -e $TMPD/vm_start_wait.log ] && echo "expect failed." && return 1
-	grep "VM start finished" $TMPD/vm_start_wait.log > /dev/null
-	if [ $? -eq 0 ] ; then
+	if grep -q "VM start finished" $TMPD/vm_start_wait.log ; then
 		for i in $(seq 20) ; do
 			vm_ssh_connectable_one $vm && return 0
 			sleep 2
 		done
 	fi
-	echo "VM start failed."
+	echo "VM started, but not ssh-connectable."
 	return 1
 }
 
@@ -69,41 +73,28 @@ set_vmdirty()   { VMDIRTY=true;  }
 clear_vmdirty() { VMDIRTY=false; }
 vmdirty()       { [ $VMDIRTY = true ] && return 0 || return 1 ; }
 
-vm_restart_wait() {
-	echo -n "Rebooting $VM ..."
-	virsh destroy $VM > /dev/null 2>&1
-	vm_start_wait $VM > /dev/null 2>&1 || echo "vm_start failed."
-	echo "Rebooting done."
-	clear_vmdirty
-}
-
-vm_start_wait_one() {
+vm_shutdown_wait() {
 	local vm=$1
+	local vmip=$2
+	local ret=0
 
-	vm_start_wait $vm > /dev/null 2>&1
-	if [ $? -eq 0 ] ; then
-		echo "Rebooting done."
-		return 0
-	else
-		echo "vm ($vm) failed to start."
-		return 1
-	fi
-}
+	echo "shutdown vm $vm"
+	ssh $vmip "sync ; shutdown -h now"
 
-vm_restart_wait_one() {
-	local vm=$1
-
-	echo -n "Rebooting $vm ..."
-	virsh destroy $vm > /dev/null 2>&1
-	vm_start_wait_one $vm
-}
-
-vm_restart_if_unconnectable() {
-	if ! vm_ssh_connectable ; then
-		echo "$VM reboot at first"
-		virsh destroy $VM > /dev/null 2>&1
-		vm_start_wait $VM > /dev/null 2>&1
-	fi
+	# virsh start might fail, because the above command terminates the connection
+	# before the vm completes the shutdown. Need to confirm vm is shut off.
+	local timeout=60
+	while [ "$timeout" -gt 0 ] ; do
+		if [ "$(virsh domstate $vm)" == "shut off" ] ; then
+			echo "shutdown done"
+			return 0
+		fi
+		sleep 1
+		timeout=$[timeout - 1]
+	done
+	echo "shutdown timeout. Destroy it."
+	virsh destroy $vm
+	return 1
 }
 
 vm_serial_monitor() {
