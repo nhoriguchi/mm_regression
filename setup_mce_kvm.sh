@@ -10,6 +10,8 @@ SSH_OPT="-o ConnectTimeout=5"
 [ ! "$VM" ] && echo_log "You must give VM name in recipe file" && return 1
 [ ! "$VMIP" ] && echo_log "You must give VM IP address in recipe file" && return 1
 
+[ ! -x /usr/local/bin/sshvm ] && install $TCDIR/lib/sshvm /usr/local/bin/sshvm
+
 GPA2HPA=$(dirname $(readlink -f $BASH_SOURCE))/gpa2hpa.rb
 guest_test_alloc=/usr/local/bin/test_alloc_generic
 GUESTPAGETYPES=/usr/local/bin/page-types
@@ -110,9 +112,9 @@ prepare_mce_kvm() {
 	prepare_mm_generic || return 1
 	# unconditionally restart vm because memory background might change
 	# (thp <=> anon)
-	virsh destroy $VM
+	vm_shutdown_wait $VM $VMIP
 	echo 3 > /proc/sys/vm/drop_caches ; sync
-	vm_restart_wait || sleep 1
+	vm_start_wait $VM $VMIP
 	stop_guest_memeater
 	send_helper_to_guest
 	save_nr_corrupted_before
