@@ -79,7 +79,7 @@ vm_shutdown_wait() {
 	local ret=0
 
 	echo "shutdown vm $vm"
-	ssh $vmip "sync ; shutdown -h now"
+	ssh "$vmip" "sync ; shutdown -h now"
 
 	# virsh start might fail, because the above command terminates the connection
 	# before the vm completes the shutdown. Need to confirm vm is shut off.
