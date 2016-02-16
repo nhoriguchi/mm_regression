@@ -50,9 +50,9 @@ send -- ""
 interact
 EOF
 	if [ "$(virsh domstate $vm)" == "running" ] ; then
-		echo "domain $vm already running."
+		echo "[$vm] domain already running."
 	else
-		echo "starting domain $vm ... "
+		echo "[$vm] starting domain ... "
 		virsh start $vm > /dev/null 2>&1
 	fi
 	expect $TMPD/vm_start_wait.exp > /dev/null 2>&1
@@ -63,7 +63,7 @@ EOF
 			sleep 2
 		done
 	fi
-	echo "VM started, but not ssh-connectable."
+	echo "[$vm] VM started, but not ssh-connectable."
 	return 1
 }
 
@@ -79,7 +79,7 @@ vm_shutdown_wait() {
 	local ret=0
 
 	if [ "$(virsh domstate $vm)" == "shut off" ] ; then
-		echo "$vm already shut off"
+		echo "[$vm] already shut off"
 		return 0
 	fi
 
@@ -91,13 +91,13 @@ vm_shutdown_wait() {
 	local timeout=60
 	while [ "$timeout" -gt 0 ] ; do
 		if [ "$(virsh domstate $vm)" == "shut off" ] ; then
-			echo "shutdown done"
+			echo "[$vm] shutdown done"
 			return 0
 		fi
 		sleep 1
 		timeout=$[timeout - 1]
 	done
-	echo "shutdown timeout. Destroy it."
+	echo "[$vm] shutdown timeout. Destroy it."
 	virsh destroy $vm
 	return 1
 }
