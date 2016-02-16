@@ -2,6 +2,7 @@ wait_timeout() {
 	local timeout=$1
 	shift 1
 	local pids="$@"
+	local ret=0
 
 	# wait $pids
 
@@ -13,13 +14,15 @@ wait_timeout() {
 		fi
 
 		if [ "$timeout" -le 0 ] ; then
-			kill -9 $pids 2> /dev/null
+			ret=1
 			break
 		fi
 
 		sleep 1
 		timeout=$[timeout - 1]
 	done
+
+	return $ret
 }
 
 if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
@@ -32,5 +35,6 @@ if [[ "$0" =~ "$BASH_SOURCE" ]] ; then
 	pids="$pids $!"
 
 	wait_timeout 5 $pids
+	echo $?
 fi
 
