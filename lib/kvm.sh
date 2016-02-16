@@ -78,6 +78,11 @@ vm_shutdown_wait() {
 	local vmip=$2
 	local ret=0
 
+	if [ "$(virsh domstate $vm)" == "shut off" ] ; then
+		echo "$vm already shut off"
+		return 0
+	fi
+
 	echo "shutdown vm $vm"
 	ssh "$vmip" "sync ; shutdown -h now"
 
