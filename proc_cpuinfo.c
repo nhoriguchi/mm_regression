@@ -17,16 +17,18 @@
  * 1) number of cpu sockets
  * 2) Number of logical cpus
  * 3) Model name of the cpu
+ * 4) Logical cpu# to apicd mappings
  */
-void proc_cpuinfo(int *nsockets, int *ncpus, char *model)
+void proc_cpuinfo(int *nsockets, int *ncpus, char *model, int **apicmap)
 {
 	FILE	*fp = fopen("/proc/cpuinfo", "r");
 	char	*p, line[4096];
-	long	s, sockmask = 0;
-	int	i;
+	long	apicid, lcpu, s, sockmask = 0;
+	int	i, maxcpus = 4;
 
 	*nsockets = 0;
 	*ncpus = 0;
+	*apicmap = (int *)calloc(sizeof (int), maxcpus);
 
 	if (fp == NULL)
 		return;
@@ -42,6 +44,17 @@ void proc_cpuinfo(int *nsockets, int *ncpus, char *model)
 			p = strchr(&line[10], ':');
 			s = strtol(p+1, NULL, 10);
 			sockmask |= 1 << s;
+		} else if (strncmp(line, "processor", 9) == 0) {
+			p = strchr(&line[8], ':');
+			lcpu = strtol(p+1, NULL, 10);
+		} else if (strncmp(line, "apicid", 6) == 0) {
+			p = strchr(&line[5], ':');
+			apicid = strtol(p+1, NULL, 10);
+			if (lcpu >= maxcpus) {
+				maxcpus *= 2;
+				*apicmap = realloc(*apicmap, maxcpus * sizeof (int));
+			}
+			(*apicmap)[lcpu] = apicid;
 		}
 	}
 	for (i = 0; i < 8 * sizeof sockmask; i++)

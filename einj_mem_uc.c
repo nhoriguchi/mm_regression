@@ -17,19 +17,28 @@
 #include <sys/time.h>
 #include <setjmp.h>
 #include <signal.h>
+#define _GNU_SOURCE 1
+#define __USE_GNU 1
+#include <sched.h>
 
 extern long long vtop(long long);
+extern void proc_cpuinfo(int *nsockets, int *ncpus, char *model, int **apicmap);
+extern void proc_interrupts(long *nmce, long *ncmci);
+extern void do_memcpy(void *dst, void *src, int dummy, int cnt);
 
 static char *progname;
 static int nsockets, ncpus, lcpus_persocket;
 static int force_flag;
 static int all_flag;
 static long pagesize;
+static int *apicmap;
 #define	CACHE_LINE_SIZE	64
 
 #define EINJ_ETYPE "/sys/kernel/debug/apei/einj/error_type"
 #define EINJ_ADDR "/sys/kernel/debug/apei/einj/param1"
 #define EINJ_MASK "/sys/kernel/debug/apei/einj/param2"
+#define EINJ_APIC "/sys/kernel/debug/apei/einj/param3"
+#define EINJ_FLAGS "/sys/kernel/debug/apei/einj/flags"
 #define EINJ_NOTRIGGER "/sys/kernel/debug/apei/einj/notrigger"
 #define EINJ_DOIT "/sys/kernel/debug/apei/einj/error_inject"
 
@@ -53,6 +62,21 @@ static void inject_uc(unsigned long long addr, int notrigger)
 	wfile(EINJ_ETYPE, 0x10);
 	wfile(EINJ_ADDR, addr);
 	wfile(EINJ_MASK, ~0x0ul);
+	wfile(EINJ_FLAGS, 2);
+	wfile(EINJ_NOTRIGGER, notrigger);
+	wfile(EINJ_DOIT, 1);
+}
+
+static void inject_llc(unsigned long long addr, int notrigger)
+{
+	unsigned cpu;
+
+	cpu = sched_getcpu();
+	wfile(EINJ_ETYPE, 0x2);
+	wfile(EINJ_ADDR, addr);
+	wfile(EINJ_MASK, ~0x0ul);
+	wfile(EINJ_APIC, apicmap[cpu]);
+	wfile(EINJ_FLAGS, 3);
 	wfile(EINJ_NOTRIGGER, notrigger);
 	wfile(EINJ_DOIT, 1);
 }
@@ -76,7 +100,7 @@ static void check_configuration(void)
 		exit(1);
 	}
 	model[0] = '\0';
-	proc_cpuinfo(&nsockets, &ncpus, model);
+	proc_cpuinfo(&nsockets, &ncpus, model, &apicmap);
 	if (nsockets == 0 || ncpus == 0) {
 		fprintf(stderr, "%s: could not find number of sockets/cpus\n", progname);
 		exit(1);
@@ -199,6 +223,11 @@ int trigger_patrol(char *addr)
 	sleep(1);
 }
 
+int trigger_llc(char *addr)
+{
+	asm volatile("clflush %0" : "+m" (*addr));
+}
+
 int trigger_instr(char *addr)
 {
 	int ret = dosums();
@@ -219,45 +248,50 @@ struct test {
 	char	*testname;
 	char	*testhelp;
 	void	*(*alloc)(void);
+	void	(*inject)(unsigned long long, int);
 	int	notrigger;
 	int	(*trigger)(char *);
 	int	flags;
 } tests[] = {
 	{
 		"single", "Single read in pipeline to target address, generates SRAR machine check",
-		data_alloc, 1, trigger_single, F_MCE|F_CMCI|F_SIGBUS,
+		data_alloc, inject_uc, 1, trigger_single, F_MCE|F_CMCI|F_SIGBUS,
 	},
 	{
 		"double", "Double read in pipeline to target address, generates SRAR machine check",
-		data_alloc, 1, trigger_double, F_MCE|F_CMCI|F_SIGBUS,
+		data_alloc, inject_uc, 1, trigger_double, F_MCE|F_CMCI|F_SIGBUS,
 	},
 	{
 		"split", "Unaligned read crosses cacheline from good to bad. Probably fatal",
-		data_alloc, 1, trigger_split, F_MCE|F_CMCI|F_SIGBUS|F_FATAL,
+		data_alloc, inject_uc, 1, trigger_split, F_MCE|F_CMCI|F_SIGBUS|F_FATAL,
 	},
 	{
 		"THP", "Try to inject in transparent huge page, generates SRAR machine check",
-		thp_data_alloc, 1, trigger_single, F_MCE|F_CMCI|F_SIGBUS,
+		thp_data_alloc, inject_uc, 1, trigger_single, F_MCE|F_CMCI|F_SIGBUS,
 	},
 	{
 		"store", "Write to target address. Should generate a UCNA/CMCI",
-		data_alloc, 1, trigger_write, F_CMCI,
+		data_alloc, inject_uc, 1, trigger_write, F_CMCI,
 	},
 	{
 		"memcpy", "Streaming read from target address. Probably fatal",
-		data_alloc, 1, trigger_memcpy, F_MCE|F_CMCI|F_SIGBUS|F_FATAL,
+		data_alloc, inject_uc, 1, trigger_memcpy, F_MCE|F_CMCI|F_SIGBUS|F_FATAL,
 	},
 	{
 		"instr", "Instruction fetch. Generates SRAR that OS should transparently fix",
-		instr_alloc, 1, trigger_instr, F_MCE|F_CMCI,
+		instr_alloc, inject_uc, 1, trigger_instr, F_MCE|F_CMCI,
 	},
 	{
 		"patrol", "Patrol scrubber, generates SRAO machine check",
-		data_alloc, 0, trigger_patrol, F_MCE,
+		data_alloc, inject_uc, 0, trigger_patrol, F_MCE,
+	},
+	{
+		"llc", "Cache write-back, generates SRAO machine check",
+		data_alloc, inject_llc, 1, trigger_llc, F_MCE,
 	},
 	{
 		"copyin", "Kernel copies data from user. Probably fatal",
-		data_alloc, 1, trigger_copyin, F_MCE|F_CMCI|F_SIGBUS|F_FATAL,
+		data_alloc, inject_uc, 1, trigger_copyin, F_MCE|F_CMCI|F_SIGBUS|F_FATAL,
 	},
 	{ NULL }
 };
@@ -365,7 +399,7 @@ int main(int argc, char **argv)
 				printf("Unexpected SIGBUS\n");
 			}
 		} else {
-			inject_uc(paddr, t->notrigger);
+			t->inject(paddr, t->notrigger);
 			t->trigger(vaddr);
 			if (t->flags & F_SIGBUS) {
 				printf("Expected SIGBUS, didn't get one\n");
