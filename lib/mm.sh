@@ -211,11 +211,25 @@ get_pagetypes() {
 	local pid=$1
 	local file=$2
 	shift 2
-	$PAGETYPES -p $pid $@ | grep -v offset > $TMPD/$file
+	$PAGETYPES -p $pid $@ | grep -v offset > $TMPD/.$file
+
+	# separate mapping list part and statistics part.
+	gawk '
+		BEGIN {gate = 1;}
+		/^$/ {gate = 0;}
+		{if (gate == 1) {print $0;}}
+	' $TMPD/.$file > $TMPD/$file
+	gawk '
+		BEGIN {gate = 0;}
+		/^$/ {gate = 1;}
+		{if (gate == 1) {print $0;}}
+	' $TMPD/.$file | sed '/^$/d' > $TMPD/$file.stat
+
 	local nr_lines=$(cat $TMPD/$file | wc -l)
 	if [ "$nr_lines" -gt 12 ] ; then
 		sed -ne 1,10p $TMPD/$file
 		echo "... (more $[nr_lines - 10] lines in $TMPD/$file)"
+		cat $TMPD/$file.stat
 	else
 		cat $TMPD/$file
 	fi
@@ -253,7 +267,7 @@ get_mm_stats_pid() {
 	check_process_status $pid || return
 	get_numa_maps $pid > $TMPD/numa_maps.$tag
 	get_smaps_block $pid smaps.$tag 70 > /dev/null
-	get_pagetypes $pid pagetypes.$tag -Nrla 0x700000000+0x10000000
+	get_pagetypes $pid pagetypes.$tag -rla 0x700000000+0x10000000
 	get_pagemap $pid .mig.$tag -NrLa 0x700000000+0x10000000 > /dev/null
 	cp /proc/$pid/status $TMPD/proc_status.$tag
 	cp /proc/$pid/sched $TMPD/proc_sched.$tag
