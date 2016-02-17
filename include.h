@@ -99,6 +99,7 @@ struct op_control {
 	char *name;
 	int wait_before;
 	int wait_after;
+	char *tag;
 	char **args;
 	char **keys;
 	char **values;
@@ -1223,6 +1224,10 @@ static int parse_operation_arg(struct op_control *opc) {
 			opc->wait_after = 1;
 			continue;
 		}
+		if (!strcmp(opc->keys[i], "tag")) {
+			opc->tag = opc->values[i];
+			continue;
+		}
 
 		supported = 0;
 		j = 0;
@@ -1277,26 +1282,38 @@ static void need_numa() {
 
 static void do_wait_before(struct op_control *opc) {
 	char *sleep = opc_get_value(opc, "wait_before");
+	char wait_key_string[256];
+
+	if (opc->tag)
+		sprintf(wait_key_string, "before_%s_%s", opc->name, opc->tag);
+	else
+		sprintf(wait_key_string, "before_%s", opc->name);
 
 	if (sleep) {
 		unsigned int sleep_us = strtoul(sleep, NULL, 0);
 
-		printf("wait %d usecs before_%s\n", sleep_us, opc->name);
+		printf("wait %d usecs %s\n", sleep_us, wait_key_string);
 		usleep(sleep_us);
 	}
-	pprintf_wait(SIGUSR1, "before_%s\n", opc->name);
+	pprintf_wait(SIGUSR1, "%s\n", wait_key_string);
 }
 
 static void do_wait_after(struct op_control *opc) {
 	char *sleep = opc_get_value(opc, "wait_after");
+	char wait_key_string[256];
+
+	if (opc->tag)
+		sprintf(wait_key_string, "after_%s_%s", opc->name, opc->tag);
+	else
+		sprintf(wait_key_string, "after_%s", opc->name);
 
 	if (sleep) {
 		unsigned int sleep_us = strtoul(sleep, NULL, 0);
 
-		printf("wait %d usecs after_%s\n", sleep_us, opc->name);
+		printf("wait %d usecs %s\n", sleep_us, wait_key_string);
 		usleep(sleep_us);
 	}
-	pprintf_wait(SIGUSR1, "after_%s\n", opc->name);
+	pprintf_wait(SIGUSR1, "%s\n", wait_key_string);
 }
 
 char *op_strings[256];
