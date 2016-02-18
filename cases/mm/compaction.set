@@ -36,7 +36,7 @@ _control() {
 			kill -SIGUSR1 $pid
 			;;
 		"before_exit")
-			$PAGETYPES -r -p $pid -a 0x700000000+0x10000000 -Nl
+			$PAGETYPES -r -p $pid -a 0x700000000+0x20 -Nl
 			grep -e comp -e thp /proc/vmstat
 			show_stat_thp
 			set_return_code EXIT
