@@ -1,9 +1,11 @@
+#!1 INITIAL: clean dirty
 #!1 BACKEND: anonymous pagecache thp normal_shmem hugetlb_anon
 
 # NEED: khugepaged focused setting
 
 . $TRDIR/setup_mmgeneric.sh
 
+INITIAL=__MARK_INITIAL
 BACKEND=__MARK_BACKEND
 
 if [ "$BACKEND" == thp ] ; then
@@ -14,8 +16,15 @@ if [[ "$BACKEND" =~ hugetlb ]] ; then
 	HUGETLB=100
 fi
 
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'start mmap access:tag=1 access:tag=2:wait_before:wait_after munmap exit:wait_before'"
-EXPECTED_RETURN_CODE="START SOFTDIRTY NO_SOFTDIRTY SOFTDIRTY EXIT"
+NUMA_NODE=2
+
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'start mmap_numa access access:wait_before:wait_after munmap exit:wait_before'"
+
+if [ "$INITIAL" == clean ] ; then
+	EXPECTED_RETURN_CODE="START SOFTDIRTY NO_SOFTDIRTY NO_SOFTDIRTY SOFTDIRTY EXIT"
+else
+	EXPECTED_RETURN_CODE="START SOFTDIRTY SOFTDIRTY SOFTDIRTY EXIT"
+fi
 
 _prepare() {
 	prepare_mm_generic || return 1
@@ -43,17 +52,26 @@ _control() {
 
 	echo_log "$line"
 	case "$line" in
-		"before_access_2")
+		"before_access")
 			get_mm_stats 1 $pid
 			check_soft_dirty 1
-			clear_soft_dirty $pid
-			get_mm_stats 2 $pid
-			check_soft_dirty 2
-			kill -SIGUSR1 $pid
-			;;
-		"after_access_2")
+
+			if [ "$INITIAL" == clean ] ; then
+				clear_soft_dirty $pid
+				get_mm_stats 2 $pid
+				check_soft_dirty 2
+			fi
+
+			# This keep soft dirtiness
+			do_migratepages $pid 0 1
+
 			get_mm_stats 3 $pid
 			check_soft_dirty 3
+			kill -SIGUSR1 $pid
+			;;
+		"after_access")
+			get_mm_stats 4 $pid
+			check_soft_dirty 4
 			kill -SIGUSR1 $pid
 			;;
 		"before_exit")
