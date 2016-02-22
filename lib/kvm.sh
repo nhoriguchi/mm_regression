@@ -114,6 +114,28 @@ spawn virsh console $VM
 expect "Escape character is"
 send "\n"
 send "\n"
+sleep 100000000000
+send -- ""
+interact
+EOF
+	expect $TMPD/vm_serial_monitor.exp > /dev/null 2>&1
+}
+
+save_guest_console() {
+	local vm=$1
+	local id=1 # getting from /var/run/libvirt/qemu/$vm.xml
+
+	cat <<EOF > $TMPD/vm_serial_monitor.exp
+#!/usr/bin/expect
+
+set timeout 5
+set target $VM
+log_file -noappend $TMPD/vm_serial_monitor.log
+
+spawn virsh console $VM
+expect "Escape character is"
+send "\n"
+send "\n"
 sleep 10
 send -- ""
 interact
