@@ -131,6 +131,8 @@ for recipe in $RECIPEFILES ; do
 		echo_log "======> Recipe: $recipe_relpath start"
 		date +%s > $TMPD/start_time
 
+		# TODO: put general system information under $TMPD
+
 		# prepare empty testcount file at first because it's used to check
 		# testcase result from summary script.
 		reset_per_testcase_counters
