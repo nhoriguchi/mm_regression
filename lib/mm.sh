@@ -300,3 +300,10 @@ check_process_status() {
 
 	kill -0 $pid 2> /dev/null
 }
+
+clear_soft_dirty() {
+	local pid=$1
+
+	echo "==> echo 4 > /proc/$pid/clear_refs"
+	echo 4 > /proc/$pid/clear_refs
+}
