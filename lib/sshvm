@@ -91,6 +91,13 @@ Dir.mktmpdir("dnsmasq") do |dir|
     end
   end
 
+  if final.nil?
+    STDERR.puts "failed to get ip?"
+    pp doc
+    pp tmp
+    exit 1
+  end
+
   # p final
   ip = final["ip-address"]
 
