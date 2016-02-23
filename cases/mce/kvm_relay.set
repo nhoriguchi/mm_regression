@@ -26,7 +26,7 @@ HOSTBACKEND=__MARK_HOSTBACKEND
 if [ __MARK_HOSTBACKEND == hostanon ] ; then
 	unset THP
 elif [ __MARK_HOSTBACKEND == hostthp ] ; then
-	THP=true
+	THP=always
 fi
 
 if [ "$BACKEND" == zero ] ; then

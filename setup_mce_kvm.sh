@@ -1,20 +1,7 @@
 #!/bin/bash
 
-. $TCDIR/lib/mm.sh
-. $TCDIR/lib/numa.sh
-. $TCDIR/lib/mce.sh
-. $TCDIR/lib/kvm.sh
+. $TRDIR/setup_kvm.sh || return 1
 
-SSH_OPT="-o ConnectTimeout=5"
-
-[ ! "$VM" ] && echo_log "You must give VM name in recipe file" && return 1
-[ ! "$VMIP" ] && echo_log "You must give VM IP address in recipe file" && return 1
-
-[ ! -x /usr/local/bin/sshvm ] && install $TCDIR/lib/sshvm /usr/local/bin/sshvm
-
-GPA2HPA=$(dirname $(readlink -f $BASH_SOURCE))/gpa2hpa.rb
-guest_test_alloc=/usr/local/bin/test_alloc_generic
-GUESTPAGETYPES=/usr/local/bin/page-types
 TARGETGVA=""
 TARGETGPA=""
 TARGETHPA=""
@@ -26,52 +13,11 @@ if [ "$memsize" -gt 2097152 ] ; then
 	return 1
 fi
 
-# send helper tools to guest
-send_helper_to_guest() {
-	scp $test_alloc_generic $VMIP:$guest_test_alloc > /dev/null
-	scp $PAGETYPES $VMIP:$GUESTPAGETYPES > /dev/null
-}
-
-# define helper functions below
-
-stop_guest_memeater() {
-	ssh $VMIP "pkill -9 -f $guest_test_alloc > /dev/null 2>&1 </dev/null"
-}
-
-start_guest_memeater() {
-	stop_guest_memeater
-
-	echo_log "start running test_alloc_generic on VM ($VM:$VMIP)"
-	ssh $VMIP "$guest_test_alloc -B pagecache -N 2 -f read -L 'mmap access:type=read:wait_after access:type=read:wait_after' > /dev/null 2>&1 </dev/null &"
-	ssh $VMIP "$guest_test_alloc -B pagecache -N 2 -f write -L 'mmap access:type=write:wait_after access:type=write:wait_after' > /dev/null 2>&1 </dev/null &"
-	ssh $VMIP "$guest_test_alloc -B anonymous -B thp -N 2 -L 'mmap access:wait_after access:wait_after' > /dev/null 2>&1 </dev/null &"
-	ssh $VMIP "pgrep -f $guest_test_alloc" | tr '\n' ' ' > $TMPD/guest_memeater_pids.1
-	if [ ! -s $TMPD/guest_memeater_pids.1 ] ; then
-		echo "Failed to start guest memeater $guest_test_alloc" >&2
-		return 1
-	fi
-	return 0
-}
-
 get_gpa_guest_memeater() {
+	local vmip=$(sshvm -i $VM)
 	local flagtype=$1
-	# scp $VMIP:/tmp/mapping /tmp/mapping > /dev/null 2>&1
-	# local start=$(printf "0x%lx" $[$(sort /tmp/mapping | sort | head -n1)/4096])
-	# local end=$(printf "0x%lx" $[$(sort /tmp/mapping | sort | tail -n1)/4096 + 256])
-	# local cmd="$GUESTPAGETYPES -p ${GUESTMEMEATERPID} -b ${flagtype} -rNL"
-	# local line=
-	# while read line ; do
-	# 	cmd="$cmd -a $[line/4096]+256"
-	# done < /tmp/mapping
-	# echo_log "$cmd"
-	# ssh $VMIP "$cmd" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest-page-types
-	# local lines=`wc -l $TMPD/guest-page-types | cut -f1 -d' '`
-	# [ "$lines" -eq 0 ] && echo_log "Page on pid:$GUESTMEMEATERPID not found." >&2 && return 1
-	# [ "$lines" -gt 2 ] && lines=`ruby -e "p rand($lines) + 1"`
-	# TARGETGVA=0x`cat $TMPD/guest-page-types | sed -n ${lines}p | cut -f1 -d ' '`
-	# TARGETGPA=0x`cat $TMPD/guest-page-types | sed -n ${lines}p | cut -f2 -d ' '`
 
-	ssh $VMIP "for pid in $(cat $TMPD/guest_memeater_pids.1) ; do $GUESTPAGETYPES -p \$pid -NrL -b $flagtype -a 0x700000000+0x10000000 ; done" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest_page_types
+	ssh $vmip "for pid in $(cat $TMPD/.guest_memeater_pids.1) ; do $GUESTPAGETYPES -p \$pid -NrL -b $flagtype -a 0x700000000+0x10000000 ; done" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest_page_types
 
 	local lines=`wc -l $TMPD/guest_page_types | cut -f1 -d' '`
 	[ "$lines" -eq 0 ] && echo_log "Page ($flagtype) not exist on guest memeater." >&2 && return 1
@@ -89,15 +35,19 @@ get_gpa_guest_memeater() {
 }
 
 get_hpa() {
+	local vmip=$(sshvm -i $VM)
 	local flagtype="$1"
+
 	get_gpa_guest_memeater "$flagtype" || return 1
 	echo_log -n "HPA status: " ; $PAGETYPES -a $TARGETHPA -Nlr | grep -v offset
-	echo_log -n "GPA status: " ; ssh $VMIP $GUESTPAGETYPES -a $TARGETGPA -Nlr | grep -v offset
+	echo_log -n "GPA status: " ; ssh $vmip $GUESTPAGETYPES -a $TARGETGPA -Nlr | grep -v offset
 }
 
 guest_process_running() {
-	ssh $VMIP "pgrep -f $guest_test_alloc" | tr '\n' ' ' > $TMPD/guest_memeater_pids.2
-	diff -q $TMPD/guest_memeater_pids.1 $TMPD/guest_memeater_pids.2 > /dev/null
+	local vmip=$(sshvm -i $VM)
+
+	ssh $vmip "pgrep -f $GUESTTESTALLOC" | tr '\n' ' ' > $TMPD/.guest_memeater_pids.2
+	diff -q $TMPD/.guest_memeater_pids.1 $TMPD/.guest_memeater_pids.2 > /dev/null
 }
 
 prepare_mce_kvm() {
@@ -114,41 +64,40 @@ prepare_mce_kvm() {
 	# (thp <=> anon)
 	vm_shutdown_wait $VM $VMIP
 	echo 3 > /proc/sys/vm/drop_caches ; sync
-	vm_start_wait $VM $VMIP
-	stop_guest_memeater
-	send_helper_to_guest
+	vm_start_wait $VM
+	local vmip=$(sshvm -i $VM)
+	start_vm_console_monitor $TMPD/vmconsole $VM
+	stop_guest_memeater $vmip
+	send_helper_to_guest $vmip
 	save_nr_corrupted_before
-	get_guest_kernel_message_before
-	run_vm_serial_monitor
+	return 0
 }
 
 cleanup_mce_kvm() {
 	save_nr_corrupted_inject
 	all_unpoison
-	stop_guest_memeater
-	vm_ssh_connectable && get_guest_kernel_message_after
-	get_guest_kernel_message | tee -a $OFILE
-	stop_vm_serial_monitor
+	show_guest_console
 	cleanup_mm_generic
 	save_nr_corrupted_unpoison
+	vm_shutdown_wait $VM $VMIP
 }
 
 check_guest_state() {
-	if vm_ssh_connectable ; then
+	if vm_ssh_connectable_one $VM ; then
 		echo_log "Guest OS still alive."
 		set_return_code "GUEST_ALIVE"
 		if guest_process_running ; then
-			echo_log "And $guest_test_alloc still running."
+			echo_log "And $GUESTTESTALLOC still running."
 			set_return_code "GUEST_PROC_ALIVE"
-			echo_log "let $guest_test_alloc access to error page"
+			echo_log "let $GUESTTESTALLOC access to error page"
 
 			access_error
-			if vm_ssh_connectable ; then
+			if vm_ssh_connectable_one $VM ; then
 				if guest_process_running ; then
-					echo_log "$guest_test_alloc was still alive"
+					echo_log "$GUESTTESTALLOC was still alive"
 					set_return_code "GUEST_PROC_ALIVE_LATER_ACCESS"
 				else
-					echo_log "$guest_test_alloc was killed"
+					echo_log "$GUESTTESTALLOC was killed"
 					set_return_code "GUEST_PROC_KILLED_LATER_ACCESS"
 				fi
 			else
@@ -157,7 +106,7 @@ check_guest_state() {
 			fi
 			return
 		else
-			echo_log "But $guest_test_alloc was killed."
+			echo_log "But $GUESTTESTALLOC was killed."
 			set_return_code "GUEST_PROC_KILLED"
 			return
 		fi
@@ -165,15 +114,12 @@ check_guest_state() {
 		echo_log "Guest OS panicked."
 		set_return_code "GUEST_PANICKED"
 	fi
-	# Force shutdown if VM is not connected (then maybe it stalls.)
-	echo_log "Wait all kernel messages are output on serial console"
-	sleep 5
-	virsh destroy $VM
-	set_vmdirty
 }
 
 access_error() {
-	ssh $VMIP "pkill -SIGUSR1 -f $guest_test_alloc > /dev/null 2>&1 </dev/null"
+	local vmip=$(sshvm -i $VM)
+
+	ssh $vmip "pkill -SIGUSR1 -f $GUESTTESTALLOC > /dev/null 2>&1 </dev/null"
 	sleep 0.2 # need short time for access operation to finish.
 }
 
@@ -194,7 +140,7 @@ check_page_migrated() {
 }
 
 control_mce_kvm() {
-	start_guest_memeater || return 1
+	start_guest_memeater $VM $[512 * 4] || return 1
 	sleep 0.2
 	echo_log "get_hpa $TARGET_PAGETYPES"
 	get_hpa "$TARGET_PAGETYPES" || return 1
@@ -205,15 +151,18 @@ control_mce_kvm() {
 }
 
 control_mce_kvm_panic() {
+	local vmip=$(sshvm -i $VM)
+
 	echo_log "start $FUNCNAME"
-	start_guest_memeater || return 1
+	start_guest_memeater $VM $[512 * 4] || return 1
 	get_hpa "$TARGET_PAGETYPES" || return 1
 	set_return_code "GOT_HPA"
 	echo_log "echo 0 > /proc/sys/vm/memory_failure_recovery"
-	ssh $VMIP "echo 0 > /proc/sys/vm/memory_failure_recovery"
+	ssh $vmip "echo 0 > /proc/sys/vm/memory_failure_recovery"
+	echo_log $MCEINJECT -e \"$ERROR_TYPE\" -a \"${TARGETHPA}\"
 	$MCEINJECT -e "$ERROR_TYPE" -a "${TARGETHPA}"
-	if vm_connectable ; then
-		ssh $VMIP "echo 1 > /proc/sys/vm/memory_failure_recovery"
+	if vm_connectable_one $VM ; then
+		ssh $vmip "echo 1 > /proc/sys/vm/memory_failure_recovery"
 	fi
 	check_guest_state
 }
@@ -235,7 +184,8 @@ check_mce_kvm_soft_offline() {
 	check_nr_hwcorrupted
 	check_kernel_message_nobug
 	check_guest_kernel_message -v "${TARGETGPA}"
-	check_page_migrated "$TARGETGPA" "$TARGETHPA"
+	# TODO: move to return code
+	# check_page_migrated "$TARGETGPA" "$TARGETHPA"
 }
 
 control_mce_kvm_inject_mce_on_qemu_page() {
