@@ -4,12 +4,11 @@ vm_running() {
 	[ "$(virsh domstate ${VM})" = "running" ] && return 0 || return 1
 }
 
-vm_connectable() {
-	ping -w1 $VMIP > /dev/null
-}
+vm_connectable_one() {
+	local vm=$1
+	local vmip=$(sshvm -i $vm 2> /dev/null)
 
-vm_ssh_connectable() {
-	ssh -o ConnectTimeout=3 $VMIP date > /dev/null 2>&1
+	ping -w1 $vmip > /dev/null
 }
 
 # assuming that sshvm is located under PATH
@@ -67,12 +66,6 @@ EOF
 	return 1
 }
 
-VMDIRTY=false
-get_vmdirty()   { echo $VMDIRTY; }
-set_vmdirty()   { VMDIRTY=true;  }
-clear_vmdirty() { VMDIRTY=false; }
-vmdirty()       { [ $VMDIRTY = true ] && return 0 || return 1 ; }
-
 vm_shutdown_wait() {
 	local vm=$1
 	local vmip=$2
@@ -83,109 +76,34 @@ vm_shutdown_wait() {
 		return 0
 	fi
 
-	echo "shutdown vm $vm"
-	ssh "$vmip" "sync ; shutdown -h now"
+	if vm_connectable_one $vm && vm_ssh_connectable_one $vm ; then
+		echo "shutdown vm $vm"
+		vmip=$(sshvm -i $vm)
+		ssh "$vmip" "sync ; shutdown -h now"
 
-	# virsh start might fail, because the above command terminates the connection
-	# before the vm completes the shutdown. Need to confirm vm is shut off.
-	local timeout=60
-	while [ "$timeout" -gt 0 ] ; do
-		if [ "$(virsh domstate $vm)" == "shut off" ] ; then
-			echo "[$vm] shutdown done"
-			return 0
-		fi
-		sleep 1
-		timeout=$[timeout - 1]
-	done
-	echo "[$vm] shutdown timeout. Destroy it."
+		# virsh start might fail, because the above command terminates the connection
+		# before the vm completes the shutdown. Need to confirm vm is shut off.
+		local timeout=60
+		while [ "$timeout" -gt 0 ] ; do
+			if [ "$(virsh domstate $vm)" == "shut off" ] ; then
+				echo "[$vm] shutdown done"
+				return 0
+			fi
+			sleep 1
+			timeout=$[timeout - 1]
+		done
+		echo "[$vm] shutdown timeout, destroy it."
+	else
+		echo "[$vm] no ssh-connection, destroy it."
+	fi
 	virsh destroy $vm
 	return 1
 }
 
-vm_serial_monitor() {
-	cat <<EOF > $TMPD/vm_serial_monitor.exp
-#!/usr/bin/expect
-
-set timeout 5
-set target $VM
-log_file -noappend $TMPD/vm_serial_monitor.log
-
-spawn virsh console $VM
-expect "Escape character is"
-send "\n"
-send "\n"
-sleep 100000000000
-send -- ""
-interact
-EOF
-	expect $TMPD/vm_serial_monitor.exp > /dev/null 2>&1
-}
-
-save_guest_console() {
-	local vm=$1
-	local id=1 # getting from /var/run/libvirt/qemu/$vm.xml
-
-	cat <<EOF > $TMPD/vm_serial_monitor.exp
-#!/usr/bin/expect
-
-set timeout 5
-set target $VM
-log_file -noappend $TMPD/vm_serial_monitor.log
-
-spawn virsh console $VM
-expect "Escape character is"
-send "\n"
-send "\n"
-sleep 10
-send -- ""
-interact
-EOF
-	expect $TMPD/vm_serial_monitor.exp > /dev/null 2>&1
-}
-
-run_vm_serial_monitor() {
-	vm_serial_monitor $VM > /dev/null 2>&1 &
-	GUESTSERIALMONITORPID=$!
-	sleep 1
-}
-
-stop_vm_serial_monitor() {
-	disown $GUESTSERIALMONITORPID
-	kill -SIGKILL $GUESTSERIALMONITORPID > /dev/null 2>&1
-}
-
-get_guest_kernel_message() {
+show_guest_console() {
 	echo "####### GUEST CONSOLE #######"
-	if [ -e "$TMPD/dmesg_guest_after" ] ; then
-		diff $TMPD/dmesg_guest_before $TMPD/dmesg_guest_after | \
-			grep -v '^< ' | tee $TMPD/dmesg_guest_diff
-	else
-		layout_guest_dmesg $TMPD/vm_serial_monitor.log | \
-			tee $TMPD/dmesg_guest_diff
-	fi
+	cat $TMPD/vmconsole
 	echo "####### GUEST CONSOLE END #######"
-}
-
-get_guest_kernel_message_before() {
-	ssh ${SSH_OPT} $VMIP dmesg > $TMPD/dmesg_guest_before
-	rm $TMPD/dmesg_guest_after 2> /dev/null
-}
-
-get_guest_kernel_message_after() {
-	ssh ${SSH_OPT} $VMIP dmesg > $TMPD/dmesg_guest_after
-}
-
-layout_guest_dmesg() {
-	tac $1 | gawk '
-		BEGIN { flag = 0; }
-		{
-			if (flag == 0 && $0 ~ /.*login: .*/) {
-				flag = 1;
-				print gensub(/.*login: (.*)/, "\\1", "g", $0);
-			}
-			if (flag == 0) { print $0; }
-		}
-	' | tac
 }
 
 check_guest_kernel_message() {
@@ -193,7 +111,7 @@ check_guest_kernel_message() {
 	local word="$1"
 	if [ "$word" ] ; then
 		count_testcount
-		grep "$word" $TMPD/dmesg_guest_diff > /dev/null 2>&1
+		grep "$word" $TMPD/vmconsole > /dev/null 2>&1
 		if [ $? -eq 0 ] ; then
 			if [ "$inverse" ] ; then
 				count_failure "guest kernel message shows unexpected word '$word'."
@@ -208,4 +126,30 @@ check_guest_kernel_message() {
 			fi
 		fi
 	fi
+}
+
+# virsh command sometimes doesn't work, so look at libvirt file directly
+# /var/run/libvirt/qemu/<VM>.xml
+get_vm_id() {
+    local vm=$1
+
+    xmllint --xpath "/domstatus/domain/@id" /var/run/libvirt/qemu/$vm.xml | cut -f2 -d= | tr -d '"'
+}
+
+get_vm_console() {
+    local vm=$1
+
+    xmllint --xpath "/domstatus/domain/devices/console/source/@path" /var/run/libvirt/qemu/$vm.xml | cut -f2 -d= | tr -d '"'
+}
+
+start_vm_console_monitor() {
+    local basename=$1
+    local vm=$2
+    local vmconsole=$(get_vm_console $vm)
+	local vmid=$(get_vm_id $vm)
+
+    cat $vmconsole > $basename.$vm.$vmid &
+    echo "===> started vm console monitor for $vm, ID $vmid, saved in $basename.$vm.$vmid"
+    echo "ln -sf $basename.$vm.$vmid $basename"
+    ln -sf $basename.$vm.$vmid $basename
 }

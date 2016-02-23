@@ -69,12 +69,16 @@ Dir.mktmpdir("dnsmasq") do |dir|
     end
   end
 
-  system "virsh --connect qemu+ssh://#{options[:host]}/system dumpxml #{options[:guest]} > #{dir}/vm.xml"
-
-  doc = REXML::Document.new(open("#{dir}/vm.xml"))
-  # puts doc.elements['domain/devices/interface/@type==network']
-  # mac = doc.elements["domain/devices/interface[@type='network']/mac/@address"]
-  mac = doc.elements["domain/devices/interface[@type='network']/source[@network='#{options[:network]}']/parent::*/mac/@address"]
+  if options[:host] == "localhost"
+    doc = REXML::Document.new(open("/var/run/libvirt/qemu/#{options[:guest]}.xml"))
+    mac = doc.elements["domstatus/domain/devices/interface[@type='network']/source[@network='#{options[:network]}']/parent::*/mac/@address"]
+  else
+    system "virsh --connect qemu+ssh://#{options[:host]}/system dumpxml #{options[:guest]} > #{dir}/vm.xml"
+    doc = REXML::Document.new(open("#{dir}/vm.xml"))
+    # puts doc.elements['domain/devices/interface/@type==network']
+    # mac = doc.elements["domain/devices/interface[@type='network']/mac/@address"]
+    mac = doc.elements["domain/devices/interface[@type='network']/source[@network='#{options[:network]}']/parent::*/mac/@address"]
+  end
 
   final = nil
   tmp.each do |rec|

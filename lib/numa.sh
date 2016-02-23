@@ -52,3 +52,24 @@ disable_auto_numa() {
 	echo 1000 > /proc/sys/kernel/numa_balancing_scan_period_min_ms
 	echo 256 > /proc/sys/kernel/numa_balancing_scan_size_mb
 }
+
+get_numa_maps_node_stat() {
+	local pid=$1
+	local tmpf=$(mktemp)
+
+	cat <<EOF > $tmpf
+res = {}
+File.read("/proc/$pid/numa_maps").split("\n").each do |line|
+  line.scan(/\bN(\d+)=(\d+)\b/).each do |set|
+	if res[set[0]]
+      res[set[0]] += set[1].to_i
+    else
+      res[set[0]] = set[1].to_i
+	end
+  end
+end
+p res
+EOF
+	ruby $tmpf $pid
+	rm -f $tmpf
+}
