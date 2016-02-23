@@ -38,6 +38,7 @@ _control() {
 	start_guest_memeater $VM $[512 * 100]
 
 	get_mm_stats 1 $pid
+	get_pagetypes $pid pagetypes.1 -rl
 
 	for i in $(seq 10) ; do
 		get_numa_maps_node_stat $pid
@@ -48,6 +49,7 @@ _control() {
 	get_numa_maps_node_stat $pid
 
 	get_mm_stats 2 $pid
+	get_pagetypes $pid pagetypes.2 -rl
 
 	echo "vm_shutdown_wait $VM"
 	vm_shutdown_wait $VM $vmip
