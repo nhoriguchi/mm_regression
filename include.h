@@ -431,6 +431,7 @@ static int do_access(void *ptr) {
 		}
 }
 
+/* TODO: using NR_<operation> for error message */
 static int do_work_memory(int (*func)(char *p, int size, void *arg), void *args) {
 	int i, j;
 	int ret;
@@ -439,7 +440,6 @@ static int do_work_memory(int (*func)(char *p, int size, void *arg), void *args)
 		for (i = 0; i < nr_chunk; i++) {
 			struct mem_chunk *tmp = &chunkset[i + j * nr_chunk];
 
-			/* printf("%s, %d %d\n", __func__, i, j); */
 			ret = (*func)(tmp->p, tmp->chunk_size, args);
 			if (ret != 0) {
 				char buf[64];
@@ -989,14 +989,12 @@ static int __do_madvise_chunk(char *p, int size, void *args) {
 	struct madvise_arg *madv_arg = (struct madvise_arg *)args;
 
 	if (madv_arg->size) {
-		int i, ret;
+		int ret;
 
-		for (i = 0; i < (size - 1) / 512 + 1; i++) {
-			ret = madvise(p + i * HPS, madv_arg->size,
-				      madv_arg->advice);
-			if (ret)
-				return ret;
-		}
+		ret = madvise(p, madv_arg->size,
+			      madv_arg->advice);
+		if (ret)
+			return ret;
 	} else
 		return madvise(p, size, madv_arg->advice);
 }
