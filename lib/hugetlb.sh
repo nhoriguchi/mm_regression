@@ -122,7 +122,7 @@ set_and_check_hugetlb_pool() {
         count_success "set hugetlb pool size to $1: OK"
         return 0
     else
-        count_failure "set hugetlb pool size to $1: NG"
+        count_warning "set hugetlb pool size to $1: NG"
         show_hugetlb_pool
         return 1
     fi

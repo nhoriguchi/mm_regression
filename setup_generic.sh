@@ -16,6 +16,7 @@ export GTMPD=$WDIR/$TESTNAME
 echo -n 0 > $GTMPD/__testcount
 echo -n 0 > $GTMPD/__success
 echo -n 0 > $GTMPD/__failure
+echo -n 0 > $GTMPD/__warning # might be problem but not affect the pass/fail judge
 echo -n 0 > $GTMPD/__later # known failure
 echo -n 0 > $GTMPD/__skipped # skip the testcase for a good reason
 
@@ -25,6 +26,7 @@ reset_per_testcase_counters() {
 	echo -n 0 > $TMPD/_testcount
 	echo -n 0 > $TMPD/_success
 	echo -n 0 > $TMPD/_failure
+	echo -n 0 > $TMPD/_warning
 	echo -n 0 > $TMPD/_later
 }
 
@@ -39,6 +41,7 @@ commit_counts() {
 	add_counts $GTMPD/__testcount $(cat $TMPD/_testcount)
 	add_counts $GTMPD/__success   $(cat $TMPD/_success)
 	add_counts $GTMPD/__failure   $(cat $TMPD/_failure)
+	add_counts $GTMPD/__warning   $(cat $TMPD/_warning)
 	add_counts $GTMPD/__later     $(cat $TMPD/_later)
 }
 
@@ -109,6 +112,19 @@ count_failure() {
     fi
 }
 
+count_warning() {
+    local nonewline=
+    while true ; do
+        case "$1" in
+            -n) nonewline=-n ; shift ; break ;;
+            *) break ;;
+        esac
+    done
+    add_counts $TMPD/_warning 1
+    echo_log $nonewline "WARN: $@"
+    return 0
+}
+
 count_skipped() {
     local nonewline=
     while true ; do
@@ -152,7 +168,7 @@ show_fail_summary() {
 
 show_summary() {
     echo_log "$TESTNAME:"
-    echo_log "$(cat $GTMPD/__testcount) checks: $(cat $GTMPD/__success) passes, $(cat $GTMPD/__failure) fails, $(cat $GTMPD/__later) laters."
+    echo_log "$(cat $GTMPD/__testcount) checks: $(cat $GTMPD/__success) passes, $(cat $GTMPD/__failure) fails, $(cat $GTMPD/__warning) warns, $(cat $GTMPD/__later) laters."
     show_fail_summary
     if [ "$(cat $GTMPD/__skipped)" -ne 0 ] ; then
         echo_log "$(cat $GTMPD/__skipped) checks skipped."
