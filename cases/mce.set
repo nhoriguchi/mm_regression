@@ -46,6 +46,8 @@ case "$BACKEND" in
 		FALSENEGATIVE=true
 		;;
 	buddy)
+		unset TEST_PROGRAM
+
 		_control() {
 			# TODO: racy
 			local pfn=$($PAGETYPES -b buddy -Nl | grep -v offset | head -n1 | cut -f1)
@@ -60,6 +62,7 @@ case "$BACKEND" in
 		;;
 	free_hugepage)
 		HUGETLB=300
+		unset TEST_PROGRAM
 
 		_control() {
 			# TODO: racy
