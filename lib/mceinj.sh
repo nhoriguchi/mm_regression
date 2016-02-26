@@ -34,14 +34,14 @@ usage() {
 }
 
 inject_error() {
-    local tmpf=`mktemp`
+	local tmpd=$(mktemp -d)
 
     if [ "$ERRORTYPE" = "hard-offline" ] ; then
         echo $[$TARGET * 4096] > /sys/devices/system/memory/hard_offline_page 2> /dev/null
     elif [ "$ERRORTYPE" = "soft-offline" ] ; then
         echo $[$TARGET * 4096] > /sys/devices/system/memory/soft_offline_page 2> /dev/null
     elif [ "$ERRORTYPE" = "mce-srao" ] ; then
-        cat <<EOF > ${tmpf}.mce-inject
+        cat <<EOF > $tmpd/mce-inject
 CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 2
 STATUS UNCORRECTED SRAO 0x17a
 MCGSTATUS RIPV MCIP
@@ -49,9 +49,9 @@ ADDR $[$TARGET * 4096]
 MISC 0x8c
 RIP 0x73:0x1eadbabe
 EOF
-        mce-inject ${tmpf}.mce-inject
+        mce-inject $tmpd/mce-inject
     elif [ "$ERRORTYPE" = "mce-srar" ] ; then
-        cat <<EOF > ${tmpf}.mce-inject
+        cat <<EOF > $tmpd/mce-inject
 CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 1
 STATUS UNCORRECTED SRAR 0x134
 MCGSTATUS RIPV MCIP EIPV
@@ -59,19 +59,19 @@ ADDR $[$TARGET * 4096]
 MISC 0x8c
 RIP 0x73:0x3eadbabe
 EOF
-        mce-inject ${tmpf}.mce-inject
+        mce-inject $tmpd/mce-inject
     elif [ "$ERRORTYPE" = "mce-ce" ] ; then
-        cat <<EOF > ${tmpf}.mce-inject
+        cat <<EOF > $tmpd/mce-inject
 CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 2
 STATUS CORRECTED 0xc0
 ADDR $[$TARGET * 4096]
 EOF
-        mce-inject ${tmpf}.mce-inject
+        mce-inject $tmpd/mce-inject
     else
         echo "undefined injection type [$ERRORTYPE]. Abort"
         return 1
     fi
-    rm -rf ${tmpf:?DANGER}*
+    rm -rf ${tmpd}
     return 0
 }
 
