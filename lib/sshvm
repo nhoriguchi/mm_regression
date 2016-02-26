@@ -53,7 +53,7 @@ Dir.mktmpdir("dnsmasq") do |dir|
   end
   tmp.flatten!
 
-  if tmp.empty?
+  if tmp.empty? and File.exist? "/var/lib/libvirt/dnsmasq/#{options[:network]}.leases"
     puts "reading /var/lib/libvirt/dnsmasq/*.status@#{options[:host]} failed"
     system "rsync -ave ssh #{options[:host]}:/var/lib/libvirt/dnsmasq/#{options[:network]}.leases #{dir} > /dev/null"
     Dir.glob("#{dir}/*.leases").each do |file|
