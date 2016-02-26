@@ -8,6 +8,7 @@ vm_connectable_one() {
 	local vm=$1
 	local vmip=$(sshvm -i $vm 2> /dev/null)
 
+	[ "$vmip" ] || return 1
 	ping -w1 $vmip > /dev/null
 }
 
@@ -16,6 +17,7 @@ vm_ssh_connectable_one() {
 	local vm=$1
 	local vmip=$(sshvm -i $vm 2> /dev/null)
 
+	[ "$vmip" ] || return 1
 	ssh -o ConnectTimeout=3 $vmip date > /dev/null 2>&1
 }
 
@@ -57,7 +59,7 @@ EOF
 	expect $TMPD/vm_start_wait.exp > /dev/null 2>&1
 	[ ! -e $TMPD/vm_start_wait.log ] && echo "expect failed." && return 1
 	if grep -q "VM start finished" $TMPD/vm_start_wait.log ; then
-		for i in $(seq 20) ; do
+		for i in $(seq 60) ; do
 			vm_ssh_connectable_one $vm && return 0
 			sleep 2
 		done
@@ -83,14 +85,12 @@ vm_shutdown_wait() {
 
 		# virsh start might fail, because the above command terminates the connection
 		# before the vm completes the shutdown. Need to confirm vm is shut off.
-		local timeout=60
-		while [ "$timeout" -gt 0 ] ; do
+		for i in $(seq 60) ; do
 			if [ "$(virsh domstate $vm)" == "shut off" ] ; then
 				echo "[$vm] shutdown done"
 				return 0
 			fi
-			sleep 1
-			timeout=$[timeout - 1]
+			sleep 2
 		done
 		echo "[$vm] shutdown timeout, destroy it."
 	else
