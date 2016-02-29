@@ -295,12 +295,6 @@ get_mm_stats() {
 	fi
 }
 
-check_process_status() {
-	local pid=$1
-
-	kill -0 $pid 2> /dev/null
-}
-
 clear_soft_dirty() {
 	local pid=$1
 

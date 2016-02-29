@@ -21,9 +21,14 @@ check_install_package() {
 kill_all_subprograms() {
 	for tp in $(grep ^src= $TRDIR/Makefile | cut -f2 -d=) ; do
 		local tmp=${tp%.c}
-		# echo "pkill -9 -f $(eval echo \$$(echo $tmp))"
 		eval "pkill -9 -f \$$(echo $tmp)"
 	done
+}
+
+check_process_status() {
+	local pid=$1
+
+	kill -0 $pid 2> /dev/null
 }
 
 # Getting all C program into variables, which is convenient to calling
