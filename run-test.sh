@@ -80,7 +80,7 @@ echo_log "=========> start testing $(basename $TRDIR):$TESTNAME"
 echo_log "RECIPEFILES:"
 echo_log "${RECIPEFILES//$TRDIR\/cases\//}"
 
-make allrecipes > $GTMPD/full_recipe_list
+make allrecipes | grep ^cases > $GTMPD/full_recipe_list
 
 echo 1 > /proc/sys/kernel/panic_on_oops
 
@@ -130,7 +130,7 @@ for recipe in $RECIPEFILES ; do
 
 		echo_log "======> Recipe: $recipe_relpath start"
 		date +%s > $TMPD/start_time
-		make allrecipes > $TMPD/full_recipe_list
+		make allrecipes | grep ^cases > $TMPD/full_recipe_list
 
 		# TODO: put general system information under $TMPD
 
