@@ -183,12 +183,22 @@ class TestSummary
     end
   end
 
+  # TODO: user can limit the set of recipes to be searched
   def do_finishcheck
     if ENV['RECIPEFILES'].nil?
-      puts "No environment variable RECIPEFILES set, so can't tell test ending."
-      exit
+      @run_summary.each do |run|
+        given_recipes = File.read("#{run.dir}/full_recipe_list").split("\n").map do |c|
+          c.gsub(/^cases\//, '')
+        end
+        if ! run.check_finished given_recipes
+          puts "There's some \"not run\" testcases. So try to run test again with the same setting."
+          exit 1
+        end
+      end
+      exit 0
     end
 
+    # TODO: remove this old style check code
     given_recipes = `echo $RECIPEFILES | bash test_core/lib/filter_recipe.sh`.chomp.split("\n").map {|r| r.gsub(/.*cases\//, '')}
 
     if @run_summary.all? {|rs| rs.check_finished given_recipes}
