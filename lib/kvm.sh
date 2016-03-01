@@ -1,7 +1,18 @@
 #!/bin/bash
 
 vm_running() {
-	[ "$(virsh domstate ${VM})" = "running" ] && return 0 || return 1
+	local vm=$1
+
+	if [ ! -e /var/run/libvirt/qemu/$vm.pid ] ; then
+		return 1
+	fi
+
+	if ! check_process_status $(cat /var/run/libvirt/qemu/$vm.pid) ; then
+		return 1
+	fi
+
+	return 0
+	# [ "$(virsh domstate ${VM})" = "running" ] && return 0 || return 1
 }
 
 vm_connectable_one() {
@@ -24,13 +35,14 @@ vm_ssh_connectable_one() {
 # Start VM and wait until the VM become connectable.
 vm_start_wait() {
 	local vm=$1
+	local _tmpd=$(mktemp -d)
 
-	cat <<EOF > $TMPD/vm_start_wait.exp
+	cat <<EOF > $_tmpd/vm_start_wait.exp
 #!/usr/bin/expect
 
 set timeout 1
 set timecount 100
-log_file -noappend $TMPD/vm_start_wait.log
+log_file -noappend $_tmpd/vm_start_wait.log
 
 spawn virsh console $vm
 
@@ -50,15 +62,15 @@ while {\$timecount > 0} {
 send -- ""
 interact
 EOF
-	if [ "$(virsh domstate $vm)" == "running" ] ; then
+	if vm_running $vm ; then
 		echo "[$vm] domain already running."
 	else
 		echo "[$vm] starting domain ... "
 		virsh start $vm > /dev/null 2>&1
 	fi
-	expect $TMPD/vm_start_wait.exp > /dev/null 2>&1
-	[ ! -e $TMPD/vm_start_wait.log ] && echo "expect failed." && return 1
-	if grep -q "VM start finished" $TMPD/vm_start_wait.log ; then
+	expect $_tmpd/vm_start_wait.exp > /dev/null 2>&1
+	[ ! -e $_tmpd/vm_start_wait.log ] && echo "expect failed." && return 1
+	if grep -q "VM start finished" $_tmpd/vm_start_wait.log ; then
 		for i in $(seq 60) ; do
 			vm_ssh_connectable_one $vm && return 0
 			sleep 2
@@ -73,11 +85,10 @@ vm_shutdown_wait() {
 	local vmip=$2
 	local ret=0
 
-	if [ "$(virsh domstate $vm)" == "shut off" ] ; then
+	if ! vm_running $vm ; then
 		echo "[$vm] already shut off"
 		return 0
 	fi
-
 	if vm_connectable_one $vm && vm_ssh_connectable_one $vm ; then
 		echo "shutdown vm $vm"
 		vmip=$(sshvm -i $vm)
@@ -86,7 +97,7 @@ vm_shutdown_wait() {
 		# virsh start might fail, because the above command terminates the connection
 		# before the vm completes the shutdown. Need to confirm vm is shut off.
 		for i in $(seq 60) ; do
-			if [ "$(virsh domstate $vm)" == "shut off" ] ; then
+			if ! vm_running $vm ; then
 				echo "[$vm] shutdown done"
 				return 0
 			fi
@@ -96,8 +107,18 @@ vm_shutdown_wait() {
 	else
 		echo "[$vm] no ssh-connection, destroy it."
 	fi
-	virsh destroy $vm
-	return 1
+	timeout 5 virsh destroy $vm
+	ret=$?
+	if [ $ret -eq 0 ] ; then
+		return 1
+	else
+		if [ $ret -eq 124 ] ; then
+			echo "[$vm] virsh destroy timed out"
+		else
+			echo "[$vm] virsh destroy failed"
+			kill -9 $(cat /var/run/libvirt/qemu/$vm.pid)
+		fi
+	fi
 }
 
 show_guest_console() {
