@@ -1,7 +1,5 @@
 NUMNODE=$(numactl -H | grep available | cut -f2 -d' ')
 
-yum install -y numactl* > /dev/null 2>&1
-
 numa_check() {
 	if ! [ "$NUMNODE" -gt 1 ] ; then
 		echo_log "No NUMA system"

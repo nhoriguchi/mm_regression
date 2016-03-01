@@ -12,10 +12,6 @@ check_install_package() {
     if ! yum list installed "$pkg" > /dev/null 2>&1 ; then
         yum install -y ${pkg}
     fi
-    # if [ ! -s "$path" ] ; then
-    #     echo "path for $pkg is empty for some reason, so let's re-install now."
-    #     yum reinstall -y ${pkg} > /dev/null
-    # fi
 }
 
 kill_all_subprograms() {

@@ -89,13 +89,8 @@ if ! lsmod | grep hwpoison_inject > /dev/null ; then
     modprobe hwpoison_inject
 fi
 
-check_install_package expect
-check_install_package ruby
-
 if ! which mce-inject > /dev/null || [[ ! -s "$(which mce-inject)" ]] ; then
     echo "No mce-inject installed."
-    check_install_package bison
-    check_install_package flex
     # http://git.kernel.org/cgit/utils/cpu/mce/mce-inject.git
     rm -rf ./mce-inject
     git clone https://github.com/Naoya-Horiguchi/mce-inject

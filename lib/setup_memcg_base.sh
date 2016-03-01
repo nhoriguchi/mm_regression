@@ -4,5 +4,3 @@ if [ ! -d /sys/fs/cgroup/memory ] ; then
 fi                                                                  
 
 MEMCGDIR=/sys/fs/cgroup/memory
-
-yum install -y libcgroup-tools > /dev/null 2>&1
