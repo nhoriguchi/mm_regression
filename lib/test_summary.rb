@@ -195,6 +195,7 @@ class TestSummary
           exit 1
         end
       end
+      puts "All of given recipes are finished."
       exit 0
     end
 
