@@ -1,5 +1,6 @@
 #!/bin/bash
 
+. $TCDIR/lib/common.sh
 . $TCDIR/lib/mm.sh
 
 set_monarch_timeout() {
@@ -127,7 +128,10 @@ control_mce_test() {
 			"writing affected region")
 				set_return_code ACCESS
 				kill -SIGUSR1 $pid
-				sleep 1
+				# need to wait for the process is completely killed.
+				# surprisingly it might take more than 1 sec... :(
+				sleep 2
+
 				if check_process_status $pid ; then
 					set_return_code ACCESS_SUCCEEDED
 				else
