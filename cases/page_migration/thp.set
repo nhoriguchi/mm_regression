@@ -33,16 +33,17 @@ elif [ "$RACE_SRC" == race_with_procpid ] ; then
 		case "$line" in
 			"before_madv_soft")
 				( while true ; do
-					  $PAGETYPES -p $pid -Nlr -a 0x700000000+0x10000000 >> $TMPF/.1
-					  cat /proc/$pid/numa_maps >> $TMPF/.2
-					  cat /proc/$pid/maps >> $TMPF/.3
-					  cat /proc/$pid/smaps >> $TMPF/.4
+					  $PAGETYPES -p $pid -Nlr -a 0x700000000+0x10000000 > /dev/null
+					  cat /proc/$pid/numa_maps > /dev/null
+					  cat /proc/$pid/maps > /dev/null
+					  cat /proc/$pid/smaps > /dev/null
 				  done ) &
 				echo $! > $TMPD/procpid_pid
 				kill -SIGUSR1 $pid
 				;;
 			"after_madv_soft")
 				kill -9 $(cat $TMPD/procpid_pid)
+				sleep 0.2
 				kill -SIGUSR1 $pid
 				set_return_code EXIT
 				return 0
