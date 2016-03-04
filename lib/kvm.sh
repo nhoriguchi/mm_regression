@@ -169,8 +169,11 @@ start_vm_console_monitor() {
     local vmconsole=$(get_vm_console $vm)
 	local vmid=$(get_vm_id $vm)
 
+	if [ -e $basename.$vm.$vmid ] ; then
+		echo "you already monitoring $basename.$vm.$vmid"
+		return
+	fi
     cat $vmconsole > $basename.$vm.$vmid &
     echo "===> started vm console monitor for $vm, ID $vmid, saved in $basename.$vm.$vmid"
-    echo "ln -sf $basename.$vm.$vmid $basename"
     ln -sf $basename.$vm.$vmid $basename
 }
