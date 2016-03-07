@@ -12,8 +12,8 @@ TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
 RACE_ITERATIONS=20
 MONARCH_TIMEOUT=20000000
 
-if [ "$BACKEND" == zero ] || [ "$BACKEND" == huge_zero ] ; then
-	PRIORITY=15 # low priority
+if [[ "$BACKEND" =~ (ksm|zero) ]] ; then
+	SKIP_THIS_TEST=true
 fi
 
 # TODO: goto common place

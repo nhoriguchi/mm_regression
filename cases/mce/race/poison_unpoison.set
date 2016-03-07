@@ -9,6 +9,10 @@ BACKEND=__MARK_BACKEND
 ERROR_TYPE=__MARK_ERROR_TYPE
 TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
 
+if [[ "$BACKEND" =~ (ksm|zero) ]] ; then
+	SKIP_THIS_TEST=true
+fi
+
 THP=100
 HUGETLB=300
 HUGEPAGESIZE=2048
@@ -16,7 +20,6 @@ if [ "$BACKEND" == ksm ] ; then
 	KSM=true
 fi
 
-POISON_ITERATION=100
 TIMEOUT=5
 
 case "$BACKEND" in
