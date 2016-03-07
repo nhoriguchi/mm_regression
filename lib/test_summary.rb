@@ -59,6 +59,16 @@ class TestCaseSummary
   def started?
     @return_code_seq =~ /\bSTART\b/
   end
+
+  def start_time
+    return nil if ! File.exist? @tc_dir + "/start_time"
+    return File.read(@tc_dir + "/start_time").to_i
+  end
+
+  def end_time
+    return nil if ! File.exist? @tc_dir + "/end_time"
+    return File.read(@tc_dir + "/end_time").to_i
+  end
 end
 
 class RunSummary
@@ -178,6 +188,8 @@ class TestSummary
       do_finishcheck
     elsif @options[:coverage]
       show_coverage
+    elsif @options[:timesummary]
+      show_timesummary
     else
       puts sum_str
     end
@@ -240,6 +252,55 @@ class TestSummary
     end
   end
 
+  def show_timesummary
+    @run_summary.each do |run|
+      covered = 0
+      uncovered = 0
+      full_recipe_list = File.read("#{run.dir}/full_recipe_list").split("\n").map do |c|
+        c.gsub(/^cases\//, '')
+      end
+
+      tmp_duration = []
+      tmp_accumulative_duration = []
+      tmp_rname = []
+
+      tstart = 0
+      tmp = 0
+      remember_endtime = 0
+      full_recipe_list.each do |recipe|
+        a = run.tc_summary.find {|tc| tc.testcaseid == recipe}
+        if a.nil?
+          if remember_endtime > 0
+            tmp_duration << remember_endtime - tmp
+          else
+            tmp_duration << 0
+          end
+          tmp_accumulative_duration << 0
+          tmp_rname << recipe
+          remember_endtime = 0
+        else
+          tstart = tmp = a.start_time if tmp == 0
+          # puts sprintf "%6d / %6d %s\n", a.start_time - tmp, a.start_time - tstart, recipe
+          tmp_duration << a.start_time - tmp
+          tmp_accumulative_duration << a.start_time - tstart
+          tmp_rname << recipe
+          tmp = a.start_time
+          remember_endtime = a.end_time
+        end
+      end
+      tmp_duration.shift
+      if remember_endtime > 0
+        tmp_duration << remember_endtime - tmp
+      else
+        tmp_duration << 0
+      end
+
+      tmp_rname.each_with_index do |r, i|
+        printf "%6d / %6d %s\n", tmp_duration[i], tmp_accumulative_duration[i], r
+      end
+    end
+  end
+
   def sum_str
     tmp = []
     @run_summary.each do |run|
@@ -292,6 +353,9 @@ class TestSummary
       end
       opts.on("-F", "--finishcheck") do
         @options[:finishcheck] = true
+      end
+      opts.on("-t", "--time-summary") do
+        @options[:timesummary] = true
       end
     end.parse! args
 
