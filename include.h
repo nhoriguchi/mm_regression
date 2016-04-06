@@ -191,14 +191,10 @@ static void read_memory(char *p, int size) {
 	}
 }
 
-static void create_workdir(void) {
-	char dpath[256];
-	char buf[PS];
-
-	sprintf(dpath, "%s", workdir);
+static void create_workdir(char *dpath) {
 	if (mkdir(dpath, 0700))
 		if (errno != EEXIST) /* 'already exist' is ok */
-			errmsg("failed to mkdir %s\n", workdir);
+			errmsg("failed to mkdir %s\n", dpath);
 }
 
 static void create_regular_file(void) {
@@ -206,7 +202,7 @@ static void create_regular_file(void) {
 	char fpath[256];
 	char buf[PS];
 
-	create_workdir();
+	create_workdir(workdir);
 	sprintf(fpath, "%s/%s", workdir, filebase);
 	fd = open(fpath, O_CREAT|O_RDWR, 0755);
 	if (fd == -1)
@@ -223,11 +219,14 @@ static void create_regular_file(void) {
  */
 static void create_hugetlbfs_file(void) {
 	int i;
+	char dpath[256];
 	char fpath[256];
 	char buf[PS];
 	char *phugetlb;
 
-	sprintf(fpath, "%s/hugetlbfs/%s", workdir, filebase);
+	sprintf(dpath, "%s/hugetlbfs", workdir);
+	sprintf(fpath, "%s/%s", dpath, filebase);
+	create_workdir(dpath);
 	hugetlbfd = open(fpath, O_CREAT|O_RDWR, 0755);
 	if (hugetlbfd == -1)
 		err("open");
