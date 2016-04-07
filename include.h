@@ -1087,6 +1087,11 @@ static void do_process_vm_access(struct op_control *opc) {
 	do_work_memory(__process_vm_access_chunk, &pid);
 }
 
+static void do_vm86(struct op_control *opc) {
+	pid_t pid;
+	return;
+}
+
 enum {
 	NR_start,
 	NR_exit,
@@ -1119,6 +1124,7 @@ enum {
 	NR_fork,
 	NR_split_thp,
 	NR_madvise,
+	NR_vm86,
 	NR_OPERATIONS,
 };
 
@@ -1154,6 +1160,7 @@ static const char *operation_name[] = {
 	[NR_fork]			= "fork",
 	[NR_split_thp]			= "split_thp",
 	[NR_madvise]			= "madvise",
+	[NR_vm86]			= "vm86",
 };
 
 /*
@@ -1192,6 +1199,7 @@ static const char *op_supported_args[][10] = {
 	[NR_fork]			= {},
 	[NR_split_thp]			= {"only_pmd"},
 	[NR_madvise]			= {"advice", "size"},
+	[NR_vm86]			= {},
 };
 
 static int get_op_index(struct op_control *opc) {
@@ -1388,6 +1396,8 @@ static void do_operation_loop(void) {
 			do_split_thp(&opc);
 		} else if (!strcmp(opc.name, "madvise")) {
 			do_madvise(&opc);
+		} else if (!strcmp(opc.name, "vm86")) {
+			do_vm86(&opc);
 		} else
 			errmsg("unsupported op_string: %s\n", opc.name);
 
