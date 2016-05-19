@@ -23,3 +23,6 @@ version:
 allrecipes:
 	@find cases -type f | bash test_core/lib/filter_recipe.sh
 	@true
+
+waiting_recipes:
+	@ruby test_core/lib/test_summary.rb -c -l | grep "\-\-\-\-" | cut -f2 -d ' ' | sed -e 's/^/cases\//'
