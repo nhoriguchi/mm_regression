@@ -41,14 +41,11 @@ test: all update_recipes
 test_all: all update_recipes
 	@bash test_core/run-test.sh $(addprefix -f ,$(VERBOSE)) $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell find cases/ -type f | xargs readlink -f 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
 
+test_waiting_recipes: all waiting_recipes
+	@bash test_core/run-test.sh $(addprefix -f ,$(VERBOSE)) $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell cat .waiting_recipes)) $(addprefix -t ,$(RUNNAME))
+
 test1g: all
 	@bash run-test-1g.sh
-
-# alias definition
-test_old: mmgeneric page_table_walker hugepage_migration thp_migration mce_test
-mce_test: mce_base mce_hugetlb mce_thp mce_ksm
-mce_test_advanced: mce_multiple_injection mce_stress
-mce_test_full: mce_test mce_test_advanced
 
 makefile_test: all
 	@echo $(shell readlink -f $(RECIPES) 2> /dev/null)
