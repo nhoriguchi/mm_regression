@@ -181,7 +181,6 @@ class TestSummary
   def initialize args
     parse_args args
     get_targets
-
     @run_summary = @targets.map {|t| RunSummary.new self, t}
 
     if @options[:finishcheck]
@@ -199,6 +198,7 @@ class TestSummary
   def do_finishcheck
     if ENV['RECIPEFILES'].nil?
       @run_summary.each do |run|
+        raise "full_recipe_list not found" if File.exists? "#{run.dir}/full_recipe_list"
         given_recipes = File.read("#{run.dir}/full_recipe_list").split("\n").map do |c|
           c.gsub(/^cases\//, '')
         end
@@ -315,6 +315,8 @@ class TestSummary
       tmp = Dir.glob("#{@options[:workdir]}/*").select do |g|
         File.directory? g
       end
+      tmp.delete_if {|d| d =~ /\/hugetlbfs/}
+      raise "not target directory found" if tmp.empty?
       tmp.sort_by! {|f| File.mtime(f)}
       0.upto(@options[:latest] - 1) do |i|
         puts "latest result dir is #{tmp[-1-i]}"
