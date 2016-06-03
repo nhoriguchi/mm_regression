@@ -177,3 +177,36 @@ start_vm_console_monitor() {
     echo "===> started vm console monitor for $vm, ID $vmid, saved in $basename.$vm.$vmid"
     ln -sf $basename.$vm.$vmid $basename
 }
+
+vm_watchdog() {
+	local vm=$1
+	local timer=$2 # in sec
+	local tmp_timer=
+	local vmip=$(sshvm -i $vm 2> /dev/null)
+
+	if [ ! "$vmip" ] ; then
+		echo "[$vm] not running?"
+		return 1
+	fi
+
+	while true ; do
+		tmp_timer=$timer
+		while [ "$tmp_timer" -gt 0 ] ; do
+			if ping -w1 $vmip > /dev/null ; then
+				break
+			else
+				tmp_timer=$[tmp_timer - 1]
+			fi
+			if [ "$tmp_timer" -eq 0 ] ; then
+				echo "[$vm] watchdog timeout"
+				vm_shutdown_wait $vm $vmip
+				return 0
+			fi
+			if ! vm_running $vm ; then
+				echo "[$vm] guest shutdown"
+				return 0
+			fi
+		done
+		sleep 1
+	done
+}
