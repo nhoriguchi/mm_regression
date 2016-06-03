@@ -8,8 +8,9 @@ DEVEL_MODE=
 SHOW_TEST_VERSION=
 # HIGHEST_PRIORITY might be set as an environment variable
 # LOWEST_PRIORITY might be set as an environment variable
+RUN_ALL_WAITING=
 
-while getopts vs:t:f:Spd:r:DVh:l: OPT ; do
+while getopts vs:t:f:Spd:r:DVh:l:w OPT ; do
     case $OPT in
         v) VERBOSE="$OPTARG" ;;
         s) KERNEL_SRC="$OPTARG" ;;
@@ -23,6 +24,7 @@ while getopts vs:t:f:Spd:r:DVh:l: OPT ; do
 		V) SHOW_TEST_VERSION=true ;;
 		h) HIGHEST_PRIORITY=$OPTARG ;;
 		l) LOWEST_PRIORITY=$OPTARG ;;
+		w) RUN_ALL_WAITING=true ;;
     esac
 done
 
@@ -44,8 +46,6 @@ if [ "$SHOW_TEST_VERSION" ] ; then
 	exit 0
 fi
 
-[ "$RECIPEFILES" ] && RECIPEFILES="$(readlink -f $RECIPEFILES)"
-
 for rd in $RECIPEDIR ; do
 	if [ -d "$rd" ] ; then
 		for rf in $(find $(readlink -f $rd) -type f) ; do
@@ -54,8 +54,18 @@ for rd in $RECIPEDIR ; do
 	fi
 done
 
-[ ! "$RECIPEFILES" ] && echo "RECIPEFILES not given or not exist." >&2 && exit 1
-export RECIPEFILES
+make --no-print-directory allrecipes | grep ^cases > $GTMPD/full_recipe_list
+make --no-print-directory waiting_recipes | grep ^cases > $GTMPD/waiting_recipe_list
+
+if [ ! "$RECIPEFILES" ] ; then
+	if [ "$RUN_ALL_WAITING" ] ; then
+		RECIPEFILES="$(cat $GTMPD/waiting_recipe_list)"
+	else
+		echo "RECIPEFILES not given or not exist." >&2
+		exit 1
+	fi
+fi
+export RECIPEFILES="$(readlink -f $RECIPEFILES)"
 
 [ ! "$HIGHEST_PRIORITY" ] && export HIGHEST_PRIORITY=0 # default
 [ ! "$LOWEST_PRIORITY" ] && export LOWEST_PRIORITY=10 # default
@@ -79,8 +89,6 @@ trap stop_test_running SIGTERM SIGINT
 echo_log "=========> start testing $(basename $TRDIR):$TESTNAME"
 echo_log "RECIPEFILES:"
 echo_log "${RECIPEFILES//$TRDIR\/cases\//}"
-
-make allrecipes | grep ^cases > $GTMPD/full_recipe_list
 
 echo 1 > /proc/sys/kernel/panic_on_oops
 

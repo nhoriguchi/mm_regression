@@ -25,5 +25,4 @@ allrecipes:
 	@true
 
 waiting_recipes: update_recipes
-	@ruby test_core/lib/test_summary.rb -c -l | grep "\-\-\-\-" | cut -f2 -d ' ' | sed -e 's/^/cases\//' > .waiting_recipes
-	@if test -s .waiting_recipes ; then cat .waiting_recipes ; else make --no-print-directory allrecipes ; fi
+	@ruby test_core/lib/test_summary.rb -c -l | grep "\-\-\-\-" | cut -f2 -d ' ' | sed -e 's/^/cases\//' 2> /dev/null
