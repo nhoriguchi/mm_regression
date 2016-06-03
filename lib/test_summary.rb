@@ -198,7 +198,7 @@ class TestSummary
   def do_finishcheck
     if ENV['RECIPEFILES'].nil?
       @run_summary.each do |run|
-        raise "full_recipe_list not found" if ! File.exists? "#{run.dir}/full_recipe_list"
+        raise "#{run.dir}/full_recipe_list not found" if ! File.exists? "#{run.dir}/full_recipe_list"
         given_recipes = File.read("#{run.dir}/full_recipe_list").split("\n").map do |c|
           c.gsub(/^cases\//, '')
         end
