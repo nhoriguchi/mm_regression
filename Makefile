@@ -41,8 +41,8 @@ test: all update_recipes
 test_all: all update_recipes
 	@bash test_core/run-test.sh $(addprefix -f ,$(VERBOSE)) $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell find cases/ -type f | xargs readlink -f 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
 
-test_waiting_recipes: all waiting_recipes
-	@bash test_core/run-test.sh $(addprefix -f ,$(VERBOSE)) $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell cat .waiting_recipes)) $(addprefix -t ,$(RUNNAME))
+test_waiting_recipes: all
+	@bash test_core/run-test.sh $(addprefix -f ,$(VERBOSE)) $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -t ,$(RUNNAME)) -w
 
 test1g: all
 	@bash run-test-1g.sh
