@@ -10,7 +10,7 @@ io.seek(pfn * 8, IO::SEEK_SET)
 a = io.read 8
 begin
   b = a.unpack("Q")[0] & 0xfffffffffff
-  puts "0x%x" % b
+  puts "%d" % b
 rescue
   puts ""
 end
