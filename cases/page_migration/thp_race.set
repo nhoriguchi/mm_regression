@@ -1,16 +1,20 @@
 # #!2 MIGRATE_SRC: migratepages
 # #!2 RACE_SRC: race_with_gup race_with_process_vm_access race_with_map_fault_unmap race_with_fork race_with_mremap race_with_procpid
 # # race_with_madv_free
-# 
+#
 # #!3 MIGRATE_SRC: mbind
 # #!3 OPERATION: partial
+
+#!1 THP_TYPE: single_mapped double_mapped mbind pte_mapped
 
 . $TRDIR/setup_page_migration.sh
 
 MIGRATE_SRC=__MARK_MIGRATE_SRC
 RACE_SRC=__MARK_RACE_SRC
+THP_TYPE=__MARK_THP_TYPE
 
 [ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
+[ ! "$HARD_RETRY" ] && HARD_RETRY=20
 
 NUMA_NODE=2
 THP=10
@@ -29,8 +33,8 @@ read_procpid() {
 migrate_pingpong() {
 	local pid=$1
 
-	do_migratepages $pid 0 1
-	do_migratepages $pid 1 0
+	do_migratepages $pid 0 1 2> /dev/null
+	do_migratepages $pid 1 0 2> /dev/null
 }
 
 background_iteration() {
@@ -46,19 +50,60 @@ background_iteration() {
 	done
 }
 
+if [ "$THP_TYPE" == pte_mapped ] ; then
+TEST_PROGRAM="$test_alloc_generic -B thp -N 1 -L 'mmap_numa access:wait_after split_thp:only_pmd busyloop exit:wait_before'"
 _control() {
-	for i in $(seq 5) ; do
-		$test_alloc_generic -B thp -N $THP -L "start mmap access busyloop" &
+    local pid="$1"
+    local line="$2"
+
+    echo_log "$line"
+    case "$line" in
+		"after_access")
+			get_mm_stats 0 $pid $(pgrep -P $pid)
+			background_iteration $pid clear_soft_dirty > /dev/null 2>&1 &
+            kill -SIGUSR1 $pid
+            ;;
+        "before_exit")
+            set_return_code EXIT
+            kill -SIGUSR1 $pid
+            return 0
+            ;;
+		"entering busy loop")
+			get_mm_stats 1 $pid $(pgrep -P $pid)
+			echo "calling do_migratepages for $pid"
+			do_migratepages $pid
+			kill -SIGUSR1 $pid
+			;;
+        *)
+            ;;
+    esac
+    return 1
+}
+else
+_control() {
+	for i in $(seq 10) ; do
+		if [ "$THP_TYPE" == mbind ] ; then
+			$test_alloc_generic -B thp -N $THP -L "mmap_numa access:wait_after=200000 mbind busyloop" &
+			local pid=$!
+			background_iteration $pid clear_soft_dirty > /dev/null &
+			sleep 0.3
+			kill -SIGUSR1 $pid 2> /dev/null
+			continue
+		fi
+
+		if [ "$THP_TYPE" == single_mapped ] ; then
+			$test_alloc_generic -B thp -N $THP -L "mmap access busyloop" &
+		elif [ "$THP_TYPE" == double_mapped ] ; then
+			$test_alloc_generic -B thp -N $THP -L "mmap access fork busyloop" &
+		fi
 		local pid=$!
-		sleep 0.3
-
-		# background_iteration $pid read_procpid > /dev/null &
+		sleep 0.2
 		background_iteration $pid migrate_pingpong > /dev/null &
-		background_iteration $pid clear_soft_dirty > /dev/null &
-
-		sleep 10
+		background_iteration $pid clear_soft_dirty > /dev/null 2>&1 &
+		sleep 0.5
 
 		kill -SIGUSR1 $pid 2> /dev/null
 	done
 	set_return_code EXIT
 }
+fi
