@@ -110,6 +110,9 @@ static unsigned long long parse_number(const char *str)
 #define BIT(name)		(1ULL << KPF_##name)
 #define BITS_COMPOUND		(BIT(COMPOUND_HEAD) | BIT(COMPOUND_TAIL))
 
+#define KPF_ZERO_PAGE	24
+#define KPF_IDLE	25
+
 static const char * const page_flag_names[] = {
 	[KPF_LOCKED]		= "L:locked",
 	[KPF_ERROR]		= "E:error",
