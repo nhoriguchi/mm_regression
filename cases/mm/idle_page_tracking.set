@@ -2,6 +2,8 @@
 
 . $TRDIR/setup_mmgeneric.sh
 
+PRIORITY=15
+
 PIPETIMEOUT=20
 EACH_BUFSIZE_IN_PAGE=$[1024*16]
 
