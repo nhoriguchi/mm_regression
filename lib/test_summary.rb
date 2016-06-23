@@ -189,6 +189,8 @@ class TestSummary
       show_coverage
     elsif @options[:timesummary]
       show_timesummary
+    elsif @options[:recipes]
+      show_recipe_status
     else
       puts sum_str
     end
@@ -301,6 +303,19 @@ class TestSummary
     end
   end
 
+  def show_recipe_status
+    @run_summary.each do |run|
+      @options[:recipes].each do |recipe|
+        a = run.tc_summary.find {|tc| tc.testcaseid == recipe.gsub(/^cases\//, '')}
+        if a.nil?
+          puts "---- #{recipe}"
+        else
+          puts "#{a.testcase_result} #{recipe}"
+        end
+      end
+    end
+  end
+
   def sum_str
     tmp = []
     @run_summary.each do |run|
@@ -358,6 +373,10 @@ class TestSummary
       end
       opts.on("-t", "--time-summary") do
         @options[:timesummary] = true
+      end
+      opts.on("-r recipe", "--recipe-status") do |r|
+        @options[:recipes] = [] if @options[:recipes].nil?
+        @options[:recipes] += r.split(",")
       end
     end.parse! args
 
