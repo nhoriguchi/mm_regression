@@ -27,3 +27,5 @@ pj/hack/utilities
 # /**/
 
 !.gitignore
+
+test_core
