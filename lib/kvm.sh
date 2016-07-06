@@ -17,19 +17,14 @@ vm_running() {
 
 vm_connectable_one() {
 	local vm=$1
-	local vmip=$(sshvm -i $vm 2> /dev/null)
 
-	[ "$vmip" ] || return 1
-	ping -w1 $vmip > /dev/null
+	ping -w1 $vm > /dev/null
 }
 
-# assuming that sshvm is located under PATH
 vm_ssh_connectable_one() {
 	local vm=$1
-	local vmip=$(sshvm -i $vm 2> /dev/null)
 
-	[ "$vmip" ] || return 1
-	ssh -o ConnectTimeout=3 $vmip date > /dev/null 2>&1
+	ssh -o ConnectTimeout=3 $vm date > /dev/null 2>&1
 }
 
 # Start VM and wait until the VM become connectable.
@@ -82,7 +77,6 @@ EOF
 
 vm_shutdown_wait() {
 	local vm=$1
-	local vmip=$2
 	local ret=0
 
 	if ! vm_running $vm ; then
@@ -91,8 +85,7 @@ vm_shutdown_wait() {
 	fi
 	if vm_connectable_one $vm && vm_ssh_connectable_one $vm ; then
 		echo "shutdown vm $vm"
-		vmip=$(sshvm -i $vm)
-		ssh "$vmip" "sync ; shutdown -h now"
+		ssh $vm "sync ; shutdown -h now" 
 
 		# virsh start might fail, because the above command terminates the connection
 		# before the vm completes the shutdown. Need to confirm vm is shut off.
@@ -182,24 +175,18 @@ vm_watchdog() {
 	local vm=$1
 	local timer=$2 # in sec
 	local tmp_timer=
-	local vmip=$(sshvm -i $vm 2> /dev/null)
-
-	if [ ! "$vmip" ] ; then
-		echo "[$vm] not running?"
-		return 1
-	fi
 
 	while true ; do
 		tmp_timer=$timer
 		while [ "$tmp_timer" -gt 0 ] ; do
-			if ping -w1 $vmip > /dev/null ; then
+			if ping -w1 $vm > /dev/null ; then
 				break
 			else
 				tmp_timer=$[tmp_timer - 1]
 			fi
 			if [ "$tmp_timer" -eq 0 ] ; then
 				echo "[$vm] watchdog timeout"
-				vm_shutdown_wait $vm $vmip
+				vm_shutdown_wait $vm
 				return 0
 			fi
 			if ! vm_running $vm ; then
