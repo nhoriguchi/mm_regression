@@ -29,7 +29,7 @@ check_process_status() {
 
 # Getting all C program into variables, which is convenient to calling
 # pkill to kill all subprobrams before/after some testcase.
-for tp in $(grep ^src= $TRDIR/Makefile | cut -f2 -d=) ; do
+for tp in $(grep ^src= $TRDIR/Makefile 2> /dev/null | cut -f2 -d=) ; do
 	check_and_define_tp ${tp%.c}
 done
 
