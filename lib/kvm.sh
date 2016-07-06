@@ -75,6 +75,29 @@ EOF
 	return 1
 }
 
+vm_start_wait_noexpect() {
+	local vm=$1
+	local _tmpd=$(mktemp -d)
+
+	if vm_running $vm ; then
+		echo "[$vm] domain already running."
+	else
+		echo "[$vm] starting domain ... "
+		virsh start $vm > /dev/null 2>&1
+	fi
+
+	for i in $(seq 60) ; do
+		if ssh -o ConnectTimeout=3 $vm date > /dev/null 2>&1 ; then
+			echo "done $$"
+			return 0
+		fi
+		sleep 1
+	done
+
+	echo "VM started, but not ssh-connectable."
+	return 1
+}
+
 vm_shutdown_wait() {
 	local vm=$1
 	local ret=0
@@ -85,7 +108,7 @@ vm_shutdown_wait() {
 	fi
 	if vm_connectable_one $vm && vm_ssh_connectable_one $vm ; then
 		echo "shutdown vm $vm"
-		ssh $vm "sync ; shutdown -h now" 
+		ssh $vm "sync ; shutdown -h now"
 
 		# virsh start might fail, because the above command terminates the connection
 		# before the vm completes the shutdown. Need to confirm vm is shut off.
@@ -145,7 +168,7 @@ check_guest_kernel_message() {
 # virsh command sometimes doesn't work, so look at libvirt file directly
 # /var/run/libvirt/qemu/<VM>.xml
 get_vm_id() {
-    local vm=$1
+	local vm=$1
 
     xmllint --xpath "/domstatus/domain/@id" /var/run/libvirt/qemu/$vm.xml | cut -f2 -d= | tr -d '"'
 }
