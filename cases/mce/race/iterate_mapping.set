@@ -2,6 +2,7 @@
 #! ERROR_TYPE: mce-srao hard-offline soft-offline
 
 # Not care about head/tail difference for now.
+PRIORITY=13
 
 . $TRDIR/setup_mce_test.sh
 

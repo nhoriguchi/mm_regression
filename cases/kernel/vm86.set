@@ -3,6 +3,8 @@
 # . $TRDIR/setup_mmgeneric.sh
 . $TCDIR/lib/mm.sh
 
+PRIORITY=15
+
 THP=true
 [ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
 
