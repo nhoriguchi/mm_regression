@@ -9,10 +9,26 @@ export PIPETIMEOUT=5
 get_kernel_message_before() { dmesg > $TMPD/_dmesg_before; }
 get_kernel_message_after() { dmesg > $TMPD/_dmesg_after; }
 
+__dmesg_filter1() {
+	grep -v "MCE: Page was already unpoisoned"
+}
+__dmesg_filter2() {
+	grep -v "MCE: Software-unpoisoned page"
+}
+
+DMESG_FILTER_SWITCH=on
+dmesg_filter() {
+	if [ "$DMESG_FILTER_SWITCH" ] ; then
+		__dmesg_filter1 | __dmesg_filter2
+	else
+		cat <&0 >&1
+	fi
+}
+
 get_kernel_message_diff() {
 	echo "####### DMESG #######"
 	diff $TMPD/_dmesg_before $TMPD/_dmesg_after 2> /dev/null | grep -v '^< ' | \
-		tee $TMPD/_dmesg_diff
+		dmesg_filter | tee $TMPD/_dmesg_diff
 	echo "####### DMESG END #######"
 	rm $TMPD/_dmesg_before $TMPD/_dmesg_after 2> /dev/null
 }
@@ -463,9 +479,7 @@ do_soft_try() {
 		done
 	fi
 
-	if [ "$(cat $TMPD/_testcount)" -eq 0 ] ; then
-		echo_log "TESTCASE_RESULT: $recipe_relpath: NONE"
-	elif [ "$ret" -eq 0 ] ; then
+	if [ "$ret" -eq 0 ] ; then
 		echo_log "TESTCASE_RESULT: $recipe_relpath: PASS"
 	elif [ "$ret" -eq 1 ] ; then
 		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
