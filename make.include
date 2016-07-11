@@ -25,7 +25,11 @@ version:
 	@true
 
 allrecipes:
-	@find cases -type f | bash test_core/lib/filter_recipe.sh
+	@find cases -type f | bash test_core/lib/filter_recipe.sh | sort -k2n | cut -f1
+	@true
+
+recipe_priority:
+	@find cases -type f | bash test_core/lib/filter_recipe.sh | sort -k2n
 	@true
 
 waiting_recipes: update_recipes

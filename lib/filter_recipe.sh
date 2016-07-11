@@ -6,6 +6,9 @@ THISDIR=$(dirname $BASH_SOURCE)
 
 for recipe in $(cat $TMPF) ; do
 	if check_remove_suffix $recipe > /dev/null ; then
-		echo $recipe
+		# priority="$(. $recipe ; echo $PRIORITY)"
+		priority="$(grep PRIORITY= $recipe | cut -f2 -d= | cut -f1 -d' ')"
+		[ ! "$priority" ] && priority=10
+		printf "$recipe\t$priority\n"
 	fi
 done
