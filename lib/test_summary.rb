@@ -72,10 +72,11 @@ class TestCaseSummary
 end
 
 class RunSummary
-  attr_accessor :dir, :tc_summary, :testcases, :testcount, :success, :failure, :later, :tc_hash
+  attr_accessor :dir, :tc_summary, :testcases, :testcount, :success, :failure, :later, :tc_hash, :recipelist
 
   def initialize test_summary, dir
     @test_summary = test_summary
+    @recipelist = File.read("#{dir}/full_recipe_list").chomp.split("\n")
     @dir = dir
     @testcases = Dir.glob("#{dir}/**/*").select do |g|
       File.directory? g and File.exist? "#{g}/result"
@@ -200,8 +201,7 @@ class TestSummary
   def do_finishcheck
     if ENV['RECIPEFILES'].nil?
       @run_summary.each do |run|
-        raise "#{run.dir}/full_recipe_list not found" if ! File.exists? "#{run.dir}/full_recipe_list"
-        given_recipes = File.read("#{run.dir}/full_recipe_list").split("\n").map do |c|
+        given_recipes = run.recipelist.map do |c|
           c.gsub(/^cases\//, '')
         end
         if ! run.check_finished given_recipes
@@ -229,7 +229,7 @@ class TestSummary
     @run_summary.each do |run|
       covered = 0
       uncovered = 0
-      full_recipe_list = File.read("#{run.dir}/full_recipe_list").split("\n").map do |c|
+      full_recipe_list = run.recipelist.map do |c|
         c.gsub(/^cases\//, '')
       end
 
@@ -258,7 +258,7 @@ class TestSummary
     @run_summary.each do |run|
       covered = 0
       uncovered = 0
-      full_recipe_list = File.read("#{run.dir}/full_recipe_list").split("\n").map do |c|
+      full_recipe_list = run.recipelist.map do |c|
         c.gsub(/^cases\//, '')
       end
 

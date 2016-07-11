@@ -138,7 +138,6 @@ for recipe in $RECIPEFILES ; do
 
 		echo_log "======> Recipe: $recipe_relpath start"
 		date +%s > $TMPD/start_time
-		make allrecipes | grep ^cases > $TMPD/full_recipe_list
 
 		# TODO: put general system information under $TMPD
 
