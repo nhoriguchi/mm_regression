@@ -157,13 +157,13 @@ class RunSummary
       end
     end
     puts "#{@dir}: #{run.size} run, #{skipped.size} skipped, #{notrun.size} notrun"
-    if skipped.size > 0
-      puts "Testcases skipped:"
-      puts skipped.map {|r| "- " + r}
-    end
+    # if skipped.size > 0
+    #   puts "Testcases skipped:"
+    #   puts skipped.map {|r| "- " + r}
+    # end
     if notrun.size > 0
-      puts "Testcases not run:"
-      puts notrun.map {|r| "- " + r}
+      # puts "Testcases not run:"
+      # puts notrun.map {|r| "- " + r}
       # If there's "notrun" testcase, the current testrun is not finished yet.
       return nil
     else
