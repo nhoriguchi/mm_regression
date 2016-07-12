@@ -105,21 +105,25 @@ check_thp_split() {
 
 	if [ ! "$pmd_split_before" ] || [ ! "$pmd_split_after" ] ; then
 		echo_log "pmd_split not supported in this kernel ($(uname -r))"
+
+		if [ "$thp_split_before" -eq "$thp_split_after" ] ; then
+			echo_log "thp not split"
+			return 2
+		else
+			echo_log "thp split ($thp_split_before -> $thp_split_after)"
+			return 0
+		fi
 	else
 		if [ "$pmd_split_before" -eq "$pmd_split_after" ] ; then
 			echo_log "pmd not split"
 			return 2
-		else
+		elif [ "$thp_split_before" -eq "$thp_split_after" ] ; then
 			echo_log "pmd split ($pmd_split_before -> $pmd_split_after)"
+			return 1
+		else
+			echo_log "thp split ($thp_split_before -> $thp_split_after)"
+			return 0
 		fi
-	fi
-
-	if [ "$thp_split_before" -eq "$thp_split_after" ] ; then
-		echo_log "thp not split"
-		return 1
-	else
-		echo_log "thp split ($thp_split_before -> $thp_split_after)"
-		return 0
 	fi
 }
 
