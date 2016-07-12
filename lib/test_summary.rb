@@ -25,7 +25,7 @@ class TestCaseSummary
     end
 
     if tmp == true
-      puts "testcase #{@testcaseid} doesn't have valid testcount data. Skipped."
+      # STDERR.puts "testcase <#{@testcaseid}> doesn't have valid testcount data. Skipped."
       raise
     end
   end
@@ -47,6 +47,7 @@ class TestCaseSummary
 
   def testcase_result
     tmp = nil
+    return "NONE" if ! File.exist? @tc_dir + "/result"
     File.read(@tc_dir + "/result").split("\n").each do |line|
       if line =~ /^TESTCASE_RESULT: (.+)?: (\w+)$/
         tmp = $2
@@ -79,7 +80,7 @@ class RunSummary
     @recipelist = File.read("#{dir}/full_recipe_list").chomp.split("\n")
     @dir = dir
     @testcases = Dir.glob("#{dir}/**/*").select do |g|
-      File.directory? g and File.exist? "#{g}/result"
+      File.directory? g # and File.exist? "#{g}/result"
     end.map do |tc|
       "#{tc.gsub(dir + '/', '')}"
     end.sort
@@ -92,7 +93,7 @@ class RunSummary
         @tc_summary << tcs
         @tc_hash[tc] = tcs
       rescue
-        puts "sorry no real rescue yet."
+        # STDERR.puts "sorry no real rescue yet."
       end
     end
     calc_scores
@@ -101,11 +102,6 @@ class RunSummary
 
   def sum_str
     tmp = []
-    # if @test_summary.options[:verbose]
-    #   @tc_summary.each do |tc|
-    #     tmp << "  " + tc.sum_str
-    #   end
-    # end
     tmp << "PASS #{@testcase_pass.count}, FAIL #{@testcase_fail.count}, NONE #{@testcase_none.count}, SKIP #{@testcase_skip.count}, WARN #{@testcase_warn.count}"
     tmp << "checkcount #{@testcount}, checkpass #{@success}, checkfail #{@failure}, checklater #{@later}"
     if @test_summary.options[:verbose]
@@ -211,17 +207,15 @@ class TestSummary
       end
       puts "All of given recipes are finished."
       exit 0
-    end
-
-    # TODO: remove this old style check code
-    given_recipes = `echo $RECIPEFILES | bash test_core/lib/filter_recipe.sh`.chomp.split("\n").map {|r| r.gsub(/.*cases\//, '')}
-
-    if @run_summary.all? {|rs| rs.check_finished given_recipes}
-      puts "All of given recipes are finished."
-      exit 0
     else
-      puts "There's some \"not run\" testcases. So try to run test again with the same setting."
-      exit 1
+      given_recipes = `echo $RECIPEFILES | bash test_core/lib/filter_recipe.sh | cut -f1`.chomp.split("\n").map {|r| r.gsub(/.*cases\//, '')}
+      if @run_summary.all? {|rs| rs.check_finished given_recipes}
+        puts "All of given recipes are finished."
+        exit 0
+      else
+        puts "There's some \"not run\" testcases. So try to run test again with the same setting."
+        exit 1
+      end
     end
   end
 
