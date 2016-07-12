@@ -100,8 +100,10 @@ prepare_mm_generic() {
 		# TODO: how can we make sure that there's no thp on the test system?
 		set_thp_params_for_testing
 		if [ "$THP" == always ] ; then
+			echo "enable THP (always)"
 			set_thp_always
 		else
+			echo "enable THP (madvise)"
 			set_thp_madvise
 		fi
 		# show_stat_thp
