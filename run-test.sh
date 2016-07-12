@@ -103,7 +103,8 @@ for recipe in $RECIPEFILES ; do
 		continue
 	fi
 
-	recipe_relpath=${recipe##$PWD/cases/}
+	# recipe_relpath=${recipe##$PWD/cases/}
+	recipe_relpath=$(echo $recipe | sed 's/.*cases\///')
 	# recipe_id=${recipe_relpath//\//_}
 
 	check_remove_suffix $recipe || continue
