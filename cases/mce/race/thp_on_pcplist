@@ -19,7 +19,7 @@ _control() {
 
     for i in $(seq $POISON_ITERATION) ; do
         $PAGETYPES -r -b $TARGET_PAGEFLAG -Nl | grep -v offset | cut -f1 | while read line ; do
-            $MCEINJECT -e $ERROR_TYPE -a 0x$line
+            $MCEINJECT -e $ERROR_TYPE -a 0x$line > /dev/null
         done
     done
 
