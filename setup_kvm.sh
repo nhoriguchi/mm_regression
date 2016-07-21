@@ -1,6 +1,4 @@
 . $TCDIR/lib/mm.sh
-. $TCDIR/lib/numa.sh
-. $TCDIR/lib/mce.sh
 . $TCDIR/lib/kvm.sh
 
 [ ! -x /usr/local/bin/sshvm ] && install $TCDIR/lib/sshvm /usr/local/bin/sshvm

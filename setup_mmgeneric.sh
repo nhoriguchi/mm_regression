@@ -1,9 +1,6 @@
 #!/bin/bash
 
 . $TCDIR/lib/mm.sh
-. $TCDIR/lib/memcg.sh
-. $TCDIR/lib/thp.sh
-. $TCDIR/lib/hugetlb.sh
 
 prepare_mmgeneric() {
 	prepare_mm_generic || return 1
