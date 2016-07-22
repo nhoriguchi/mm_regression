@@ -1,6 +1,8 @@
 MEMTOTAL=$(grep ^MemTotal: /proc/meminfo | awk '{print $2}')
 KERNEL_SRC=/src/linux-dev
 
+[ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
+
 check_and_define_tp() {
     local symbol=$1
     eval $symbol=$TRDIR/$symbol
