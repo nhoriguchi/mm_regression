@@ -1,6 +1,5 @@
 #!/bin/bash
 
-. $TCDIR/lib/common.sh
 . $TCDIR/lib/mm.sh
 
 set_monarch_timeout() {
