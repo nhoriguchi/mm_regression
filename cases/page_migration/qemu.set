@@ -1,7 +1,5 @@
 . $TRDIR/setup_page_migration_kvm.sh || return 1
 
-[ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
-
 NUMA_NODE=2
 THP=always
 

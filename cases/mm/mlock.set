@@ -4,9 +4,6 @@
 MLOCK_VERSION=__MARK_MLOCK_VERSION
 BACKEND=__MARK_BACKEND
 
-# tp can be occasionally killed
-[ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
-
 . $TRDIR/setup_mmgeneric.sh
 
 TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'mmap access mlock2:wait_after exit:wait_before'"

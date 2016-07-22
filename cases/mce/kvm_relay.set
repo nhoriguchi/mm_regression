@@ -13,8 +13,6 @@ VMIP=$(sshvm -i -n default $VM 2> /dev/null)
 
 . $TRDIR/setup_mce_kvm.sh || return 1
 
-[ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
-
 ERROR_TYPE=__MARK_ERROR_TYPE
 BACKEND=__MARK_BACKEND
 HOSTBACKEND=__MARK_HOSTBACKEND
