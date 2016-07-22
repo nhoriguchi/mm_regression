@@ -232,7 +232,6 @@ static void create_hugetlbfs_file(void) {
 		err("open");
 	phugetlb = checked_mmap(NULL, nr_p * PS, protflag, MAP_SHARED,
 				hugetlbfd, 0);
-	/* printf("phugetlb %p\n", phugetlb); */
 	memset(phugetlb, 'a', nr_p * PS);
 	munmap(phugetlb, nr_p * PS);
 }
