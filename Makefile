@@ -35,14 +35,14 @@ clean:
 
 # recipes are given via environment variable RECIPEFILES= or RECIPEDIR=
 test: all update_recipes
-	@bash test_core/run-test.sh $(addprefix -f ,$(VERBOSE)) $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME)) $(addprefix -d ,$(RECIPEDIR))
+	@bash test_core/run-test.sh $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME)) $(addprefix -d ,$(RECIPEDIR))
 
 # all recipes
 test_all: all update_recipes
-	@bash test_core/run-test.sh $(addprefix -f ,$(VERBOSE)) $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell find cases/ -type f | xargs readlink -f 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
+	@bash test_core/run-test.sh $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell find cases/ -type f | xargs readlink -f 2> /dev/null)) $(addprefix -t ,$(RUNNAME))
 
 test_waiting_recipes: all
-	@bash test_core/run-test.sh $(addprefix -f ,$(VERBOSE)) $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -t ,$(RUNNAME)) -w
+	@bash test_core/run-test.sh $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -t ,$(RUNNAME)) -w
 
 test1g: all
 	@bash run-test-1g.sh
