@@ -10,16 +10,19 @@ get_kernel_message_before() { dmesg > $TMPD/_dmesg_before; }
 get_kernel_message_after() { dmesg > $TMPD/_dmesg_after; }
 
 __dmesg_filter1() {
-	grep -v "MCE: Page was already unpoisoned"
+	grep -v "\(MCE\|Unpoison\): Page was already unpoisoned"
 }
 __dmesg_filter2() {
-	grep -v "MCE: Software-unpoisoned page"
+	grep -v "\(MCE\|Unpoison\): Software-unpoisoned "
+}
+__dmesg_filter3() {
+	grep -v "Soft offlining page"
 }
 
 DMESG_FILTER_SWITCH=on
 dmesg_filter() {
 	if [ "$DMESG_FILTER_SWITCH" ] ; then
-		__dmesg_filter1 | __dmesg_filter2
+		__dmesg_filter1 | __dmesg_filter2 | __dmesg_filter3
 	else
 		cat <&0 >&1
 	fi
@@ -338,7 +341,7 @@ __do_test() {
 		return 1
 	fi
 	set_return_code_start
-	[ "$VERBOSE" ] && echo_log "$cmd"
+	echo_log "$cmd"
 
 	exec 2> >( tee -a ${OFILE} )
 	# Keep pipe open to hold the data on buffer after the writer program
@@ -398,7 +401,7 @@ do_test_try() {
 	# check_inclusion_of_fixedby_patch && break
 
 	if [ "$TEST_PROGRAM" ] ; then
-		__do_test "$TEST_PROGRAM -p $PIPE $VERBOSE"
+		__do_test "$TEST_PROGRAM -p $PIPE"
 	else
 		__do_test_async
 	fi
