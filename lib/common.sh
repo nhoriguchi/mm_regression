@@ -1,7 +1,12 @@
 MEMTOTAL=$(grep ^MemTotal: /proc/meminfo | awk '{print $2}')
 KERNEL_SRC=/src/linux-dev
 
+# higher value means more verbose (0-5, 0:nothing, 5:all)
+[ ! "$LOGLEVEL" ] && export LOGLEVEL=3
 [ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
+
+[ ! "$HIGHEST_PRIORITY" ] && export HIGHEST_PRIORITY=0
+[ ! "$LOWEST_PRIORITY" ] && export LOWEST_PRIORITY=10
 
 check_and_define_tp() {
     local symbol=$1

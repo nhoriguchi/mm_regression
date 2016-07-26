@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DEVEL_MODE=
-# VERBOSE might be set as an environment variable
+# LOGLEVEL might be set as an environment variable
 # RECIPEFILES might be set as an environment variable
 # RECIPEDIR might be set as an environment variable
 # TESTCASE_FILTER might be set as an environment variable
@@ -10,9 +10,9 @@ SHOW_TEST_VERSION=
 # LOWEST_PRIORITY might be set as an environment variable
 RUN_ALL_WAITING=
 
-while getopts vs:t:f:Spd:r:DVh:l:w OPT ; do
+while getopts v:s:t:f:Spd:r:DVh:l:w OPT ; do
     case $OPT in
-        v) VERBOSE="$OPTARG" ;;
+        v) LOGLEVEL="$OPTARG" ;;
         s) KERNEL_SRC="$OPTARG" ;;
         t) TESTNAME="$OPTARG" ;;
         f) TESTCASE_FILTER="$TESTCASE_FILTER $OPTARG" ;;
@@ -66,12 +66,6 @@ if [ ! "$RECIPEFILES" ] ; then
 	fi
 fi
 export RECIPEFILES="$(readlink -f $RECIPEFILES)"
-
-[ ! "$HIGHEST_PRIORITY" ] && export HIGHEST_PRIORITY=0 # default
-[ ! "$LOWEST_PRIORITY" ] && export LOWEST_PRIORITY=10 # default
-
-[ ! "$VERBOSE" ] && VERBOSE=1 # default verbose level
-export VERBOSE
 
 . $TCDIR/lib/recipe.sh
 . $TCDIR/lib/patch.sh
