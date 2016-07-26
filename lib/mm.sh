@@ -2,7 +2,12 @@ PAGETYPES=$KERNEL_SRC/tools/vm/page-types
 if [ ! -x "${PAGETYPES}" ] || [ ! -s "${PAGETYPES}" ] ; then
     make clean -C $KERNEL_SRC/tools > /dev/null 2>&1
     echo -n "build KERNEL_SRC/tools ... "
-    make vm -C $KERNEL_SRC/tools > /dev/null 2>&1 && echo "done" || echo "failed"
+    make vm -C $KERNEL_SRC/tools > /dev/null 2>&1 && echo "done"
+	if [ $? -ne 0 ] ; then
+		echo "page-types on KERNEL_SRC doesn't build, so use one on test_core"
+		mkdir -p $KERNEL_SRC/tools/vm 2> /dev/null
+		install $TCDIR/lib/page-types $KERNEL_SRC/tools/vm/page-types
+	fi
 fi
 [ ! -x "${PAGETYPES}" ] && echo "Failed to build/install ${PAGETYPES}." >&2 && exit 1
 
