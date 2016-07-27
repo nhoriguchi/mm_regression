@@ -30,21 +30,6 @@ class TestCaseSummary
     end
   end
 
-  def sum_str
-    "#{@testcount}/#{@success}/#{@failure}/#{@later} #{@testcaseid}"
-  end
-
-  def failure_str
-    tmp = File.read(@tc_dir + "/result").split("\n").select do |line|
-      line =~ /FAIL:/
-    end
-    tmp.map! do |line|
-      "#{@testcaseid}: #{line}"
-    end
-    tmp.uniq! # in retried case, same error can appear
-    tmp.join("\n")
-  end
-
   def testcase_result
     tmp = nil
     return "NONE" if ! File.exist? @tc_dir + "/result"
@@ -77,8 +62,13 @@ class RunSummary
 
   def initialize test_summary, dir
     @test_summary = test_summary
-    @recipelist = File.read("#{dir}/full_recipe_list").chomp.split("\n")
+    # Items in this list has 'cases/' prefix
+    @recipelist = File.readlines("#{dir}/full_recipe_list").map do |r|
+      r.chomp.gsub(/^cases\//, '')
+    end
+
     @dir = dir
+    # No 'cases/' prefix, but includes some 'internal nodes'
     @testcases = Dir.glob("#{dir}/**/*").select do |g|
       File.directory? g # and File.exist? "#{g}/result"
     end.map do |tc|
@@ -93,36 +83,15 @@ class RunSummary
         @tc_summary << tcs
         @tc_hash[tc] = tcs
       rescue
-        # STDERR.puts "sorry no real rescue yet."
+        # "internal node" directory goes this path
+        # STDERR.puts "sorry no real rescue yet. #{tc}"
       end
     end
+  end
+
+  def do_calc
     calc_scores
     calc_result_group
-  end
-
-  def sum_str
-    tmp = []
-    tmp << "PASS #{@testcase_pass.count}, FAIL #{@testcase_fail.count}, NONE #{@testcase_none.count}, SKIP #{@testcase_skip.count}, WARN #{@testcase_warn.count}"
-    tmp << "checkcount #{@testcount}, checkpass #{@success}, checkfail #{@failure}, checklater #{@later}"
-    if @test_summary.options[:verbose]
-      tmp << non_passed_summary
-    end
-    tmp.join("\n")
-  end
-
-  def non_passed_summary
-    tmp = []
-    @testcase_fail.each do |tc|
-      tmp << tc.failure_str
-    end
-    @testcase_none.each do |tc|
-      tmp << "#{tc.testcaseid}: NONE"
-    end
-    @testcase_warn.each do |tc|
-      tmp << "#{tc.testcaseid}: WARN"
-      tmp << tc.failure_str
-    end
-    tmp.join("\n")
   end
 
   def calc_scores
@@ -139,37 +108,6 @@ class RunSummary
     @testcase_skip = @tc_summary.select {|t| t.testcase_result == "SKIP"}
     @testcase_warn = @tc_summary.select {|t| t.testcase_result == "WARN"}
   end
-
-  def check_finished recipeset
-    run = []
-    skipped = []
-    notrun = []
-
-    recipeset.each do |r|
-      if @tc_hash[r]
-        if @tc_hash[r].started?
-          run << r
-        else
-          skipped << r
-        end
-      else
-        notrun << r
-      end
-    end
-    puts "#{@dir}: #{run.size} run, #{skipped.size} skipped, #{notrun.size} notrun"
-    # if skipped.size > 0
-    #   puts "Testcases skipped:"
-    #   puts skipped.map {|r| "- " + r}
-    # end
-    if notrun.size > 0
-      # puts "Testcases not run:"
-      # puts notrun.map {|r| "- " + r}
-      # If there's "notrun" testcase, the current testrun is not finished yet.
-      return nil
-    else
-      return true
-    end
-  end
 end
 
 class TestSummary
@@ -177,9 +115,21 @@ class TestSummary
 
   def initialize args
     parse_args args
-    get_targets
-    @run_summary = @targets.map {|t| RunSummary.new self, t}
+  end
 
+  def parse_targets
+    @full_recipe_list = []
+    @test_summary_hash = {}
+    @targets.each do |t|
+      rs = RunSummary.new self, t
+      rs.do_calc
+      @full_recipe_list += rs.recipelist
+      @test_summary_hash.merge! rs.tc_hash
+    end
+    @full_recipe_list.uniq!
+  end
+
+  def do_work
     if @options[:finishcheck]
       do_finishcheck
     elsif @options[:coverage]
@@ -193,145 +143,98 @@ class TestSummary
     end
   end
 
+  def check_finished recipe_list=@full_recipe_list
+    run = 0
+    skipped = 0
+    notrun = 0
+    recipe_list.each do |recipe|
+      if @test_summary_hash.key? recipe
+        if @test_summary_hash[recipe].started?
+          run += 1
+        else
+          skipped += 1
+        end
+      else
+        notrun += 1
+      end
+    end
+
+    puts "#{run} run, #{skipped} skipped, #{notrun} notrun"
+    return notrun > 0 ? nil : true
+  end
+
   # TODO: user can limit the set of recipes to be searched
   def do_finishcheck
     if ENV['RECIPEFILES'].nil?
-      @run_summary.each do |run|
-        given_recipes = run.recipelist.map do |c|
-          c.gsub(/^cases\//, '')
-        end
-        if ! run.check_finished given_recipes
-          puts "There's some \"not run\" testcases. So try to run test again with the same setting."
-          exit 1
-        end
-      end
+      recipe_list = @full_recipe_list
+    else
+      recipe_list = `echo $RECIPEFILES | bash test_core/lib/filter_recipe.sh | cut -f1`.chomp.split("\n").map {|r| r.gsub(/.*cases\//, '')}
+    end
+
+    if check_finished recipe_list
       puts "All of given recipes are finished."
       exit 0
     else
-      given_recipes = `echo $RECIPEFILES | bash test_core/lib/filter_recipe.sh | cut -f1`.chomp.split("\n").map {|r| r.gsub(/.*cases\//, '')}
-      if @run_summary.all? {|rs| rs.check_finished given_recipes}
-        puts "All of given recipes are finished."
-        exit 0
-      else
-        puts "There's some \"not run\" testcases. So try to run test again with the same setting."
-        exit 1
-      end
+      puts "There're some \"not run\" testcases."
+      exit 1
     end
   end
 
   def show_coverage
-    @run_summary.each do |run|
-      covered = 0
-      uncovered = 0
-      full_recipe_list = run.recipelist.map do |c|
-        c.gsub(/^cases\//, '')
-      end
-
-      full_recipe_list.each do |recipe|
-        a = run.tc_summary.find {|tc| tc.testcaseid == recipe}
-        if a.nil?
-          puts "---- #{recipe}"
-          uncovered += 1
-        else
-          puts "#{a.testcase_result} #{recipe}"
-          covered += 1
-        end
-      end
-
-      if covered + uncovered == 0
-        coverage = 0
+    covered = 0
+    uncovered = 0
+    @full_recipe_list.each do |recipe|
+      if @test_summary_hash.key? recipe
+        puts "#{@test_summary_hash[recipe].testcase_result} #{recipe}"
+        covered += 1
       else
-        coverage = 100*covered/(covered+uncovered)
+        puts "---- #{recipe}"
+        uncovered += 1
       end
-
-      puts "Coverage: #{covered} / #{covered + uncovered} (#{coverage}%)"
     end
+
+    if covered + uncovered == 0
+      coverage = 0
+    else
+      coverage = 100*covered/(covered+uncovered)
+    end
+    puts "Coverage: #{covered} / #{covered + uncovered} (#{coverage}%)"
   end
 
   def show_timesummary
-    @run_summary.each do |run|
-      covered = 0
-      uncovered = 0
-      full_recipe_list = run.recipelist.map do |c|
-        c.gsub(/^cases\//, '')
-      end
-
-      tmp_duration = []
-      tmp_accumulative_duration = []
-      tmp_rname = []
-
-      tstart = 0
-      tmp = 0
-      remember_endtime = 0
-      full_recipe_list.each do |recipe|
-        a = run.tc_summary.find {|tc| tc.testcaseid == recipe}
-        if a.nil?
-          if remember_endtime > 0
-            tmp_duration << remember_endtime - tmp
-          else
-            tmp_duration << 0
-          end
-          tmp_accumulative_duration << 0
-          tmp_rname << recipe
-          remember_endtime = 0
+    @full_recipe_list.each do |recipe|
+      if r = @test_summary_hash[recipe]
+        if r.start_time and r.end_time
+          printf "%6d %s\n", r.end_time - r.start_time, recipe
         else
-          tstart = tmp = a.start_time if tmp == 0
-          # puts sprintf "%6d / %6d %s\n", a.start_time - tmp, a.start_time - tstart, recipe
-          tmp_duration << a.start_time - tmp
-          tmp_accumulative_duration << a.start_time - tstart
-          tmp_rname << recipe
-          tmp = a.start_time
-          remember_endtime = a.end_time
+          printf "%6d %s\n", 99999, recipe
         end
-      end
-      tmp_duration.shift
-      if remember_endtime > 0
-        tmp_duration << remember_endtime - tmp
-      else
-        tmp_duration << 0
-      end
-
-      tmp_rname.each_with_index do |r, i|
-        printf "%6d / %6d %s\n", tmp_duration[i], tmp_accumulative_duration[i], r
       end
     end
   end
 
   def show_recipe_status
-    @run_summary.each do |run|
-      @options[:recipes].each do |recipe|
-        a = run.tc_summary.find {|tc| tc.testcaseid == recipe.gsub(/^cases\//, '')}
-        if a.nil?
-          puts "---- #{recipe}"
-        else
-          puts "#{a.testcase_result} #{recipe}"
-        end
+    @options[:recipes].each do |recipe|
+      if @test_summary_hash.key? recipe
+        puts "#{@test_summary_hash[recipe].testcase_result} #{recipe}"
+      else
+        puts "---- #{recipe}"
       end
     end
   end
 
   def sum_str
-    tmp = []
-    @run_summary.each do |run|
-      tmp << run.dir
-      tmp << run.sum_str
+    sum = {
+      "PASS" => 0,
+      "FAIL" => 0,
+      "NONE" => 0,
+      "SKIP" => 0,
+      "WARN" => 0,
+    }
+    @test_summary_hash.each do |id, tc|
+      sum[tc.testcase_result] += 1
     end
-    tmp.join("\n")
-  end
-
-  def get_targets
-    if @options[:latest]
-      tmp = Dir.glob("#{@options[:workdir]}/*").select do |g|
-        File.directory? g
-      end
-      tmp.delete_if {|d| d =~ /\/hugetlbfs/}
-      raise "not target directory found" if tmp.empty?
-      tmp.sort_by! {|f| File.mtime(f)}
-      0.upto(@options[:latest] - 1) do |i|
-        puts "latest result dir is #{tmp[-1-i]}"
-        @targets << tmp[-1-i]
-      end
-    end
+    "PASS #{sum["PASS"]}, FAIL #{sum["FAIL"]}, WARN #{sum["WARN"]}, SKIP #{sum["SKIP"]}, NONE #{sum["NONE"]}"
   end
 
   def parse_args args
@@ -403,7 +306,24 @@ if $0 == __FILE__
   if ARGV.empty?
     TestSummary.usage
   else
-    TestSummary.new ARGV
+    ts = TestSummary.new ARGV
+    ts.parse_targets
+    ts.do_work
   end
-  # Dir.glob("#{Dir::pwd}/cases/**/*.set") do |f|
 end
+
+#   def get_targets
+#     if @options[:latest]
+#       tmp = Dir.glob("#{@options[:workdir]}/*").select do |g|
+#         File.directory? g
+#       end
+#       tmp.delete_if {|d| d =~ /\/hugetlbfs/}
+#       raise "not target directory found" if tmp.empty?
+#       tmp.sort_by! {|f| File.mtime(f)}
+#       0.upto(@options[:latest] - 1) do |i|
+#         puts "latest result dir is #{tmp[-1-i]}"
+#         @targets << tmp[-1-i]
+#       end
+#     end
+#   end
+
