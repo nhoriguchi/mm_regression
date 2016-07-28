@@ -127,6 +127,27 @@ check_thp_split() {
 	fi
 }
 
+# assume before/after migration data is taken by "get_mm_stats 1 $pid"
+# and "get_mm_stats 2 $pid"
+check_migration_done() {
+	if check_migration_pagemap ; then
+		set_return_code MIGRATION_PASSED
+	else
+		set_return_code MIGRATION_FAILED
+	fi
+	check_migration_hugeness
+	local ret=$?
+	if [ "$ret" == 0 ] ; then
+		set_return_code HUGEPAGE_MIGRATED
+	elif [ "$ret" == 1 ] ; then
+		set_return_code HUGEPAGE_NOT_MIGRATED
+	elif [ "$ret" == 2 ] ; then
+		set_return_code HUGEPAGE_DISAPPEARED
+	elif [ "$ret" == 3 ] ; then
+		set_return_code HUGEPAGE_NOT_EXIST
+	fi
+}
+
 control_hugepage_migration() {
     local pid="$1"
     local line="$2"
@@ -174,22 +195,7 @@ control_hugepage_migration() {
 				get_mm_stats 2 $pid
 
 				if [ "$MIGRATE_SRC" ] ; then
-					if check_migration_pagemap ; then
-						set_return_code MIGRATION_PASSED
-					else
-						set_return_code MIGRATION_FAILED
-					fi
-					check_migration_hugeness
-					ret=$?
-					if [ "$ret" == 0 ] ; then
-						set_return_code HUGEPAGE_MIGRATED
-					elif [ "$ret" == 1 ] ; then
-						set_return_code HUGEPAGE_NOT_MIGRATED
-					elif [ "$ret" == 2 ] ; then
-						set_return_code HUGEPAGE_DISAPPEARED
-					elif [ "$ret" == 3 ] ; then
-						set_return_code HUGEPAGE_NOT_EXIST
-					fi
+					check_migration_done
 				fi
 
 				# TODO: flag check enough?
