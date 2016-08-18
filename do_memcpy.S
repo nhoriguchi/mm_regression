@@ -2,7 +2,8 @@
 	.type   do_memcpy, @function
 do_memcpy:
 	.cfi_startproc
-	rep movsq %ds:(%rsi),%es:(%rdi)
+	mov %edx, %ecx
+	rep movsb %ds:(%rsi),%es:(%rdi)
 	mov    $0x0,%eax
 	retq
 	.cfi_endproc

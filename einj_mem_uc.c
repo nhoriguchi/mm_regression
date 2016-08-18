@@ -24,7 +24,8 @@
 extern long long vtop(long long);
 extern void proc_cpuinfo(int *nsockets, int *ncpus, char *model, int **apicmap);
 extern void proc_interrupts(long *nmce, long *ncmci);
-extern void do_memcpy(void *dst, void *src, int dummy, int cnt);
+extern void do_memcpy(void *dst, void *src, int cnt);
+static void show_help(void);
 
 static char *progname;
 static int nsockets, ncpus, lcpus_persocket;
@@ -84,8 +85,6 @@ static void inject_llc(unsigned long long addr, int notrigger)
 static void check_configuration(void)
 {
 	char	model[512];
-
-	pagesize = getpagesize();
 
 	if (getuid() != 0) {
 		fprintf(stderr, "%s: must be root to run error injection tests\n", progname);
@@ -156,7 +155,7 @@ static void *data_alloc(void)
 	srandom(getpid() * time(NULL));
 	for (i = 0; i < pagesize; i++)
 		p[i] = random();
-	return p + CACHE_LINE_SIZE;
+	return p + pagesize / 4;
 }
 
 static void *instr_alloc(void)
@@ -191,10 +190,52 @@ int trigger_write(char *addr)
 	return 0;
 }
 
+/*
+ * parameters to the memcpy test.
+ */
+int memcpy_runup = 0;	/* how much to copy before hitting poison */
+int memcpy_size = 512;	/* Total amount to copy */
+int memcpy_align = 0;	/* Relative alignment of src/dst */
+
+/* argument is "runup:size:align" */
+void parse_memcpy(char *arg)
+{
+	char *endp;
+
+	memcpy_runup = strtol(arg, &endp, 0);
+	if (*endp != ':')
+		show_help();
+	memcpy_size = strtol(endp + 1, &endp, 0);
+	if (*endp != ':')
+		show_help();
+	memcpy_align = strtol(endp + 1, &endp, 0);
+	if (*endp != '\0')
+		show_help();
+	if (memcpy_runup < 0 || memcpy_runup > pagesize / 4) {
+		fprintf(stderr, "%s: runup out of range\n", progname);
+		exit(1);
+	}
+	if (memcpy_size < 0 || memcpy_size > pagesize / 4) {
+		fprintf(stderr, "%s: size out of range\n", progname);
+		exit(1);
+	}
+	if (memcpy_runup > memcpy_size) {
+		fprintf(stderr, "%s: runup must be less than size\n", progname);
+		exit(1);
+	}
+	if (memcpy_align < 0 || memcpy_align >= CACHE_LINE_SIZE) {
+		fprintf(stderr, "%s: bad alignment\n", progname);
+		exit(1);
+	}
+}
+
 int trigger_memcpy(char *addr)
 {
-	/* phantom arg3 so values in %rdi,%rsi,%ecx are right for "rep mov" */
-	do_memcpy(addr + 1024, addr, 0, 512);
+	char *src = addr - memcpy_runup;
+	char *dst = addr + pagesize / 2;
+
+	dst -= memcpy_align;
+	do_memcpy(dst, src, memcpy_size);
 	return 0;
 }
 
@@ -300,7 +341,7 @@ static void show_help(void)
 {
 	struct test *t;
 
-	printf("Usage: %s [-a][-c count][-d delay][-f] [testname]\n", progname);
+	printf("Usage: %s [-a][-c count][-d delay][-f] [-m runup:size:align][testname]\n", progname);
 	printf("  %-8s %-5s %s\n", "Testname", "Fatal", "Description");
 	for (t = tests; t->testname; t++)
 		printf("  %-8s %-5s %s\n", t->testname,
@@ -353,8 +394,9 @@ int main(int argc, char **argv)
 	struct timeval t1, t2;
 
 	progname = argv[0];
+	pagesize = getpagesize();
 
-	while ((c = getopt(argc, argv, "ac:d:fh")) != -1) switch (c) {
+	while ((c = getopt(argc, argv, "ac:d:fhm:")) != -1) switch (c) {
 	case 'a':
 		all_flag = 1;
 		break;
@@ -366,6 +408,9 @@ int main(int argc, char **argv)
 		break;
 	case 'f':
 		force_flag = 1;
+		break;
+	case 'm':
+		parse_memcpy(optarg);
 		break;
 	case 'h': case '?':
 		show_help();
