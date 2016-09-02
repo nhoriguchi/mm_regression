@@ -55,7 +55,7 @@ for rd in $RECIPEDIR ; do
 done
 
 make --no-print-directory allrecipes | grep ^cases > $GTMPD/full_recipe_list
-make --no-print-directory waiting_recipes | grep ^cases > $GTMPD/waiting_recipe_list
+make --no-print-directory RUNNAME=$RUNNAME waiting_recipes | grep ^cases > $GTMPD/waiting_recipe_list
 
 if [ ! "$RECIPEFILES" ] ; then
 	if [ "$RUN_ALL_WAITING" ] ; then

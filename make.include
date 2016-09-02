@@ -32,5 +32,6 @@ recipe_priority:
 	@find cases -type f | bash test_core/lib/filter_recipe.sh | sort -k2n
 	@true
 
+# You need give RUNNAME
 waiting_recipes: update_recipes
-	@ruby test_core/lib/test_summary.rb -c -l | grep "\-\-\-\-" | cut -f2 -d ' ' | sed -e 's/^/cases\//' 2> /dev/null
+	@ruby test_core/lib/test_summary.rb -c work/${RUNNAME} | grep "\-\-\-\-" | cut -f2 -d ' ' | sed -e 's/^/cases\//' 2> /dev/null
