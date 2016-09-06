@@ -30,12 +30,21 @@ start_guest_memeater() {
 	stop_guest_memeater $vmip
 
 	echo_log "start running test_alloc_generic on VM ($vm:$vmip)"
-	ssh $vmip "
-		$GUESTTESTALLOC -B pagecache -n $size -f read -L \"mmap access:type=read:wait_after access:type=read:wait_after\" > /dev/null 2>&1 </dev/null &
-		$GUESTTESTALLOC -B pagecache -n $size -f write -L \"mmap access:type=write:wait_after access:type=write:wait_after\" > /dev/null 2>&1 </dev/null &
-		$GUESTTESTALLOC -B anonymous -B thp -n $size -L \"mmap access:wait_after access:wait_after\" > /dev/null 2>&1 </dev/null &"
-	ssh $vmip "pgrep -f $GUESTTESTALLOC" | tr '\n' ' ' > $TMPD/.guest_memeater_pids.1
-	if [ ! -s $TMPD/.guest_memeater_pids.1 ] ; then
+	if [ "$BACKEND" == clean_pagecache ] ; then
+		ssh $vmip "
+			$GUESTTESTALLOC -B pagecache -n $size -f read -L \"mmap access:type=read:wait_after access:type=read:wait_after\" > /dev/null 2>&1 </dev/null &"
+	elif [ "$BACKEND" == dirty_pagecache ] ; then
+		ssh $vmip "
+			$GUESTTESTALLOC -B pagecache -n $size -f write -L \"mmap access:type=write:wait_after access:type=write:wait_after\" > /dev/null 2>&1 </dev/null &"
+	elif [ "$BACKEND" == anonymous ] ; then
+		ssh $vmip "
+			$GUESTTESTALLOC -B anonymous -n $size -L \"mmap access:wait_after access:wait_after\" > /dev/null 2>&1 </dev/null &"
+	elif [ "$BACKEND" == thp ] ; then
+		ssh $vmip "
+			$GUESTTESTALLOC -B thp -n $size -L \"mmap access:wait_after access:wait_after\" > /dev/null 2>&1 </dev/null &"
+	fi
+	ssh $vmip "pgrep -f $GUESTTESTALLOC" | tr '\n' ' ' > $TMPD/_guest_memeater_pids.1
+	if [ ! -s $TMPD/_guest_memeater_pids.1 ] ; then
 		echo "Failed to start guest memeater $GUESTTESTALLOC" >&2
 		return 1
 	fi

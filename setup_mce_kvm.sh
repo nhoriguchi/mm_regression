@@ -17,7 +17,7 @@ get_gpa_guest_memeater() {
 	local vmip=$(sshvm -i $VM)
 	local flagtype=$1
 
-	ssh $vmip "for pid in $(cat $TMPD/.guest_memeater_pids.1) ; do $GUESTPAGETYPES -p \$pid -NrL -b $flagtype -a 0x700000000+0x10000000 ; done" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest_page_types
+	ssh $vmip "for pid in $(cat $TMPD/_guest_memeater_pids.1) ; do $GUESTPAGETYPES -p \$pid -NrL -b $flagtype -a 0x700000000+0x10000000 ; done" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest_page_types
 
 	local lines=`wc -l $TMPD/guest_page_types | cut -f1 -d' '`
 	[ "$lines" -eq 0 ] && echo_log "Page ($flagtype) not exist on guest memeater." >&2 && return 1
@@ -46,8 +46,8 @@ get_hpa() {
 guest_process_running() {
 	local vmip=$(sshvm -i $VM)
 
-	ssh $vmip "pgrep -f $GUESTTESTALLOC" | tr '\n' ' ' > $TMPD/.guest_memeater_pids.2
-	diff -q $TMPD/.guest_memeater_pids.1 $TMPD/.guest_memeater_pids.2 > /dev/null
+	ssh $VM "pgrep -f $GUESTTESTALLOC" | tr '\n' ' ' > $TMPD/_guest_memeater_pids.2
+	diff -q $TMPD/_guest_memeater_pids.1 $TMPD/_guest_memeater_pids.2 > /dev/null
 }
 
 prepare_mce_kvm() {
@@ -76,6 +76,8 @@ prepare_mce_kvm() {
 cleanup_mce_kvm() {
 	save_nr_corrupted_inject
 	all_unpoison
+	echo "pkill -9 -f $_VM_CONSOLE"
+	pkill -9 -f $_VM_CONSOLE
 	show_guest_console
 	cleanup_mm_generic
 	save_nr_corrupted_unpoison
@@ -119,7 +121,7 @@ check_guest_state() {
 access_error() {
 	local vmip=$(sshvm -i $VM)
 
-	ssh $vmip "pkill -SIGUSR1 -f $GUESTTESTALLOC > /dev/null 2>&1 </dev/null"
+	ssh $VM "pkill -SIGUSR1 -f $GUESTTESTALLOC > /dev/null 2>&1 </dev/null"
 	sleep 0.2 # need short time for access operation to finish.
 }
 
