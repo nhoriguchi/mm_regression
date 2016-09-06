@@ -179,6 +179,7 @@ get_vm_console() {
     xmllint --xpath "/domstatus/domain/devices/console/source/@path" /var/run/libvirt/qemu/$vm.xml | cut -f2 -d= | tr -d '"'
 }
 
+_VM_CONSOLE=
 start_vm_console_monitor() {
     local basename=$1
     local vm=$2
@@ -189,6 +190,7 @@ start_vm_console_monitor() {
 		echo "you already monitoring $basename.$vm.$vmid"
 		return
 	fi
+	_VM_CONSOLE=$vmconsole
     cat $vmconsole > $basename.$vm.$vmid &
     echo "===> started vm console monitor for $vm, ID $vmid, saved in $basename.$vm.$vmid"
     ln -sf $basename.$vm.$vmid $basename
