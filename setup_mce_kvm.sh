@@ -55,24 +55,7 @@ prepare_mce_kvm() {
 	TARGETGPA=""
 	TARGETHPA=""
 
-	if ! grep -q mcgcap= $GTMPD/cap_check 2> /dev/null ; then
-		pushd cap_check > /dev/null
-		make check > $GTMPD/cap_check
-		popd > /dev/null
-	fi
-	MCGCAP=$(grep "mcgcap=" $GTMPD/cap_check | cut -f2 -d= | tail -n1)
-	MCE_SER=$(($MCGCAP & (1 << 24)))
-	if [ "$MCE_SER" -gt 0 ] ; then
-		echo "MCE_SER_P supported"
-		MCE_SER_SUPPORTED=true
-	else
-		echo "MCE_SER_P NOT supported"
-		MCE_SER_SUPPORTED=
-		if [ "$ERROR_TYPE" = mce-srao ] ; then
-			return 1
-		fi
-	fi
-
+	check_mce_capability || return 1
 	prepare_mm_generic || return 1
 	# unconditionally restart vm because memory background might change
 	# (thp <=> anon)

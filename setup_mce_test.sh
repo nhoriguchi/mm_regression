@@ -13,11 +13,8 @@ set_monarch_timeout() {
 }
 
 prepare_mce_test() {
+	check_mce_capability || return 1 # MCE SRAO not supported
 	prepare_mm_generic || return 1
-
-	if [ "$ERROR_TYPE" = mce-srao ] ; then
-        check_mce_capability || return 1 # MCE SRAO not supported
-	fi
 
 	if [ "$MONARCH_TIMEOUT" ] ; then
 		set_monarch_timeout $MONARCH_TIMEOUT
