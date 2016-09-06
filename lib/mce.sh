@@ -20,32 +20,23 @@ show_nr_corrupted() {
 }
 
 check_mce_capability() {
-	# If user explicitly said the system support MCE_SER, let's believe it.
-	if [ "$MCE_SER_SUPPORTED" ] ; then
-		return 0
-	else
-		echo "If you really do mce-srao testcase, please define environment"
-		echo "variable MCE_SER_SUPPORTED"
-		return 1
+	if ! grep -q "mcgcap=" $GTMPD/cap_check 2> /dev/null ; then
+		pushd $(dirname $BASH_SOURCE)/cap_check > /dev/null
+		make check > $GTMPD/cap_check
+		popd > /dev/null
 	fi
-
-	# TODO: need more elegant solution
-    if [ ! -e check_mce_capability.ko ] ; then
-        stap -p4 -g -m check_mce_capability.ko check_mce_capability.stp
-        if [ $? -ne 0 ] ; then
-            echo "Failed to build stap script" >&2
-            return 1
-        fi
-    fi
-    local cap=$(staprun check_mce_capability.ko | cut -f2 -d' ')
-    [ ! "$cap" ] && echo "Failed to retrieve MCE CAPABILITY info. SKIPPED." && return 1
-    # check 1 << 24 (MCG_SER_P)
-    if [ $[ $cap & 16777216 ] -eq 16777216 ] ; then
-        return 0
-    else
-        echo "MCE_SER_P is cleared in the current system."
-        return 1
-    fi
+	local mcgcap=$(grep "mcgcap=" $GTMPD/cap_check | cut -f2 -d= | tail -n1)
+	local mce_ser=$(($mcgcap & (1 << 24)))
+	if [ "$mce_ser" -gt 0 ] ; then
+		echo "MCE_SER_P supported"
+		MCE_SER_SUPPORTED=true
+	else
+		echo "MCE_SER_P NOT supported"
+		MCE_SER_SUPPORTED=
+		if [ "$ERROR_TYPE" = mce-srao ] ; then
+			return 1
+		fi
+	fi
 }
 
 # if accounting corrupted, "HardwareCorrupted" value could be very large
