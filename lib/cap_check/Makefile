@@ -7,6 +7,6 @@ clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 
 check: all
-	sudo insmod ./cap_check.ko
-	sudo rmmod cap_check
+	insmod ./cap_check.ko
+	rmmod cap_check
 	dmesg | tail
