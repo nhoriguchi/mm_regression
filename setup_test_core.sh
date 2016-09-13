@@ -150,19 +150,24 @@ cleanup_unimportant_temporal_files() {
 }
 
 beaker_environment_check() {
-	# run in beaker environment
-	echo "JOBID=$JOBID, TASKNAME=$TASKNAME"
-	if [ "$JOBID" ] && [ "$TASKNAME" ] ; then
-		if ! pgep -f /usr/bin/beah-srv > /dev/null 2>&1 ; then
-			echo "### beaker service is not working properly, reboot."
-			reboot
-		elif ! pgrep -f /usr/bin/beah-fwd-backend > /dev/null 2>&1 ; then
-			echo "### beaker service is not working properly, reboot."
-			reboot
-		elif ! pgrep -f /usr/bin/beah-beaker-backend > /dev/null 2>&1 ; then
-			echo "### beaker service is not working properly, reboot."
-			reboot
+	local reboot=
+
+	if [ ! "$JOBID" ] || [ ! "$TASKNAME" ] ; then
+		return
+	fi
+
+	! pgrep -f /usr/bin/beah-srv > /dev/null 2>&1             && reboot=true
+	! pgrep -f /usr/bin/beah-fwd-backend > /dev/null 2>&1    && reboot=true
+	! pgrep -f /usr/bin/beah-beaker-backend > /dev/null 2>&1 && reboot=true
+
+	if [ "$reboot" ] ; then
+		echo "### beaker service is not working properly, reboot."
+		reboot
+		systemctl restart beah-srv
+		if [ "$BMCNAME" ] ; then
+			ipmitool -I lanplus -H "$BMCNAME" -U Administrator -P "Administrator" power reset
 		fi
+		sleep 9999
 	fi
 }
 
