@@ -149,10 +149,28 @@ cleanup_unimportant_temporal_files() {
 	find $TMPD/ -name ".*" | xargs rm -rf
 }
 
+beaker_environment_check() {
+	# run in beaker environment
+	echo "JOBID=$JOBID, TASKNAME=$TASKNAME"
+	if [ "$JOBID" ] && [ "$TASKNAME" ] ; then
+		if ! pgep -f /usr/bin/beah-srv > /dev/null 2>&1 ; then
+			echo "### beaker service is not working properly, reboot."
+			reboot
+		elif ! pgrep -f /usr/bin/beah-fwd-backend > /dev/null 2>&1 ; then
+			echo "### beaker service is not working properly, reboot."
+			reboot
+		elif ! pgrep -f /usr/bin/beah-beaker-backend > /dev/null 2>&1 ; then
+			echo "### beaker service is not working properly, reboot."
+			reboot
+		fi
+	fi
+}
+
 cleanup_system_default() {
 	get_kernel_message_after
 	get_kernel_message_diff | tee -a $OFILE
 	cleanup_unimportant_temporal_files
+	beaker_environment_check
 }
 
 check_system_default() {
