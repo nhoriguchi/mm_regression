@@ -143,39 +143,55 @@ check_testcase_already_run() {
 
 prepare_system_default() {
 	get_kernel_message_before
+	run_beaker_environment_checker
 }
 
 cleanup_unimportant_temporal_files() {
 	find $TMPD/ -name ".*" | xargs rm -rf
 }
 
-beaker_environment_check() {
-	local reboot=
-
+run_beaker_environment_checker() {
+	# No need to run check in non-beaker environment
 	if [ ! "$JOBID" ] || [ ! "$TASKNAME" ] ; then
 		return
 	fi
 
-	! pgrep -f /usr/bin/beah-srv > /dev/null 2>&1             && reboot=true
-	! pgrep -f /usr/bin/beah-fwd-backend > /dev/null 2>&1    && reboot=true
-	! pgrep -f /usr/bin/beah-beaker-backend > /dev/null 2>&1 && reboot=true
-
-	if [ "$reboot" ] ; then
-		echo "### beaker service is not working properly, reboot."
-		reboot
-		systemctl restart beah-srv
-		if [ "$BMCNAME" ] ; then
-			ipmitool -I lanplus -H "$BMCNAME" -U Administrator -P "Administrator" power reset
-		fi
-		sleep 9999
+	# If already checker running, no need to kick again
+	if pgrep -f beaker_environment_checker > /dev/null ; then
+		return
 	fi
+
+	if [ ! -s "$GTMPD/.beaker_environment_checker" ] ; then
+		cat <<EOF > $GTMPD/.beaker_environment_checker
+while true ; do
+	reboot=
+	sleep 10
+	! pgrep -f /usr/bin/beah-srv > /dev/null 2>&1            && reboot=beah-srv
+	! pgrep -f /usr/bin/beah-fwd-backend > /dev/null 2>&1    && reboot=beah-fwd-backend
+	! pgrep -f /usr/bin/beah-beaker-backend > /dev/null 2>&1 && reboot=beah-beaker-backend
+
+	if [ "\$reboot" ] ; then
+		echo "### beaker service \$reboot is not running, reboot." | tee /dev/kmsg
+		reboot
+		sleep 10
+		systemctl restart beah-srv
+		sleep 10
+		if [ "\$BMCNAME" ] ; then
+			ipmitool -I lanplus -H "\$BMCNAME" -U Administrator -P "Administrator" power reset
+		fi
+		break
+	fi
+done
+EOF
+	fi
+
+	( exec -a beaker_environment_checker bash $GTMPD/.beaker_environment_checker ) &
 }
 
 cleanup_system_default() {
 	get_kernel_message_after
 	get_kernel_message_diff | tee -a $OFILE
 	cleanup_unimportant_temporal_files
-	beaker_environment_check
 }
 
 check_system_default() {
