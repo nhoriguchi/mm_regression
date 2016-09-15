@@ -59,7 +59,7 @@ prepare_mce_kvm() {
 	prepare_mm_generic || return 1
 	# unconditionally restart vm because memory background might change
 	# (thp <=> anon)
-#	vm_shutdown_wait $VM $VMIP
+	vm_shutdown_wait $VM $VMIP
 	echo 3 > /proc/sys/vm/drop_caches ; sync
 	vm_start_wait $VM
 	local vmip=$(sshvm -i $VM)
@@ -77,7 +77,7 @@ cleanup_mce_kvm() {
 	show_guest_console
 	cleanup_mm_generic
 	save_nr_corrupted_unpoison
-#	vm_shutdown_wait $VM $VMIP
+	vm_shutdown_wait $VM $VMIP
 }
 
 check_guest_state() {
