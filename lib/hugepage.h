@@ -11,6 +11,7 @@
 
 unsigned long HPSIZE = 0x200000UL;
 #define HPS HPSIZE
+#define GPS 0x40000000UL /* gigantic page */
 
 #define BUF_SIZE   256
 char filepath[BUF_SIZE];
