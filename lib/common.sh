@@ -3,7 +3,7 @@ KERNEL_SRC=/src/linux-dev
 
 # higher value means more verbose (0-5, 0:nothing, 5:all)
 [ ! "$LOGLEVEL" ] && export LOGLEVEL=3
-[ ! "$SOFT_RETRY" ] && SOFT_RETRY=5
+[ ! "$SOFT_RETRY" ] && SOFT_RETRY=2
 
 [ ! "$HIGHEST_PRIORITY" ] && export HIGHEST_PRIORITY=0
 [ ! "$LOWEST_PRIORITY" ] && export LOWEST_PRIORITY=10
@@ -24,7 +24,7 @@ check_install_package() {
 kill_all_subprograms() {
 	for tp in $(grep ^src= $TRDIR/Makefile | cut -f2 -d=) ; do
 		local tmp=${tp%.c}
-		eval "pkill -9 -f \$$(echo $tmp)"
+		eval "pkill -9 -f \$$(echo $tmp)" > /dev/null 2>&1
 	done
 }
 
