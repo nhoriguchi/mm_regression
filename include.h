@@ -1339,7 +1339,7 @@ static void do_operation_loop(void) {
 		} else if (!strcmp(opc.name, "mmap")) {
 			do_mmap(&opc);
 		} else if (!strcmp(opc.name, "mmap_numa")) {
-			need_numa();
+			/* need_numa(); */
 			do_mmap_numa(&opc);
 		} else if (!strcmp(opc.name, "access")) {
 			do_access(&opc);
