@@ -520,11 +520,20 @@ static int __mbind_chunk(char *p, int size, void *args) {
 
 /* TODO: make mode, nid configurable from caller */
 static void do_mbind(struct op_control *opc) {
+	char *tmp;
 	struct mbind_arg mbind_arg = {
 		.mode = MPOL_BIND,
 		.flags = MPOL_MF_MOVE|MPOL_MF_STRICT,
 		.hp_partial = opc_defined(opc, "hp_partial"),
 	};
+
+	tmp = opc_get_value(opc, "flags");
+	if (tmp && !strcmp(tmp, "move")) /* default on, so meaningless now */
+		mbind_arg.flags |= MPOL_MF_MOVE;
+	else if (tmp && !strcmp(tmp, "move_all")) {
+		mbind_arg.flags &= ~MPOL_MF_MOVE;
+		mbind_arg.flags |= MPOL_MF_MOVE_ALL;
+	}
 
 	mbind_arg.new_nodes = numa_bitmask_alloc(nr_nodes);
 	numa_bitmask_setbit(mbind_arg.new_nodes, 1);
@@ -1174,7 +1183,7 @@ static const char *op_supported_args[][10] = {
 	[NR_access]			= {"type", "check"},
 	[NR_busyloop]			= {"type"},
 	[NR_munmap]			= {},
-	[NR_mbind]			= {"hp_partial"},
+	[NR_mbind]			= {"hp_partial", "flags"},
 	[NR_move_pages]			= {},
 	[NR_mlock]			= {"hp_partial"},
 	[NR_mlock2]			= {"hp_partial"},

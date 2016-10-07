@@ -1,5 +1,7 @@
-#!1 THP_SPLIT_METHOD: hwpoison soft_offline mbind migratepages move_pages
+#!1 THP_SPLIT_METHOD: hwpoison soft_offline mbind migratepages move_pages mbind_all
 #!1 THP_TYPE: shared_thp double_mapping pmd_split thp_split
+
+# TODO: EXPECTED_RETURN_CODE is not defined yet.
 
 . $TRDIR/setup_mmgeneric.sh
 
@@ -19,7 +21,9 @@ elif [ __MARK_THP_SPLIT_METHOD == soft_offline ] ; then
 	ERROR_TYPE=soft-offline
 	EXPECTED_RETURN_CODE="START INJECT EXIT"
 elif [ __MARK_THP_SPLIT_METHOD == mbind ] ; then
-	ACTION=mbind
+	ACTION=mbind:flags=move
+elif [ __MARK_THP_SPLIT_METHOD == mbind_all ] ; then
+	ACTION=mbind:flags=move_all
 elif [ __MARK_THP_SPLIT_METHOD == migratepages ] ; then
 	ACTION=migratepages
 elif [ __MARK_THP_SPLIT_METHOD == move_pages ] ; then
