@@ -85,6 +85,8 @@ echo_log "RECIPEFILES:"
 echo_log "${RECIPEFILES//$TRDIR\/cases\//}"
 
 echo 1 > /proc/sys/kernel/panic_on_oops
+echo 1 > /proc/sys/kernel/softlockup_panic
+echo 1 > /proc/sys/kernel/softlockup_all_cpu_backtrace
 
 skip_testcase_out_priority() {
 	echo_log "This testcase is skipped because the testcase priority ($PRIORITY) is not within given priority range [$HIGHEST_PRIORITY, $LOWEST_PRIORITY]. To run this, set HIGEST_PRIORITY and LOWEST_PRIORITY to contain PRIORITY ($PRIORITY)"
