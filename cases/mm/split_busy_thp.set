@@ -1,0 +1,35 @@
+. $TRDIR/setup_mmgeneric.sh
+
+THP=true
+
+EXPECTED_RETURN_CODE="START EXIT"
+
+_prepare() {
+	if [ -e /sys/kernel/debug/split_huge_pages ] ; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+_cleanup() {
+	[[ "$(jobs -p)" ]] || kill -9 $(jobs -p) 2> /dev/null
+	cleanup_system_default
+}
+
+_control() {
+	for i in $(seq 10) ; do
+		$test_alloc_generic -B thp -N 100 -L 'mmap_numa access busyloop' &
+		local pid=$!
+		echo "$pid"
+		sleep 0.3
+		$PAGETYPES -b thp -r | grep total
+		echo 1 > /sys/kernel/debug/split_huge_pages
+		$PAGETYPES -b thp -r | grep total
+	done
+    set_return_code EXIT
+}
+
+_check() {
+	true
+}
