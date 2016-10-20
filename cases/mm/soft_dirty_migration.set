@@ -18,7 +18,7 @@ fi
 
 NUMA_NODE=2
 
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'start mmap_numa access access:wait_before:wait_after munmap exit:wait_before'"
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'start mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access access:wait_before:wait_after munmap exit:wait_before'"
 
 if [ "$INITIAL" == clean ] ; then
 	EXPECTED_RETURN_CODE="START SOFTDIRTY NO_SOFTDIRTY NO_SOFTDIRTY SOFTDIRTY EXIT"

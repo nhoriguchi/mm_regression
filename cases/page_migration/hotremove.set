@@ -24,7 +24,7 @@ if [[ "$BACKEND" =~ hugetlb ]] ; then # hotremove
 	HUGETLB_ALLOCATED=$[HUGETLB*4/5]
 	# no pass fail ?
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
-	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $HUGETLB_ALLOCATED $BUSYOPT -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC:pageflags=$(get_backend_pageflags hugetlb_mapped) munmap:wait_before exit:wait_before'"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $HUGETLB_ALLOCATED $BUSYOPT -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after $MIGRATE_SRC:pageflags=$(get_backend_pageflags hugetlb_mapped) munmap:wait_before exit:wait_before'"
 elif [[ "$BACKEND" =~ thp ]] ; then
 	THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
 	THP_ALLOCATED=$[THP*4/5]
@@ -35,5 +35,5 @@ elif [[ "$BACKEND" =~ thp ]] ; then
 		SKIP_THIS_TEST=true
 	fi
 
-	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP_ALLOCATED $BUSYOPT -L 'start:wait_after mmap_numa access:wait_after $MIGRATE_SRC:pageflags=$(get_backend_pageflags $BACKEND) munmap:wait_before exit:wait_before'"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP_ALLOCATED $BUSYOPT -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after $MIGRATE_SRC:pageflags=$(get_backend_pageflags $BACKEND) munmap:wait_before exit:wait_before'"
 fi

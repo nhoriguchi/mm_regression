@@ -16,4 +16,4 @@ if [[ "$BACKEND" =~ thp ]] ; then
 elif [[ "$BACKEND" =~ anonyous ]] ; then
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"
 fi
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 10 -L 'start:wait_after mmap_numa mlock access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 10 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 mlock access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"

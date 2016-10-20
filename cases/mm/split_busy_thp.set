@@ -19,7 +19,7 @@ _cleanup() {
 
 _control() {
 	for i in $(seq 10) ; do
-		$test_alloc_generic -B thp -N 100 -L 'mmap_numa access busyloop' &
+		$test_alloc_generic -B thp -N 100 -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access busyloop' &
 		local pid=$!
 		echo "$pid"
 		sleep 0.3
