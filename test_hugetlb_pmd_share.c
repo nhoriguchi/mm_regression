@@ -45,11 +45,11 @@ int main(int argc, char *argv[]) {
 			numa_bitmask_setbit(new_nodes, 1);
 
 			mbind(phugetlb, size, MPOL_BIND, new_nodes->maskp,
-			      new_nodes->size + 1, MPOL_MF_MOVE|MPOL_MF_STRICT);
+			      new_nodes->size + 1, MPOL_MF_MOVE_ALL|MPOL_MF_STRICT);
 			new_nodes = numa_bitmask_alloc(nr_nodes);
 			numa_bitmask_setbit(new_nodes, 0);
 			mbind(phugetlb, size, MPOL_BIND, new_nodes->maskp,
-			      new_nodes->size + 1, MPOL_MF_MOVE|MPOL_MF_STRICT);
+			      new_nodes->size + 1, MPOL_MF_MOVE_ALL|MPOL_MF_STRICT);
 		} else if (!strcmp(argv[1], "move_pages")) {
 			void *addrs[2];
 			int status[2];
