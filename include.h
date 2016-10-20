@@ -981,7 +981,9 @@ static int __do_split_thp_chunk(char *p, int size, void *args) {
 static void do_split_thp(struct op_control *opc) {
 	if (opc_defined(opc, "only_pmd"))
 		do_work_memory(__do_split_thp_chunk, opc);
-	else {
+	else if (1) {
+		system("echo 1 > /sys/kernel/debug/split_huge_pages");
+	} else {
 		opc_set_value(opc, "hp_partial", "");
 		do_mbind(opc);
 	}
@@ -1102,6 +1104,7 @@ static void do_vm86(struct op_control *opc) {
 
 enum {
 	NR_start,
+	NR_noop,
 	NR_exit,
 	NR_mmap,
 	NR_mmap_numa,
@@ -1138,6 +1141,7 @@ enum {
 
 static const char *operation_name[] = {
 	[NR_start]			= "start",
+	[NR_noop]			= "noop",
 	[NR_exit]			= "exit",
 	[NR_mmap]			= "mmap",
 	[NR_mmap_numa]			= "mmap_numa",
@@ -1177,6 +1181,7 @@ static const char *operation_name[] = {
  */
 static const char *op_supported_args[][10] = {
 	[NR_start]			= {},
+	[NR_noop]			= {},
 	[NR_exit]			= {},
 	[NR_mmap]			= {},
 	[NR_mmap_numa]			= {"preferred_cpu_node", "preferred_mem_node"},
@@ -1342,6 +1347,8 @@ static void do_operation_loop(void) {
 			do_wait_before(&opc);
 
 		if (!strcmp(opc.name, "start")) {
+			;
+		} else if (!strcmp(opc.name, "noop")) {
 			;
 		} else if (!strcmp(opc.name, "exit")) {
 			;
