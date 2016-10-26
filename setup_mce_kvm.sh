@@ -15,7 +15,7 @@ fi
 
 get_gpa_guest_memeater() {
 	local vmip=$(sshvm -i $VM)
-	local flagtype=$1
+	local flagtype="$1"
 
 	ssh $vmip "for pid in $(cat $TMPD/_guest_memeater_pids.1) ; do $GUESTPAGETYPES -p \$pid -NrL -b $flagtype -a 0x700000000+0x10000000 ; done" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest_page_types
 
@@ -25,8 +25,9 @@ get_gpa_guest_memeater() {
 	echo "# of pages $flagtypes: $lines"
 	TARGETGVA=0x`cat $TMPD/guest_page_types | sed -n ${lines}p | cut -f1 -d ' '`
 	TARGETGPA=0x`cat $TMPD/guest_page_types | sed -n ${lines}p | cut -f2 -d ' '`
+	TARGETHPA=`ruby $GPA2HPA $VM $TARGETGPA -d`
+	echo "--- TARGETGVA:$TARGETGVA, TARGETGPA:$TARGETGPA, TARGETHPA:$TARGETHPA"
 	[ "$TARGETGPA" == 0x ] && echo_log "Failed to get GPA. Test skipped." && return 1
-	TARGETHPA=`ruby $GPA2HPA $VM $TARGETGPA`
 	if [ ! "$TARGETHPA" ] || [ "$TARGETHPA" == "0x" ] || [ "$TARGETHPA" == "0x0" ] ; then
 		echo_log "Failed to get HPA. Test skipped." && return 1
 	fi
@@ -151,7 +152,7 @@ control_mce_kvm() {
 control_mce_kvm_panic() {
 	local vmip=$(sshvm -i $VM)
 
-	echo_log "start $FUNCNAME"
+	echo_log "start $FUNCNAME / $BACKEND / $TARGET_PAGETYPES"
 	start_guest_memeater $VM $[512 * 4] || return 1
 	get_hpa "$TARGET_PAGETYPES" || return 1
 	set_return_code "GOT_HPA"

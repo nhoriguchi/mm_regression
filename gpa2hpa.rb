@@ -44,7 +44,8 @@ if debug == true
   STDERR.puts "vaddr of guest memory is [0x#{vaddr}-0x#{vaddr+max}] ([0x#{vaddr>>12}+0x#{max>>12}] in pfn) \n"
   STDERR.puts "HVASTART:#{vaddr>>12}\n"
   STDERR.puts "HVASIZE:#{max>>12}\n"
-  STDERR.puts "target virtual address is #{target}\n"
+  hextarget = "0x%x" % [target]
+  STDERR.puts "target virtual address is #{hextarget}\n"
 end
 
 pagemapfile = "/proc/#{pid}/pagemap"

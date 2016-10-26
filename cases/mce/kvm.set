@@ -12,7 +12,8 @@ FLAVOR=__MARK_FLAVOR
 echo "FLAVOR: $FLAVOR"
 if [ "$FLAVOR" == panic ] ; then
 	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_PANICKED"
-	TARGET_PAGETYPES="dirty,lru,mmap,anonymous=lru,mmap"
+	BACKEND=anonymous
+	TARGET_PAGETYPES="lru,mmap,anonymous=lru,mmap,anonymous"
 	ERROR_TYPE=mce-srao
 	_control() { control_mce_kvm_panic; }
 	_check() { check_mce_kvm_panic; }

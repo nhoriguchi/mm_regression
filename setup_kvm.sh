@@ -42,6 +42,9 @@ start_guest_memeater() {
 	elif [ "$BACKEND" == thp ] ; then
 		ssh $vmip "
 			$GUESTTESTALLOC -B thp -n $size -L \"mmap access:wait_after access:wait_after\" > /dev/null 2>&1 </dev/null &"
+	else
+		ssh $vmip "
+			$GUESTTESTALLOC -B pagecache -B anonymous -B thp -n $size -L \"mmap access:wait_after access:wait_after\" > /dev/null 2>&1 </dev/null &"
 	fi
 	ssh $vmip "pgrep -f $GUESTTESTALLOC" | tr '\n' ' ' > $TMPD/_guest_memeater_pids.1
 	if [ ! -s $TMPD/_guest_memeater_pids.1 ] ; then
