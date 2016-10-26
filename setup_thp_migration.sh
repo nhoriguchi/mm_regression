@@ -1,6 +1,7 @@
 . $TRDIR/setup_mmgeneric.sh
 
 THP=true
+NUMA_NODE=2
 
 _prepare() {
 	true

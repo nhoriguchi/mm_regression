@@ -2,6 +2,8 @@
 
 . $TCDIR/lib/mm.sh
 
+NUMA_NODE=2
+
 _control() { control_mbind "$1" "$2"; }
 _prepare() { prepare_mbind; }
 _cleanup() { cleanup_mbind; }
