@@ -7,6 +7,7 @@ prepare_mmgeneric() {
 }
 
 cleanup_mmgeneric() {
+	[[ "$(jobs -p)" ]] && kill -9 $(jobs -p) 2> /dev/null
 	cleanup_mm_generic
 }
 
