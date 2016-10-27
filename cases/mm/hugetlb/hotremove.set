@@ -20,6 +20,10 @@ PIPETIMEOUT=60
 HUGETLB=$[$MEMTOTAL/$HUGEPAGESIZE/2]
 HUGETLB_ALLOCATED=$[HUGETLB*3/5]
 
+if [ "$OPERATION_SRC" == busy ] ; then
+	ACTION="$ACTION:busyloop"
+fi
+
 _prepare() {
 	prepare_mm_generic || return 1
 	reonline_memblocks
