@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 
 	signal(SIGUSR1, sig_handle);
 
-	while ((c = getopt(argc, argv, "vp:n:N:bB:L:f:w:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:B:L:f:w:")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -69,9 +69,6 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'N':
 			nr_p = strtoul(optarg, NULL, 0) * 512;
-			break;
-		case 'b':
-			busyloop = 1;
 			break;
 		case 'B':
 			if (!strcmp(optarg, "pagecache")) {

@@ -24,7 +24,6 @@ int protflag = PROT_READ|PROT_WRITE;
 
 int nr_p = 512;
 int nr_chunk = 1;
-int busyloop = 0;
 
 char *workdir = "work";
 char *filebase = "testfile";
