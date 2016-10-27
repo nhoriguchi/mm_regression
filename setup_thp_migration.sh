@@ -4,12 +4,11 @@ THP=true
 NUMA_NODE=2
 
 _prepare() {
-	true
+	prepare_mmgeneric || return 1
 }
 
 _cleanup() {
-	[[ "$(jobs -p)" ]] || kill -9 $(jobs -p)
-	cleanup_system_default
+	cleanup_mmgeneric || return 1
 }
 
 check_migration_pagemap() {
