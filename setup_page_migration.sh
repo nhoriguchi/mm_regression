@@ -260,7 +260,8 @@ control_hugepage_migration() {
 				;;
 			"waiting for memory_hotremove"*)
 				echo $line | sed "s/waiting for memory_hotremove: *//" > $TMPD/preferred_memblk
-				MEMBLK_SIZE=0x8000 # in page
+				MEMBLK_SIZE=0x$(cat /sys/devices/system/memory/block_size_bytes)
+				MEMBLK_SIZE=$[MEMBLK_SIZE / 4096]
 
 				targetmemblk=$(cat $TMPD/preferred_memblk)
 				echo_log "preferred memory block: $targetmemblk"

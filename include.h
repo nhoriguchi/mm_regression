@@ -450,13 +450,6 @@ static int do_work_memory(int (*func)(char *p, int size, void *arg), void *args)
 	return ret;
 }
 
-/*
- * Memory block size is 128MB (1 << 27) = 32k pages (1 << 15)
- */
-#define MEMBLK_ORDER	15
-#define MEMBLK_SIZE	(1 << MEMBLK_ORDER)
-#define MAX_MEMBLK	1024
-
 static void do_busyloop(struct op_control *opc) {
 	pprintf_wait_func(do_access, opc, "entering busy loop\n");
 }
@@ -600,6 +593,40 @@ static void do_move_pages(struct op_control *opc) {
 	do_work_memory(__move_pages_chunk, &node);
 }
 
+unsigned long memblk_order, memblk_size;
+
+static unsigned long probe_memory_block_size() {
+	FILE *f;
+	char str[256];
+
+	f = fopen("/sys/devices/system/memory/block_size_bytes", "r");
+	while (fgets(str, 256, f)) {
+		sscanf(str, "%lx", &memblk_size);
+	}
+	return memblk_size;
+}
+
+static unsigned long get_memblk_size() {
+	if (!memblk_size)
+		memblk_size = probe_memory_block_size();
+	return memblk_size;
+}
+
+static unsigned long get_memblk_order() {
+	if (!memblk_order){
+		unsigned long i;
+		unsigned long size = get_memblk_size();
+
+		for (i = 0; i < 64; i++) {
+			if ((size >> i) == 1) {
+				memblk_order = i;
+				break;
+			}
+		}
+	}
+	return memblk_order;
+}
+
 static int get_max_memblock(void) {
 	FILE *f;
 	char str[256];
@@ -613,7 +640,8 @@ static int get_max_memblock(void) {
 		sscanf(str, " start_pfn: %d", &start_pfn);
 	}
 	fclose(f);
-	return (spanned + start_pfn) >> MEMBLK_ORDER;
+	/* Values in /proc/zoneinfo is in page size unit */
+	return (spanned + start_pfn) >> (get_memblk_order() - PAGE_SHIFT);
 }
 
 /* Assuming that */
@@ -626,18 +654,21 @@ static int memblock_check(void) {
 	int i, j;
 	int ret;
 	int max_memblock = get_max_memblock();
-	uint64_t pageflags[MEMBLK_SIZE];
+	uint64_t *pageflags;
 	int pmemblk = 0;
 	int max_matched_pages = 0;
 	int compound = check_compound();
+	unsigned long _memblk_size = get_memblk_size() >> PAGE_SHIFT;
+
+	pageflags = malloc(_memblk_size * sizeof(uint64_t));
 
 	kpageflags_fd = open("/proc/kpageflags", O_RDONLY);
 	for (i = 0; i < max_memblock; i++) {
-		int pfn = i * MEMBLK_SIZE;
+		int pfn = i * _memblk_size;
 		int matched = 0;
 
-		ret = kpageflags_read(pageflags, pfn, MEMBLK_SIZE);
-		for (j = 0; j < MEMBLK_SIZE; j++) {
+		ret = kpageflags_read(pageflags, pfn, _memblk_size);
+		for (j = 0; j < _memblk_size; j++) {
 			if (bit_mask_ok(pageflags[j])) {
 				if (compound)
 					matched += 512;
@@ -646,16 +677,17 @@ static int memblock_check(void) {
 			}
 		}
 		Dprintf("memblock:%d, readret:%d matched:%d (%d%), 1:%lx, 2:%lx\n",
-		       i, ret, matched, matched*100/MEMBLK_SIZE,
+		       i, ret, matched, matched*100/_memblk_size,
 		       pageflags[0], pageflags[1]);
 		if (max_matched_pages < matched) {
 			max_matched_pages = matched;
 			pmemblk = i;
-			if (matched == MEMBLK_SIZE) /* full of target pages */
+			if (matched == _memblk_size) /* full of target pages */
 				break;
 		}
 	}
 	close(kpageflags_fd);
+	free(pageflags);
 
 	return pmemblk;
 }
