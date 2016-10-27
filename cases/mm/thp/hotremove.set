@@ -1,0 +1,118 @@
+# #!1 THP_TYPE: shared_thp double_mapping pmd_split thp_split
+
+#!1 OPERATION_SRC: noop busy
+
+. $TRDIR/setup_thp_migration.sh
+
+MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
+FORK=
+SPLIT_THP=
+HUGEPAGE_CHECKCODE=
+ACTION=hotremove:pageflags=$(get_backend_pageflags thp)
+
+BACKEND=__MARK_BACKEND
+BACKGROUND=__MARK_BACKGROUND
+OPERATION_SRC=__MARK_OPERATION_SRC
+PIPETIMEOUT=60
+
+HUGEPAGESIZE=2048
+THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
+THP_ALLOCATED=$[THP*4/5]
+
+if [ "$OPERATION_SRC" == busy ] ; then
+	ACTION="$ACTION:busyloop"
+fi
+
+# TODO: low-priority known issue
+if [ "$OPERATION_SRC" == hwpoison ] ; then
+	SKIP_THIS_TEST=true
+fi
+
+_prepare() {
+	prepare_mm_generic || return 1
+	reonline_memblocks
+	return 0
+}
+
+_cleanup() {
+	cleanup_mm_generic
+	reonline_memblocks
+}
+
+_control() {
+    local pid="$1"
+    local line="$2"
+
+    echo_log "$line"
+    case "$line" in
+		"after_access")
+			get_mm_stats 0 $pid $(pgrep -P $pid)
+            kill -SIGUSR1 $pid
+            ;;
+        # "after_fork")
+		# 	echo $pid > $TMPD/pid.parent
+		# 	pgrep -P $pid > $TMPD/pid.child
+		# 	get_mm_stats 1 $pid $(pgrep -P $pid) > /dev/null
+        #     kill -SIGUSR1 $pid
+        #     ;;
+        "before_munmap")
+			get_mm_stats 3 $pid $(pgrep -P $pid)
+
+			if [ "$FORK" ] ; then
+				check_migration_done $TMPD/pagetypes.2.$pid $TMPD/pagetypes.3.$pid
+			else
+				check_migration_done $TMPD/pagetypes.2 $TMPD/pagetypes.3
+			fi
+
+            kill -SIGUSR1 $pid
+            ;;
+        "after_noop")
+			get_mm_stats 2 $pid $(pgrep -P $pid)
+            kill -SIGUSR1 $pid
+            ;;
+        "before_exit")
+            set_return_code "EXIT"
+            kill -SIGUSR1 $pid
+            return 0
+            ;;
+		"waiting for memory_hotremove"*)
+			echo $line | sed "s/waiting for memory_hotremove: *//" > $TMPD/preferred_memblk
+			MEMBLK_SIZE=0x$(cat /sys/devices/system/memory/block_size_bytes)
+			MEMBLK_SIZE=$[MEMBLK_SIZE / 4096]
+
+			targetmemblk=$(cat $TMPD/preferred_memblk)
+			echo_log "preferred memory block: $targetmemblk"
+			echo_log "echo offline > /sys/devices/system/memory/memory$targetmemblk/state"
+
+			echo offline > /sys/devices/system/memory/memory$targetmemblk/state
+			kill -SIGUSR1 $pid
+			;;
+        *)
+            ;;
+    esac
+    return 1
+}
+
+TEST_PROGRAM="$test_alloc_generic -B thp -N $THP_ALLOCATED -L '$MAPTYPE access:wait_after noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
+
+
+
+# if [ __MARK_THP_TYPE == shared_thp ] ; then
+# 	FORK=fork:wait_after
+# 	HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+# elif [ __MARK_THP_TYPE == double_mapping ] ; then
+# 	FORK=fork:wait_after
+# 	SPLIT_THP=split_thp:only_pmd
+# 	HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+# elif [ __MARK_THP_TYPE == pmd_split ] ; then
+# 	SPLIT_THP=split_thp:only_pmd
+# 	HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+# elif [ __MARK_THP_TYPE == thp_split ] ; then
+# 	SPLIT_THP=split_thp
+# 	HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
+# fi
+# 
+# TEST_PROGRAM="$test_alloc_generic -B thp -N 1 -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+# EXPECTED_RETURN_CODE="START MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
+# 

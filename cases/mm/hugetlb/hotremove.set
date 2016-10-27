@@ -1,0 +1,89 @@
+#!40 OPERATION_SRC: noop hwpoison busy
+
+. $TRDIR/setup_hugetlb_migration.sh
+
+MIGRATE_SRC=hotremove
+BACKEND=__MARK_BACKEND
+BACKGROUND=__MARK_BACKGROUND
+OPERATION_SRC=__MARK_OPERATION_SRC
+
+MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
+FORK=
+HUGEPAGE_CHECKCODE=
+ACTION=hotremove:pageflags=$(get_backend_pageflags hugetlb_mapped)
+
+NUMA_NODE=2
+HUGEPAGESIZE=2048 # kB
+
+PIPETIMEOUT=60
+
+HUGETLB=$[$MEMTOTAL/$HUGEPAGESIZE/2]
+HUGETLB_ALLOCATED=$[HUGETLB*3/5]
+
+_prepare() {
+	prepare_mm_generic || return 1
+	reonline_memblocks
+	return 0
+}
+
+_cleanup() {
+	cleanup_mm_generic
+	reonline_memblocks
+}
+
+_control() {
+    local pid="$1"
+    local line="$2"
+
+    echo_log "$line"
+    case "$line" in
+		"after_access")
+			get_mm_stats 0 $pid $(pgrep -P $pid)
+            kill -SIGUSR1 $pid
+            ;;
+        # "after_fork")
+		# 	echo $pid > $TMPD/pid.parent
+		# 	pgrep -P $pid > $TMPD/pid.child
+		# 	get_mm_stats 1 $pid $(pgrep -P $pid) > /dev/null
+        #     kill -SIGUSR1 $pid
+        #     ;;
+        "before_munmap")
+			get_mm_stats 3 $pid $(pgrep -P $pid)
+
+			if [ "$FORK" ] ; then
+				check_migration_done $TMPD/pagetypes.2.$pid $TMPD/pagetypes.3.$pid
+			else
+				check_migration_done $TMPD/pagetypes.2 $TMPD/pagetypes.3
+			fi
+
+            kill -SIGUSR1 $pid
+            ;;
+        "after_noop")
+			get_mm_stats 2 $pid $(pgrep -P $pid)
+            kill -SIGUSR1 $pid
+            ;;
+        "before_exit")
+            set_return_code "EXIT"
+            kill -SIGUSR1 $pid
+            return 0
+            ;;
+		"waiting for memory_hotremove"*)
+			echo $line | sed "s/waiting for memory_hotremove: *//" > $TMPD/preferred_memblk
+			MEMBLK_SIZE=0x$(cat /sys/devices/system/memory/block_size_bytes)
+			MEMBLK_SIZE=$[MEMBLK_SIZE / 4096]
+
+			targetmemblk=$(cat $TMPD/preferred_memblk)
+			echo_log "preferred memory block: $targetmemblk"
+			echo_log "echo offline > /sys/devices/system/memory/memory$targetmemblk/state"
+
+			echo offline > /sys/devices/system/memory/memory$targetmemblk/state
+			kill -SIGUSR1 $pid
+			;;
+        *)
+            ;;
+    esac
+    return 1
+}
+
+EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
+TEST_PROGRAM="$test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATED -L '$MAPTYPE access:wait_after noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
