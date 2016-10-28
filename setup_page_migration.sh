@@ -15,8 +15,8 @@ prepare_hugepage_migration() {
 	fi
 
 	if [ "$ALLOCATE_HUGEPAGE" ] ; then
-		echo_log "$test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -b -L \"mmap access busyloop\" &"
-		$test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -b -L "mmap access busyloop" &
+		echo_log "$test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L \"mmap access busyloop\" &"
+		$test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L "mmap access busyloop" &
 		set_return_code ALLOCATE
 		sleep 1 # TODO: properly wait for reserve completion
 	fi

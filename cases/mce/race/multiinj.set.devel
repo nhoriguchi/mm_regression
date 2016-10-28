@@ -17,7 +17,7 @@ case "$BACKEND" in
 		EXPECTED_RETURN_CODE="START EXIT"
 		;;
     *)
-		TEST_PROGRAM="$test_alloc_generic -B 0xffffffff -N 1 -b -L 'mmap access'"
+		TEST_PROGRAM="$test_alloc_generic -B 0xffffffff -N 1 -L 'mmap access'"
 		EXPECTED_RETURN_CODE="START EXIT"
         ;;
 esac

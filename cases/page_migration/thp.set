@@ -17,7 +17,7 @@ BACKEND=thp
 if [ "$RACE_SRC" == race_with_gup ] ; then
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
 	# madv_soft calls get_user_pages()
-	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -b -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft munmap:wait_before exit:wait_before'"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft munmap:wait_before exit:wait_before'"
 	# BUG_ON in mm/vmscan.c:1430
 elif [ "$RACE_SRC" == race_with_procpid ] ; then
 	EXPECTED_RETURN_CODE="START EXIT"
@@ -98,5 +98,5 @@ elif [ "$RACE_SRC" == race_with_mremap ] ; then
 else
 	# no race mbind/partial case
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_DISAPPEARED THP_SPLIT EXIT"
-	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -b -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after mbind:hp_partial munmap:wait_before exit:wait_before'"
+	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after mbind:hp_partial munmap:wait_before exit:wait_before'"
 fi
