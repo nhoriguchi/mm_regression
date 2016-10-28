@@ -1,5 +1,4 @@
-# #!1 THP_TYPE: shared_thp double_mapping pmd_split thp_split
-
+#!1 THP_TYPE: base shared_thp double_mapping pmd_split thp_split
 #!1 OPERATION_SRC: noop busy
 
 . $TRDIR/setup_thp_migration.sh
@@ -21,6 +20,24 @@ THP_ALLOCATED=$[THP*4/5]
 
 if [ "$OPERATION_SRC" == busy ] ; then
 	ACTION="$ACTION:busyloop"
+fi
+
+if [ __MARK_THP_TYPE == base ] ; then
+	HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+elif [ __MARK_THP_TYPE == shared_thp ] ; then
+	FORK=fork:wait_after
+	HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+elif [ __MARK_THP_TYPE == double_mapping ] ; then
+	FORK=fork:wait_after
+	SPLIT_THP=split_thp:only_pmd
+	HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+elif [ __MARK_THP_TYPE == pmd_split ] ; then
+	SPLIT_THP=split_thp:only_pmd
+	HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+elif [ __MARK_THP_TYPE == thp_split ] ; then
+	SPLIT_THP=split_thp
+	HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
+	ACTION=hotremove:pageflags=$(get_backend_pageflags anonymous)
 fi
 
 # TODO: low-priority known issue
@@ -49,12 +66,12 @@ _control() {
 			get_mm_stats 0 $pid $(pgrep -P $pid)
             kill -SIGUSR1 $pid
             ;;
-        # "after_fork")
-		# 	echo $pid > $TMPD/pid.parent
-		# 	pgrep -P $pid > $TMPD/pid.child
-		# 	get_mm_stats 1 $pid $(pgrep -P $pid) > /dev/null
-        #     kill -SIGUSR1 $pid
-        #     ;;
+        "after_fork")
+			echo $pid > $TMPD/pid.parent
+			pgrep -P $pid > $TMPD/pid.child
+			get_mm_stats 1 $pid $(pgrep -P $pid) > /dev/null
+            kill -SIGUSR1 $pid
+            ;;
         "before_munmap")
 			get_mm_stats 3 $pid $(pgrep -P $pid)
 
@@ -93,26 +110,5 @@ _control() {
     return 1
 }
 
-TEST_PROGRAM="$test_alloc_generic -B thp -N $THP_ALLOCATED -L '$MAPTYPE access:wait_after noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
-EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
-
-
-
-# if [ __MARK_THP_TYPE == shared_thp ] ; then
-# 	FORK=fork:wait_after
-# 	HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
-# elif [ __MARK_THP_TYPE == double_mapping ] ; then
-# 	FORK=fork:wait_after
-# 	SPLIT_THP=split_thp:only_pmd
-# 	HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
-# elif [ __MARK_THP_TYPE == pmd_split ] ; then
-# 	SPLIT_THP=split_thp:only_pmd
-# 	HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
-# elif [ __MARK_THP_TYPE == thp_split ] ; then
-# 	SPLIT_THP=split_thp
-# 	HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
-# fi
-# 
-# TEST_PROGRAM="$test_alloc_generic -B thp -N 1 -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
-# EXPECTED_RETURN_CODE="START MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
-# 
+TEST_PROGRAM="$test_alloc_generic -B thp -N $THP_ALLOCATED -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+EXPECTED_RETURN_CODE="START MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
