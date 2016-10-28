@@ -1,5 +1,5 @@
 . $TRDIR/setup_mmgeneric.sh
-. $TCDIR/setup_hugepage_migration.sh
+. $TRDIR/setup_hugepage_migration.sh
 
 THP=true
 NUMA_NODE=2
