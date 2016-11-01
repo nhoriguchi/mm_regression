@@ -4,6 +4,7 @@
 # NEED: khugepaged focused setting
 
 . $TRDIR/setup_mmgeneric.sh
+. $TRDIR/setup_hugepage_migration.sh
 
 INITIAL=__MARK_INITIAL
 BACKEND=__MARK_BACKEND
@@ -21,9 +22,9 @@ NUMA_NODE=2
 TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'start mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access access:wait_before:wait_after munmap exit:wait_before'"
 
 if [ "$INITIAL" == clean ] ; then
-	EXPECTED_RETURN_CODE="START SOFTDIRTY NO_SOFTDIRTY NO_SOFTDIRTY SOFTDIRTY EXIT"
+	EXPECTED_RETURN_CODE="START SOFTDIRTY NO_SOFTDIRTY MIGRATION_PASSED NO_SOFTDIRTY SOFTDIRTY EXIT"
 else
-	EXPECTED_RETURN_CODE="START SOFTDIRTY SOFTDIRTY SOFTDIRTY EXIT"
+	EXPECTED_RETURN_CODE="START SOFTDIRTY MIGRATION_PASSED SOFTDIRTY SOFTDIRTY EXIT"
 fi
 
 _prepare() {
@@ -64,8 +65,12 @@ _control() {
 
 			# This keep soft dirtiness
 			do_migratepages $pid 0 1
-
 			get_mm_stats 3 $pid
+			if check_migration_pagemap $TMPD/pagetypes.1 $TMPD/pagetypes.3 ; then
+				set_return_code MIGRATION_PASSED
+			else
+				set_return_code MIGRATION_FAILED
+			fi
 			check_soft_dirty 3
 			kill -SIGUSR1 $pid
 			;;
