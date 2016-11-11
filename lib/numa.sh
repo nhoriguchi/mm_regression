@@ -28,7 +28,7 @@ reonline_memblocks() {
 			block="$block $mb"
 		fi
 	done
-	echo "offlined memory blocks: $block"
+	[ "$block" ] && echo "offlined memory blocks: $block"
 	for mb in $block ; do
 		echo "Re-online memory block $mb"
 		echo online > /sys/devices/system/memory/memory${mb}/state
