@@ -45,17 +45,6 @@ if [ "$OPERATION_SRC" == hwpoison ] ; then
 	SKIP_THIS_TEST=true
 fi
 
-_prepare() {
-	prepare_mm_generic || return 1
-	reonline_memblocks
-	return 0
-}
-
-_cleanup() {
-	cleanup_mm_generic
-	reonline_memblocks
-}
-
 _control() {
     local pid="$1"
     local line="$2"

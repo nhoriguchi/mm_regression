@@ -203,6 +203,7 @@ static void create_regular_file(void) {
 
 	create_workdir(workdir);
 	sprintf(fpath, "%s/%s", workdir, filebase);
+	Dprintf("--- fpath %s\n", fpath);
 	fd = open(fpath, O_CREAT|O_RDWR, 0755);
 	if (fd == -1)
 		err("open");

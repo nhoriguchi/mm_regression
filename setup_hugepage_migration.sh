@@ -75,4 +75,3 @@ check_migration_done() {
 		set_return_code HUGEPAGE_NOT_EXIST
 	fi
 }
-

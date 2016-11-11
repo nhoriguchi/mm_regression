@@ -1,11 +1,11 @@
-#!1 THP_TYPE: shared_thp double_mapping pmd_split thp_split
+#!1 THP_TYPE: base shared_thp double_mapping pmd_split thp_split
 
 . $TRDIR/setup_thp_migration.sh
 
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
 SPLIT_THP=
-HUGEPAGE_CHECKCODE=
+HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
 ACTION=move_pages
 
 if [ __MARK_THP_TYPE == shared_thp ] ; then
