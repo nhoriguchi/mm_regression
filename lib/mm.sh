@@ -114,8 +114,15 @@ prepare_mm_generic() {
 		# show_stat_thp
 	else
 		# TODO: split existing thp forcibly via debugfs?
-		echo "disable THP"
 		set_thp_never
+	fi
+
+	if [ "$SHMEM" ] ; then
+		rm -rf $WDIR/shmem/* > /dev/null 2>&1
+		umount -f $WDIR/shmem > /dev/null 2>&1
+		rm -rf $WDIR/shmem > /dev/null 2>&1
+		mkdir -p $WDIR/shmem > /dev/null 2>&1
+		mount -t tmpfs -o huge=always tmpfs $WDIR/shmem || return 1
 	fi
 
 	# These service changes /sys/kernel/mm/ksm/run, which is not fine for us.
@@ -127,9 +134,7 @@ prepare_mm_generic() {
 		ksm_off
 	fi
 
-	if [ "$MEMORY_HOTREMOVE" ] ; then
-		reonline_memblocks
-	fi
+	reonline_memblocks
 
 	if [ "$AUTO_NUMA" ] ; then
 		enable_auto_numa
@@ -174,12 +179,16 @@ cleanup_mm_generic() {
 		ksm_off
 	fi
 
-	if [ "$MEMORY_HOTREMOVE" ] ; then
-		reonline_memblocks
-	fi
+	reonline_memblocks
 
 	if [ "$AUTO_NUMA" ] ; then
 		disable_auto_numa
+	fi
+
+	if [ "$SHMEM" ] ; then
+		rm -rf $WDIR/shmem/* > /dev/null 2>&1
+		umount -f $WDIR/shmem > /dev/null 2>&1
+		rm -rf $WDIR/shmem > /dev/null 2>&1
 	fi
 
 	if [ -f $WDIR/testfile ] ; then
