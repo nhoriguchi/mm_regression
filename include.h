@@ -655,7 +655,7 @@ static int memblock_check(void) {
 	int ret;
 	int max_memblock = get_max_memblock();
 	uint64_t *pageflags;
-	int pmemblk = 0;
+	int pmemblk = -1;
 	int max_matched_pages = 0;
 	int compound = check_compound();
 	unsigned long _memblk_size = get_memblk_size() >> PAGE_SHIFT;
@@ -663,7 +663,7 @@ static int memblock_check(void) {
 	pageflags = malloc(_memblk_size * sizeof(uint64_t));
 
 	kpageflags_fd = open("/proc/kpageflags", O_RDONLY);
-	for (i = 0; i < max_memblock; i++) {
+	for (i = 2; i < max_memblock; i++) {
 		int pfn = i * _memblk_size;
 		int matched = 0;
 
@@ -676,7 +676,7 @@ static int memblock_check(void) {
 					matched++;
 			}
 		}
-		Dprintf("memblock:%d, readret:%d matched:%d (%d%), 1:%lx, 2:%lx\n",
+		printf("memblock:%d, readret:%d matched:%d (%d%), 1:%lx, 2:%lx\n",
 		       i, ret, matched, matched*100/_memblk_size,
 		       pageflags[0], pageflags[1]);
 		if (max_matched_pages < matched) {
@@ -686,6 +686,8 @@ static int memblock_check(void) {
 				break;
 		}
 	}
+	if (pmemblk == -1)
+		errmsg("%s: failed to get perferred memblock for given pageflag set %lx\n", __func__, pageflags[j]);
 	close(kpageflags_fd);
 	free(pageflags);
 
