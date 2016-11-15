@@ -64,6 +64,14 @@ get_backend_pageflags() {
 			;;
 		thp_doublemap)
 			;;
+		thp_shmem)		# ___________M____T_____t___________f______1
+			echo "thp,mmap,anonymous,compound_head=thp,mmap,compound_head"
+			;;
+		thp_shmem_split)
+			# __RUDlA_______b___________________f____F_1
+			# TODO: maybe better flag combination
+			echo "thp,mmap,swapbacked,file=swapbacked,file"
+			;;
 		zero)			# ________________________z________________
 			echo "thp,zero_page=zero_page"
 			;;
