@@ -101,7 +101,8 @@ static unsigned long long parse_number(const char *str)
 #define KPF_SLOB_FREE		49
 #define KPF_SLUB_FROZEN		50
 #define KPF_SLUB_DEBUG		51
-#define KPF_FILE		62
+#define KPF_FILE		61
+#define KPF_SWAP		62
 #define KPF_MMAP_EXCLUSIVE	63
 
 #define KPF_ALL_BITS		((uint64_t)~0ULL)
@@ -158,6 +159,7 @@ static const char * const page_flag_names[] = {
 	[KPF_SLUB_DEBUG]	= "E:slub_debug",
 
 	[KPF_FILE]		= "F:file",
+	[KPF_SWAP]		= "w:swap",
 	[KPF_MMAP_EXCLUSIVE]	= "1:mmap_exclusive",
 };
 
