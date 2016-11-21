@@ -496,7 +496,9 @@ struct mbind_arg {
 	int hp_partial;
 };
 
-static int __mbind_chunk(char *p, int size, void *args) {
+static int __mbind_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
 	int i;
 	struct mbind_arg *mbind_arg = (struct mbind_arg *)args;
 
@@ -541,7 +543,9 @@ static void initialize_random(void) {
 	srandom(tv.tv_usec);
 }
 
-static int __mbind_fuzz_chunk(char *p, int size, void *args) {
+static int __mbind_fuzz_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
 	struct mbind_arg *mbind_arg = (struct mbind_arg *)args;
 	int node = random() % nr_nodes;
 	unsigned long offset = (random() % nr_p) * PS;
@@ -571,7 +575,9 @@ static void do_mbind_fuzz(struct op_control *opc) {
 		do_work_memory(__mbind_fuzz_chunk, (void *)&mbind_arg);
 }
 
-static int __move_pages_chunk(char *p, int size, void *args) {
+static int __move_pages_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
 	int i;
 	int node = *(int *)args;
 	void *__move_pages_addrs[CHUNKSIZE + 1];
@@ -780,7 +786,9 @@ static void do_memory_error_injection(struct op_control *opc) {
 	}
 }
 
-static int __mlock_chunk(char *p, int size, void *args) {
+static int __mlock_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
 	int i;
 	struct op_control *opc = (struct op_control *)args;
 
@@ -798,7 +806,9 @@ static void do_mlock(struct op_control *opc) {
 /* only true for x86_64 */
 #define __NR_mlock2 325
 
-static int __mlock2_chunk(char *p, int size, void *args) {
+static int __mlock2_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
 	int i;
 	struct op_control *opc = (struct op_control *)args;
 
@@ -813,7 +823,9 @@ static void do_mlock2(struct op_control *opc) {
 	do_work_memory(__mlock2_chunk, opc);
 }
 
-static int __mprotect_chunk(char *p, int size, void *args) {
+static int __mprotect_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
 	int i;
 	struct op_control *opc = (struct op_control *)args;
 
@@ -913,17 +925,19 @@ static void do_fork_stress(struct op_control *opc) {
 	}
 }
 
-static int __mremap_chunk(char *p, int csize, void *args) {
+static int __mremap_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
 	int offset = nr_chunk * CHUNKSIZE * PS;
 	int back = *(int *)args; /* 0: +offset, 1: -offset*/
 	void *new;
 
 	if (back) {
-		Dprintf("mremap p:%p+%lx -> %p\n", p + offset, csize, p);
-		new = mremap(p + offset, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p);
+		Dprintf("mremap p:%p+%lx -> %p\n", p + offset, size, p);
+		new = mremap(p + offset, size, size, MREMAP_MAYMOVE|MREMAP_FIXED, p);
 	} else {
-		Dprintf("mremap p:%p+%lx -> %p\n", p, csize, p + offset);
-		new = mremap(p, csize, csize, MREMAP_MAYMOVE|MREMAP_FIXED, p + offset);
+		Dprintf("mremap p:%p+%lx -> %p\n", p, size, p + offset);
+		new = mremap(p, size, size, MREMAP_MAYMOVE|MREMAP_FIXED, p + offset);
 	}
 	return new == MAP_FAILED ? -1 : 0;
 }
@@ -1005,7 +1019,9 @@ static pid_t do_fork(struct op_control *opc) {
 }
 
 /* TODO: chunk should be thp */
-static int __do_split_thp_chunk(char *p, int size, void *args) {
+static int __do_split_thp_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
 	int i;
 
 	for (i = 0; i * THPS < size; i++)
@@ -1028,7 +1044,9 @@ struct madvise_arg {
 	int size;
 };
 
-static int __do_madvise_chunk(char *p, int size, void *args) {
+static int __do_madvise_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
 	struct madvise_arg *madv_arg = (struct madvise_arg *)args;
 
 	if (madv_arg->size) {
@@ -1104,7 +1122,9 @@ static void do_madv_soft(struct op_control *opc) {
 	do_madvise(opc);
 }
 
-static int __process_vm_access_chunk(char *p, int size, void *args) {
+static int __process_vm_access_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
 	int i;
 	struct iovec local[1024];
 	struct iovec remote[1024];
@@ -1221,7 +1241,7 @@ static const char *op_supported_args[][10] = {
 	[NR_mmap_numa]			= {"preferred_cpu_node", "preferred_mem_node"},
 	[NR_access]			= {"type", "check"},
 	[NR_busyloop]			= {"type"},
-	[NR_munmap]			= {},
+	[NR_munmap]			= {"hp_partial"},
 	[NR_mbind]			= {"hp_partial", "flags"},
 	[NR_move_pages]			= {},
 	[NR_mlock]			= {"hp_partial"},
