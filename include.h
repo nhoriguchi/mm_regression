@@ -396,21 +396,59 @@ static void do_mmap(struct op_control *opc) {
 	}
 }
 
-static void munmap_memory(struct mem_chunk *mc) {
+/* TODO: using NR_<operation> for error message */
+static int do_work_memory(int (*func)(struct mem_chunk *mc, void *arg),
+			  void *args) {
+	int i, j;
+	int ret;
+
+	for (j = 0; j < nr_mem_types; j++) {
+		for (i = 0; i < nr_chunk; i++) {
+			struct mem_chunk *tmp = &chunkset[i + j * nr_chunk];
+
+			ret = (*func)(tmp, args);
+			if (ret != 0) {
+				char buf[64];
+				sprintf(buf, "%p", func);
+				perror(buf);
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
+struct munmap_arg {
+	int hp_partial;
+};
+
+static int __munmap_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
+	int i;
+	struct munmap_arg *munmap_arg = (struct munmap_arg *)args;
+
 	if (mc->mem_type == HUGETLB_SHMEM || mc->mem_type == NORMAL_SHMEM)
 		free_shmem(mc);
 	else if (mc->mem_type == DEVMEM) {
-		checked_munmap(mc->p, 3 * PS);
-	} else
-		checked_munmap(mc->p, mc->chunk_size);
+		checked_munmap(p, 3 * PS);
+	} else {
+		if (munmap_arg->hp_partial)
+			for (i = 0; i < (size - 1) / 512 + 1; i++)
+				checked_munmap(p + i * HPS, 511 * PS);
+		else
+			checked_munmap(p, size);
+	}
 }
 
 static void do_munmap(struct op_control *opc) {
 	int i, j;
+	/* useful to create fragmentation situation */
+	struct munmap_arg munmap_arg = {
+		.hp_partial = opc_defined(opc, "hp_partial"),
+	};
 
-	for (j = 0; j < nr_mem_types; j++)
-		for (i = 0; i < nr_chunk; i++)
-			munmap_memory(&chunkset[i + j * nr_chunk]);
+	do_work_memory(__munmap_chunk, (void *)&munmap_arg);
 }
 
 static int do_access(void *ptr) {
@@ -427,27 +465,6 @@ static int do_access(void *ptr) {
 			if (check)
 				check_memory(&chunkset[i + j * nr_chunk]);
 		}
-}
-
-/* TODO: using NR_<operation> for error message */
-static int do_work_memory(int (*func)(char *p, int size, void *arg), void *args) {
-	int i, j;
-	int ret;
-
-	for (j = 0; j < nr_mem_types; j++) {
-		for (i = 0; i < nr_chunk; i++) {
-			struct mem_chunk *tmp = &chunkset[i + j * nr_chunk];
-
-			ret = (*func)(tmp->p, tmp->chunk_size, args);
-			if (ret != 0) {
-				char buf[64];
-				sprintf(buf, "%p", func);
-				perror(buf);
-				break;
-			}
-		}
-	}
-	return ret;
 }
 
 static void do_busyloop(struct op_control *opc) {
