@@ -434,7 +434,7 @@ static int __munmap_chunk(struct mem_chunk *mc, void *args) {
 		checked_munmap(p, 3 * PS);
 	} else {
 		if (munmap_arg->hp_partial)
-			for (i = 0; i < (size - 1) / 512 + 1; i++)
+			for (i = 0; i < (size - 1) / HPS + 1; i++)
 				checked_munmap(p + i * HPS, 511 * PS);
 		else
 			checked_munmap(p, size);
@@ -520,7 +520,7 @@ static int __mbind_chunk(struct mem_chunk *mc, void *args) {
 	struct mbind_arg *mbind_arg = (struct mbind_arg *)args;
 
 	if (mbind_arg->hp_partial) {
-		for (i = 0; i < (size - 1) / 512 + 1; i++)
+		for (i = 0; i < (size - 1) / HPS + 1; i++)
 			mbind(p + i * HPS, PS,
 			      mbind_arg->mode, mbind_arg->new_nodes->maskp,
 			      mbind_arg->new_nodes->size + 1, mbind_arg->flags);
@@ -810,7 +810,7 @@ static int __mlock_chunk(struct mem_chunk *mc, void *args) {
 	struct op_control *opc = (struct op_control *)args;
 
 	if (opc_defined(opc, "hp_partial")) {
-		for (i = 0; i < (size - 1) / 512 + 1; i++)
+		for (i = 0; i < (size - 1) / HPS + 1; i++)
 			mlock(p + i * HPS, PS);
 	} else
 		mlock(p, size);
@@ -830,7 +830,7 @@ static int __mlock2_chunk(struct mem_chunk *mc, void *args) {
 	struct op_control *opc = (struct op_control *)args;
 
 	if (opc_defined(opc, "hp_partial")) {
-		for (i = 0; i < (size - 1) / 512 + 1; i++)
+		for (i = 0; i < (size - 1) / HPS + 1; i++)
 			syscall(__NR_mlock2, p + i * HPS, PS, 1);
 	} else
 		syscall(__NR_mlock2, p, size, 1);
@@ -847,7 +847,7 @@ static int __mprotect_chunk(struct mem_chunk *mc, void *args) {
 	struct op_control *opc = (struct op_control *)args;
 
 	if (opc_defined(opc, "hp_partial")) {
-		for (i = 0; i < (size - 1) / 512 + 1; i++)
+		for (i = 0; i < (size - 1) / HPS + 1; i++)
 			mprotect(p + i * HPS, PS, protflag|PROT_EXEC);
 	} else
 		mprotect(p, size, protflag|PROT_EXEC);
@@ -1059,22 +1059,32 @@ static void do_split_thp(struct op_control *opc) {
 struct madvise_arg {
 	int advice;
 	int size;
+	int hp_partial;
 };
 
 static int __do_madvise_chunk(struct mem_chunk *mc, void *args) {
 	char *p = mc->p;
 	int size = mc->chunk_size;
 	struct madvise_arg *madv_arg = (struct madvise_arg *)args;
+	int i;
+	int ret;
 
 	if (madv_arg->size) {
-		int ret;
-
 		ret = madvise(p, madv_arg->size,
 			      madv_arg->advice);
 		if (ret)
 			return ret;
-	} else
+	} else if (madv_arg->hp_partial) {
+		for (i = 0; i < (size - 1) / HPS + 1; i++) {
+			ret = madvise(p + i * HPS, madv_arg->hp_partial * PS,
+					madv_arg->advice);
+			if (ret)
+				return ret;
+		}
+		return 0;
+	} else {
 		return madvise(p, size, madv_arg->advice);
+	}
 }
 
 /* this new feature might not be available in distro's header */
@@ -1127,6 +1137,8 @@ static void do_madvise(struct op_control *opc) {
 	if (tmp = opc_get_value(opc, "size"))
 		madv_arg.size = strtoul(tmp, NULL, 0);
 
+	if (tmp = opc_get_value(opc, "hp_partial"))
+		madv_arg.hp_partial = strtoul(tmp, NULL, 0);
 	do_work_memory(__do_madvise_chunk, &madv_arg);
 }
 
@@ -1282,7 +1294,7 @@ static const char *op_supported_args[][10] = {
 	[NR_mbind_fuzz]			= {},
 	[NR_fork]			= {},
 	[NR_split_thp]			= {"only_pmd"},
-	[NR_madvise]			= {"advice", "size"},
+	[NR_madvise]			= {"advice", "size", "hp_partial"},
 	[NR_vm86]			= {},
 };
 
