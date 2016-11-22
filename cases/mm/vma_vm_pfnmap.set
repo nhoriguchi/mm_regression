@@ -1,5 +1,7 @@
 #!1 FLAVOR: simple process
 
+. $TCDIR/lib/mm.sh
+
 FLAVOR=__MARK_FLAVOR
 
 read_pagemap() {
@@ -14,9 +16,10 @@ control_vma_vm_pfnmap() {
     local pid="$1"
     local line="$2"
 
-    echo_log "$line"
+    echo_log "$line --"
     case "$line" in
         "after_access")
+$PAGETYPES -p $pid -Nrl -a 0x700000000+0x100
             read_pagemap $pid 0x700000000 1 $TMPD/case1
             read_pagemap $pid 0x700000001 1 $TMPD/case2
             read_pagemap $pid 0x700000002 1 $TMPD/case3
