@@ -1060,6 +1060,10 @@ struct madvise_arg {
 	int advice;
 	int size;
 	int hp_partial;
+
+	int offset;
+	int length;
+	int step;
 };
 
 static int __do_madvise_chunk(struct mem_chunk *mc, void *args) {
@@ -1080,6 +1084,23 @@ static int __do_madvise_chunk(struct mem_chunk *mc, void *args) {
 					madv_arg->advice);
 			if (ret)
 				return ret;
+		}
+		return 0;
+	} else if (madv_arg->offset || madv_arg->length || madv_arg->step) {
+		i = madv_arg->offset;
+		while (1) {
+			int tmplen = madv_arg->length * PS;
+
+			if (i * PS + tmplen > size)
+				tmplen = size - i * PS;
+			ret = madvise(p + i * PS, tmplen, madv_arg->advice);
+			if (ret)
+				return ret;
+			if (madv_arg->step == 0)
+				break;
+			i += madv_arg->step;
+			if (i * PS > size)
+				break;
 		}
 		return 0;
 	} else {
@@ -1139,6 +1160,14 @@ static void do_madvise(struct op_control *opc) {
 
 	if (tmp = opc_get_value(opc, "hp_partial"))
 		madv_arg.hp_partial = strtoul(tmp, NULL, 0);
+
+	if (tmp = opc_get_value(opc, "offset"))
+		madv_arg.offset = strtoul(tmp, NULL, 0);
+	if (tmp = opc_get_value(opc, "length"))
+		madv_arg.length = strtoul(tmp, NULL, 0);
+	if (tmp = opc_get_value(opc, "step"))
+		madv_arg.step = strtoul(tmp, NULL, 0);
+
 	do_work_memory(__do_madvise_chunk, &madv_arg);
 }
 
@@ -1294,7 +1323,7 @@ static const char *op_supported_args[][10] = {
 	[NR_mbind_fuzz]			= {},
 	[NR_fork]			= {},
 	[NR_split_thp]			= {"only_pmd"},
-	[NR_madvise]			= {"advice", "size", "hp_partial"},
+	[NR_madvise]			= {"advice", "size", "hp_partial", "offset", "length", "step"},
 	[NR_vm86]			= {},
 };
 
