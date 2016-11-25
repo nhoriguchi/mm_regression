@@ -203,14 +203,23 @@ static void create_regular_file(void) {
 
 	create_workdir(workdir);
 	sprintf(fpath, "%s/%s", workdir, filebase);
-	Dprintf("--- fpath %s\n", fpath);
-	fd = open(fpath, O_CREAT|O_RDWR, 0755);
-	if (fd == -1)
-		err("open");
-	memset(buf, 'a', PS);
-	for (i = 0; i < nr_p; i++)
-		write(fd, buf, PS);
-	fsync(fd);
+
+	Dprintf("%s: fpath %s\n", __func__, fpath);
+	if(access(fpath, F_OK) != -1) {
+		printf("%s: %s already exists.\n", __func__, fpath);
+		fd = open(fpath, O_RDWR, 0755);
+		if (fd == -1)
+			err("open");
+	} else {
+		printf("%s: %s not found, now create it.\n", __func__, fpath);
+		fd = open(fpath, O_CREAT|O_RDWR, 0755);
+		if (fd == -1)
+			err("open");
+		memset(buf, 'a', PS);
+		for (i = 0; i < nr_p; i++)
+			write(fd, buf, PS);
+		fsync(fd);
+	}
 }
 
 /*
