@@ -849,21 +849,40 @@ static void do_mlock2(struct op_control *opc) {
 	do_work_memory(__mlock2_chunk, opc);
 }
 
+struct mprotect_arg {
+	int permission;
+	int hp_partial;
+};
+
 static int __mprotect_chunk(struct mem_chunk *mc, void *args) {
 	char *p = mc->p;
 	int size = mc->chunk_size;
 	int i;
-	struct op_control *opc = (struct op_control *)args;
+	int prot = protflag | PROT_EXEC;
+	struct mprotect_arg *arg = (struct mprotect_arg *)args;
 
-	if (opc_defined(opc, "hp_partial")) {
+	if (arg->permission != -1)
+		prot = arg->permission;
+
+	if (arg->hp_partial) {
 		for (i = 0; i < (size - 1) / HPS + 1; i++)
-			mprotect(p + i * HPS, PS, protflag|PROT_EXEC);
+			mprotect(p + i * HPS, PS, prot);
 	} else
-		mprotect(p, size, protflag|PROT_EXEC);
+		mprotect(p, size, prot);
 }
 
 static void do_mprotect(struct op_control *opc) {
-	do_work_memory(__mprotect_chunk, opc);
+	char *tmp;
+	struct mprotect_arg mprotect_arg = {
+		.permission = -1,
+	};
+
+	if (tmp = opc_get_value(opc, "hp_partial"))
+		mprotect_arg.hp_partial = strtoul(tmp, NULL, 0);
+	if (tmp = opc_get_value(opc, "permission"))
+		mprotect_arg.permission = strtoul(tmp, NULL, 0);
+
+	do_work_memory(__mprotect_chunk, &mprotect_arg);
 }
 
 static void allocate_transhuge(void *ptr)
@@ -1315,7 +1334,7 @@ static const char *op_supported_args[][10] = {
 	[NR_mlock2]			= {"hp_partial"},
 	[NR_memory_error_injection]	= {"error_type", "access_after_injection"},
 	[NR_auto_numa]			= {"busyloop"},
-	[NR_mprotect]			= {"hp_partial"},
+	[NR_mprotect]			= {"hp_partial", "permission"},
 	[NR_change_cpuset]		= {"busyloop"},
 	[NR_migratepages]		= {"busyloop"},
 	[NR_memory_compaction]		= {},
