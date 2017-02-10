@@ -38,7 +38,7 @@ case "$BACKEND" in
 		HUGEPAGESIZE=2048 # kB
 		;;
 	ksm)
-		FALSENEGATIVE=true
+		FALSENEGATIVE=false
 		;;
 	zero|huge_zero)
 		FALSENEGATIVE=true
