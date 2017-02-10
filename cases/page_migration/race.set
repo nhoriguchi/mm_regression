@@ -1,3 +1,4 @@
+#!1 BACKEND: hugetlb_anon thp
 #!1 MIGRATE_SRC: migratepages move_pages
 #!1 RACE_SRC: iterate_mapping gup mremap_stress
 
@@ -5,12 +6,19 @@
 
 . $TRDIR/setup_page_migration.sh
 
+BACKEND=__MARK_BACKEND
 MIGRATE_SRC=__MARK_MIGRATE_SRC
 RACE_SRC=__MARK_RACE_SRC
 
 NUMA_NODE=2
-HUGEPAGESIZE=2048 # kB
-HUGETLB=300
+
+if [[ "$BACKEND" =~ hugetlb ]] ; then
+	HUGETLB=300
+	HUGEPAGESIZE=2048 # kB
+elif  [[ "$BACKEND" =~ thp ]] ; then
+	THP=true
+fi
+
 EXPECTED_RETURN_CODE="START EXIT"
 
 ITERATE=10
@@ -18,15 +26,15 @@ WAITSEC=3
 
 run_race_src() {
 	if [ "$RACE_SRC" == iterate_mapping ] ; then
-		$test_alloc_generic -B hugetlb_anon -N 10 -L iterate_mapping
+		$test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping
 	elif [ "$RACE_SRC" == gup ] ; then
 		# how to wait allocation done?
-		$test_alloc_generic -B hugetlb_anon -N 100 -L 'start mmap access:wait_after madv_soft' > /dev/null &
+		$test_alloc_generic -B $BACKEND -N 100 -L 'start mmap access:wait_after madv_soft' > /dev/null &
 		local mypid=$!
 		sleep 2
 		kill -SIGUSR1 $mypid
 	elif [ "$RACE_SRC" == mremap_stress ] ; then
-		$test_alloc_generic -B anonymous -N 10 -L 'start mmap access mremap_stress' > /dev/null &
+		$test_alloc_generic -B $BACKEND -N 10 -L 'start mmap access mremap_stress' > /dev/null &
 	fi
 }
 
