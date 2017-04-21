@@ -1,6 +1,6 @@
 #!1 BACKEND: hugetlb_anon thp
 #!1 MIGRATE_SRC: migratepages move_pages
-#!1 RACE_SRC: iterate_mapping gup mremap_stress
+#!1 RACE_SRC: iterate_mapping gup mremap_stress iterate_fault_dontneed
 
 # TODO: race with madv_free
 
@@ -26,7 +26,7 @@ WAITSEC=3
 
 run_race_src() {
 	if [ "$RACE_SRC" == iterate_mapping ] ; then
-		$test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping
+		$test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping > /dev/null
 	elif [ "$RACE_SRC" == gup ] ; then
 		# how to wait allocation done?
 		$test_alloc_generic -B $BACKEND -N 100 -L 'start mmap access:wait_after madv_soft' > /dev/null &
@@ -34,7 +34,9 @@ run_race_src() {
 		sleep 2
 		kill -SIGUSR1 $mypid
 	elif [ "$RACE_SRC" == mremap_stress ] ; then
-		$test_alloc_generic -B $BACKEND -N 10 -L 'start mmap access mremap_stress' > /dev/null &
+		$test_alloc_generic -B $BACKEND -N 10 -L 'start mmap access mremap_stress' > /dev/null
+	elif [ "$RACE_SRC" == iterate_fault_dontneed ] ; then
+		exec $test_alloc_generic -B $BACKEND -N 10 -L iterate_fault_dontneed > /dev/null
 	fi
 }
 
@@ -52,14 +54,14 @@ run_migrate_src() {
 _control() {
 	get_mm_stats 1
 	for i in $(seq $ITERATE) ; do
+		echo "==> iterate $i"
 		run_race_src &
-		local pidhuge=$!
 		# echo "run_migrate_src $pidhuge &"
-		run_migrate_src $pidhuge &
+		run_migrate_src &
 		local pidmove=$!
 		sleep $WAITSEC
 		disown -a
-		pkill -SIGUSR1 -f $test_alloc_generic > /dev/null 2>&1
+		pkill -SIGKILL -f $test_alloc_generic > /dev/null 2>&1
 		kill -SIGTERM $pidmove > /dev/null 2>&1
 	done
 	get_mm_stats 2

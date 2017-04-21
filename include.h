@@ -1208,6 +1208,15 @@ static void do_madv_soft(struct op_control *opc) {
 	do_madvise(opc);
 }
 
+static void do_iterate_fault_dontneed(struct op_control *opc) {
+	do_mmap(opc);
+	opc_set_value(opc, "advice", "dontneed");
+	while (flag) {
+		do_access(opc);
+		do_madvise(opc);
+	}
+}
+
 static int __process_vm_access_chunk(struct mem_chunk *mc, void *args) {
 	char *p = mc->p;
 	int size = mc->chunk_size;
@@ -1264,6 +1273,7 @@ enum {
 	NR_allocate_more,
 	NR_madv_soft,
 	NR_iterate_mapping,
+	NR_iterate_fault_dontneed,
 	NR_mremap,
 	NR_mremap_stress,
 	NR_hotremove,
@@ -1301,6 +1311,7 @@ static const char *operation_name[] = {
 	[NR_allocate_more]		= "allocate_more",
 	[NR_madv_soft]			= "madv_soft",
 	[NR_iterate_mapping]		= "iterate_mapping",
+	[NR_iterate_fault_dontneed]	= "iterate_fault_dontneed",
 	[NR_mremap]			= "mremap",
 	[NR_mremap_stress]		= "mremap_stress",
 	[NR_hotremove]			= "hotremove",
@@ -1341,6 +1352,7 @@ static const char *op_supported_args[][10] = {
 	[NR_allocate_more]		= {},
 	[NR_madv_soft]			= {},
 	[NR_iterate_mapping]		= {},
+	[NR_iterate_fault_dontneed]	= {},
 	[NR_mremap]			= {},
 	[NR_mremap_stress]		= {},
 	[NR_hotremove]			= {"busyloop", "pageflags"},
@@ -1529,6 +1541,8 @@ static void do_operation_loop(void) {
 			do_madv_soft(&opc);
 		} else if (!strcmp(opc.name, "iterate_mapping")) {
 			do_iterate_mapping(&opc);
+		} else if (!strcmp(opc.name, "iterate_fault_dontneed")) {
+			do_iterate_fault_dontneed(&opc);
 		} else if (!strcmp(opc.name, "mremap")) {
 			do_mremap(&opc);
 		} else if (!strcmp(opc.name, "mremap_stress")) {
