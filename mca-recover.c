@@ -53,16 +53,6 @@ unsigned long long vtop(unsigned long long addr)
 	return ((pinfo & 0x007fffffffffffffull) << 12) + (addr & (pagesize - 1));
 }
 
-int checksum(unsigned char *addr)
-{
-	int	i, sum;
-
-	sum = 0;
-	for (i = 0; i < pagesize; i++)
-		sum += addr[i];
-	return sum;
-}
-
 /*
  * Older glibc headers don't have the si_addr_lsb field in the siginfo_t
  * structure ... ugly hack to get it
@@ -74,6 +64,7 @@ struct morebits {
 
 char	*buf;
 unsigned long long	phys;
+int tried_recovery;
 
 /*
  * "Recover" from the error by allocating a new page and mapping
@@ -85,6 +76,7 @@ void recover(int sig, siginfo_t *si, void *v)
 	struct morebits *m = (struct morebits *)&si->si_addr;
 	char	*newbuf;
 
+	tried_recovery = 1;
 	printf("recover: sig=%d si=%p v=%p\n", sig, si, v);
 	printf("Platform memory error at 0x%p\n", si->si_addr);
 	printf("addr = %p lsb=%d\n", m->addr, m->lsb);
@@ -112,10 +104,8 @@ struct sigaction recover_act = {
 
 int main(int argc, char **argv)
 {
-	int	i, sum, rightsum;
-	int	iflag = 0;
-	int	tflag = 0;
-	time_t	now;
+	int	i;
+	char	reply[100];
 
 	pagesize = getpagesize();
 
@@ -126,21 +116,28 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	memset(buf, '*', pagesize);
-	rightsum = checksum(buf);
 	phys = vtop((unsigned long long)buf);
 
 	printf("vtop(%llx) = %llx\n", (unsigned long long)buf, phys);
+	printf("Use /sys/kernel/debug/apei/einj/... to inject\n");
+	printf("Then press <ENTER> to access:");
 	fflush(stdout);
 
 	sigaction(SIGBUS, &recover_act, NULL);
 
-	while (1) {
-		sum = checksum(buf);
-		if (sum != rightsum) {
-			printf("Ooops.  Saw bad checksum %d\n", sum);
-			break;
-		}
+	fgets(reply, sizeof reply, stdin);
+
+	i = buf[0];
+
+	if (tried_recovery == 0) {
+		fprintf(stderr, "%s: didn't trigger error\n", argv[0]);
+		return 1;
+	}
+	if (i != '*') {
+		fprintf(stderr, "%s: triggered error, but got bad data\n", argv[0]);
+		return 1;
 	}
 
-	return 1;
+	printf("Successful recovery\n");
+	return 0;
 }
