@@ -1,0 +1,87 @@
+#!1 BACKEND: anonymous hugetlb_anon
+
+. $TRDIR/setup_page_migration.sh
+
+NUMA_NODE=2
+
+HUGEPAGESIZE=2048
+BACKEND=__MARK_BACKEND
+MEMSIZE=$[$MEMTOTAL/$HUGEPAGESIZE*3/5] # 60% of total memsize
+MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
+ACTION=hotremove:pageflags=$(get_backend_pageflags $BACKEND)
+
+_prepare() {
+	prepare_mm_generic || return 1
+	reonline_memblocks
+	return 0
+}
+
+_cleanup() {
+	cleanup_mm_generic
+	reonline_memblocks
+}
+
+_control() {
+    local pid="$1"
+    local line="$2"
+
+    echo_log "$line"
+    case "$line" in
+		"after_access")
+            kill -SIGUSR1 $pid
+            ;;
+        "before_munmap")
+            kill -SIGUSR1 $pid
+            ;;
+        "after_noop")
+            kill -SIGUSR1 $pid
+            ;;
+        "before_exit")
+            set_return_code "EXIT"
+            kill -SIGUSR1 $pid
+            return 0
+            ;;
+		"waiting for memory_hotremove"*)
+			echo $line | sed "s/waiting for memory_hotremove: *//" > $TMPD/preferred_memblk
+			MEMBLK_SIZE=0x$(cat /sys/devices/system/memory/block_size_bytes)
+			MEMBLK_SIZE=$[MEMBLK_SIZE / 4096]
+
+			targetmemblk=$(cat $TMPD/preferred_memblk)
+			echo_log "preferred memory block: $targetmemblk"
+
+			## inject hwpoison on the target memblock
+			echo_log "echo $[$targetmemblk * $MEMBLK_SIZE * 4096] > /sys/devices/system/memory/hard_offline_page"
+			echo $[$targetmemblk * $MEMBLK_SIZE * 4096] > /sys/devices/system/memory/hard_offline_page
+
+			echo_log "echo offline > /sys/devices/system/memory/memory$targetmemblk/state"
+			OFFLINE_STATE=$(cat /sys/devices/system/memory/memory$targetmemblk/state)
+			echo_log "online state of memblock $targetmemblk: $OFFLINE_STATE"
+			echo offline > /sys/devices/system/memory/memory$targetmemblk/state
+			OFFLINE_STATE=$(cat /sys/devices/system/memory/memory$targetmemblk/state)
+			if [ "$OFFLINE_STATE" == offline ] ; then
+				echo_log "onlining memblock $targetmemblk: PASS"
+				set_return_code OFFLINED
+			else
+				echo_log "onlining memblock $targetmemblk: FAIL"
+				set_return_code OFFLINED_FAILED
+			fi
+			echo_log "reonlining..."
+			echo online > /sys/devices/system/memory/memory$targetmemblk/state
+			OFFLINE_STATE=$(cat /sys/devices/system/memory/memory$targetmemblk/state)
+			if [ "$OFFLINE_STATE" == online ] ; then
+				echo_log "reonlining memblock $targetmemblk: PASS"
+				set_return_code REONLINED
+			else
+				echo_log "reonlining memblock $targetmemblk: FAIL"
+				set_return_code REONLINED_FAILED
+			fi
+			kill -SIGUSR1 $pid
+			;;
+        *)
+            ;;
+    esac
+    return 1
+}
+
+EXPECTED_RETURN_CODE="START OFFLINED REONLINED EXIT"
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $MEMSIZE -L '$MAPTYPE access:wait_after noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
