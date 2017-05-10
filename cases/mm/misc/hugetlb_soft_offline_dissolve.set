@@ -2,7 +2,7 @@
 # when overcommit is on, free_huge_page leaks the target hugepage somewhere, so
 # no PageBuddy flag is set.
 
-#!1 OVERCOMMIT: none overcommit
+#!1 FLAVOR: none overcommit free
 
 . $TRDIR/setup_page_migration.sh
 
@@ -12,23 +12,37 @@ MIGRATE_SRC=__MARK_MIGRATE_SRC
 NUMA_NODE=2
 HUGEPAGESIZE=2048 # kB
 
-EXPECTED_RETURN_CODE=""
-
 PIPETIMEOUT=20
 
-if [ "__MARK_OVERCOMMIT" == none ] ; then
+if [ "__MARK_FLAVOR" == none ] ; then
 	HUGETLB_ALLOCATE=2
 	HUGETLB=100
 	HUGETLB_OVERCOMMIT=
 	EXPECTED_RETURN_CODE="START NOLEAKED DISSOLVED REUSABLE_OK EXIT"
-elif [ "__MARK_OVERCOMMIT" == overcommit ] ; then
+	_control() {
+		__control_inuse $@
+	}
+elif [ "__MARK_FLAVOR" == overcommit ] ; then
 	HUGETLB_ALLOCATE=2
 	HUGETLB=0
 	HUGETLB_OVERCOMMIT=100
-	EXPECTED_RETURN_CODE="SET_OVERCOMMIT START LEAKED REUSABLE_OK EXIT"
+	EXPECTED_RETURN_CODE="SET_OVERCOMMIT START NOLEAKED REUSABLE_OK EXIT"
+	_control() {
+		__control_inuse $@
+	}
+elif [ "__MARK_FLAVOR" == free ] ; then
+	HUGETLB=2
+	HUGETLB_OVERCOMMIT=
+	EXPECTED_RETURN_CODE="START NOLEAKED DISSOLVED REUSABLE_OK EXIT"
+	_control() {
+		__control_free $@
+	}
 fi
 
-TEST_PROGRAM="$test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATE -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft:wait_after'"
+kick_soft_offline() {
+	local pfn=$1
+	echo $[pfn * 4096] > /sys/devices/system/memory/soft_offline_page
+}
 
 check_leak() {
 	echo_log "--- $FUNCNAME"
@@ -81,10 +95,13 @@ check_reusable() {
 	kill -9 $backpid
 }
 
-_control() {
-	echo_log "running $TEST_PROGRAM"
-	$TEST_PROGRAM &
+__control_inuse() {
+	$test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATE -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft:wait_after' &
 	sleep 1.0
+	if ! pgrep -f test_alloc_generic ; then
+		ps axfw
+		exit
+	fi
 	echo_log "--- check initial page status"
 	$PAGETYPES -p $(pgrep -f test_alloc_generic) -Nrl -b compound_head | grep ^7000 | tee $TMPD/1 >&2
 	target1=$(sed -ne 1p $TMPD/1 | cut -f2)
@@ -97,7 +114,8 @@ _control() {
 	# This find the corner case where 2 soft offline events can makes the
 	# 1st source hugetlb (freed to buddy after 1st event) leaked.
 	echo_log "soft offline pfn 0x${target2}"
-	echo 0x${target2}000 > /sys/devices/system/memory/soft_offline_page
+	kick_soft
+	kick_soft_offline 0x$target2
 	sleep 1.0
 	echo_log "--- check page status after soft_offline"
 	$PAGETYPES -a $[0x$target1]+0x200 -a $[0x$target2]+0x200 -Nrl | tee $TMPD/3 >&2
@@ -107,10 +125,27 @@ _control() {
 	$PAGETYPES -a $[0x$target1]+0x200 -a $[0x$target2]+0x200 -Nrl | tee $TMPD/4 >&2
 
 	check_leak 0x$target1
-	if [ "__MARK_OVERCOMMIT" == none ] ; then
+	if [ "__MARK_FLAVOR" == none ] ; then
 		check_dissolve 0x$target1
 	fi
 	check_reusable 0x$target1
 
+	set_return_code EXIT
+}
+
+__control_free() {
+	echo_log "--- check initial page status"
+	$PAGETYPES -Nrl -b huge | grep -v offset | tee $TMPD/1 >&2
+	target1=$(sed -ne 1p $TMPD/1 | cut -f1)
+	echo_log "target1 $target1"
+	kick_soft_offline 0x$target1
+	echo_log "--- check page status after soft_offline"
+	$PAGETYPES -a 0x$target1+0x200 -Nrl | tee $TMPD/2 >&2
+	all_unpoison
+	echo_log "--- check page status after unpoison"
+	$PAGETYPES -a 0x$target1+0x200 -Nrl | tee $TMPD/3 >&2
+	check_leak 0x$target1
+	check_dissolve 0x$target1
+	check_reusable 0x$target1
 	set_return_code EXIT
 }
