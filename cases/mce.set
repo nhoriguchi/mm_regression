@@ -2,7 +2,8 @@
 #!1 ERROR_TYPE: mce-srao hard-offline soft-offline madv_hard madv_soft
 #!1 ACCESS_LATER: later_access avoid_access
 
-#!2 BACKEND: hugetlb_anon thp
+# TODO: BACKEND=hugetlb_shmem?
+#!2 BACKEND: hugetlb_anon hugetlb_file hugetlb_shmem thp
 #!2 ERROR_TYPE: mce-srao hard-offline soft-offline madv_hard madv_soft
 #!2 ACCESS_LATER: later_access avoid_access
 #!2 ERROR_OFFSET: head tail
