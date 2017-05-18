@@ -86,5 +86,10 @@ check_remove_suffix() {
 		return 1
 	fi
 
+	if [[ "$recipe" =~ \.sh$ ]] ; then
+		echo "$recipe: .sh file maybe is an helper/routine file, not a recipe file. So just skip it."
+		return 1
+	fi
+
 	return 0
 }
