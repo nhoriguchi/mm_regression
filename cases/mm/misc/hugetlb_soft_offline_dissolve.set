@@ -2,7 +2,7 @@
 # when overcommit is on, free_huge_page leaks the target hugepage somewhere, so
 # no PageBuddy flag is set.
 
-#!1 FLAVOR: none overcommit free
+#!1 FLAVOR: none overcommit free full_reserved
 
 . $TRDIR/setup_page_migration.sh
 
@@ -31,6 +31,13 @@ elif [ "__MARK_FLAVOR" == overcommit ] ; then
 		__control_inuse $@
 	}
 elif [ "__MARK_FLAVOR" == free ] ; then
+	HUGETLB=2
+	HUGETLB_OVERCOMMIT=
+	EXPECTED_RETURN_CODE="START NOLEAKED DISSOLVED REUSABLE_OK EXIT"
+	_control() {
+		__control_free $@
+	}
+elif [ "__MARK_FLAVOR" == full_reserved ] ; then
 	HUGETLB=2
 	HUGETLB_OVERCOMMIT=
 	EXPECTED_RETURN_CODE="START NOLEAKED DISSOLVED REUSABLE_OK EXIT"
@@ -134,6 +141,9 @@ __control_inuse() {
 }
 
 __control_free() {
+	if [ "__MARK_FLAVOR" == full_reserved ] ; then
+		$test_alloc_generic -B hugetlb_anon -N $HUGETLB -L 'mmap:wait_after' &
+	fi
 	echo_log "--- check initial page status"
 	$PAGETYPES -Nrl -b huge | grep -v offset | tee $TMPD/1 >&2
 	target1=$(sed -ne 1p $TMPD/1 | cut -f1)
@@ -141,9 +151,18 @@ __control_free() {
 	kick_soft_offline 0x$target1
 	echo_log "--- check page status after soft_offline"
 	$PAGETYPES -a 0x$target1+0x200 -Nrl | tee $TMPD/2 >&2
+	if [ "__MARK_FLAVOR" == full_reserved ] ; then
+		pkill -f -9 test_alloc_generic
+		echo_log "--- check page status after kill test_alloc_generic"
+		$PAGETYPES -a 0x$target1+0x200 -Nrl | tee $TMPD/5 >&2
+	fi
 	all_unpoison
 	echo_log "--- check page status after unpoison"
 	$PAGETYPES -a 0x$target1+0x200 -Nrl | tee $TMPD/3 >&2
+	set_and_check_hugetlb_pool 0
+	echo_log "--- check page status after shrink pool"
+	$PAGETYPES -a 0x$target1+0x200 -Nrl | tee $TMPD/4 >&2
+
 	check_leak 0x$target1
 	check_dissolve 0x$target1
 	check_reusable 0x$target1
