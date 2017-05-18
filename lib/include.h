@@ -204,10 +204,18 @@ static int checked_write(int fd, char *str) {
 int pipe_read(char *buf) {
 	int pipefd;
 	int ret;
+	int flags;
 	if (!testpipe)
 		perror("testpipe not set (with -p option)\n");
 	pipefd = checked_open(testpipe, O_RDONLY);
-	ret = checked_read(pipefd, buf);
+	flags = fcntl(pipefd, F_GETFL);
+	if (flags == -1)
+		perror("fcntl(F_GETFL)");
+	flags |= O_NONBLOCK;
+	fcntl(pipefd, F_SETFL, flags);
+	if (flags == -1)
+		perror("fcntl(F_SETFL)");
+	ret = read(pipefd, buf, sizeof(buf));
 	checked_close(pipefd);
 	return ret;
 }
