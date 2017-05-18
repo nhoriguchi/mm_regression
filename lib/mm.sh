@@ -153,6 +153,7 @@ prepare_mm_generic() {
 	# TODO: better location?
 	all_unpoison
 	ipcrm --all > /dev/null 2>&1
+	echo 3 > /proc/sys/vm/drop_caches
 }
 
 cleanup_mm_generic() {
@@ -279,6 +280,7 @@ get_mm_global_stats() {
 	show_hugetlb_pool > $TMPD/hugetlb_pool.$tag
 	cp /proc/meminfo $TMPD/meminfo.$tag
 	cp /proc/vmstat $TMPD/vmstat.$tag
+	cp /proc/buddyinfo $TMPD/buddyinfo.$tag
 	if [ "$CGROUP" ] ; then
 		cgget -g $CGROUP > $TMPD/cgroup.$tag
 	fi
