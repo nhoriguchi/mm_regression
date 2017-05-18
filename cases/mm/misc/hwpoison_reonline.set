@@ -9,6 +9,9 @@ BACKEND=__MARK_BACKEND
 MEMSIZE=$[$MEMTOTAL/$HUGEPAGESIZE*3/5] # 60% of total memsize
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 ACTION=hotremove:pageflags=$(get_backend_pageflags $BACKEND)
+if [ "$BACKEND" == hugetlb_anon ] ; then
+	HUGETLB=$[$MEMTOTAL/$HUGEPAGESIZE*4/5] # 80% of total memsize
+fi
 
 _prepare() {
 	prepare_mm_generic || return 1
