@@ -72,8 +72,13 @@ check_nr_hwcorrupted() {
 
 BASEVFN=0x700000000
 
+# <2017-05-09 Tue 15:48> latest development kernel make /dev/mcelog character
+# device as depricated, so we need turn on the config CONFIG_X86_MCE_INJECT
+# and CONFIG_X86_MCELOG_LEGACY in your kernel.
 if ! lsmod | grep mce_inject > /dev/null ; then
-    modprobe mce_inject
+    if ! modprobe mce_inject ; then
+		echo "You might have to enable CONFIG_X86_MCELOG_LEGACY in your kernel."
+	fi
 fi
 
 if ! lsmod | grep hwpoison_inject > /dev/null ; then
