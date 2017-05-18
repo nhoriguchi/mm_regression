@@ -408,6 +408,8 @@ __do_test() {
 			fi
 		fi
 	done
+	# TODO: review carefully
+	[[ "$(jobs -p)" ]] && kill -9 $(jobs -p) 2> /dev/null
 	pkill -9 -f "$cmd" | tee -a ${OFILE}
 	exec 11<&-
 	exec 11>&-
@@ -436,7 +438,7 @@ do_test_try() {
 	local failure_before="$(cat $TMPD/_failure)"
 
 	echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
-	# check_test_flag && break
+	check_test_flag && break
 	# check_inclusion_of_fixedby_patch && break
 
 	if [ "$TEST_PROGRAM" ] ; then
