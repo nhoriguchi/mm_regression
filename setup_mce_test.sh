@@ -109,6 +109,7 @@ control_mce_test() {
 			"error injection with madvise")
 				# tell cmd the page offset into which error is injected
 				echo $ERROR_OFFSET > $PIPE
+				sleep 0.1
 				kill -SIGUSR1 $pid
 				;;
 			"after madvise injection")

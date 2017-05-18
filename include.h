@@ -794,7 +794,10 @@ static void do_memory_error_injection(struct op_control *opc) {
 		int ret;
 
 		pprintf_wait_func(NULL, opc, "error injection with madvise\n");
-		pipe_read(rbuf);
+		ret = pipe_read(rbuf);
+		/* TODO: how to handle this issue? (currently soft retry) */
+		if (ret == -1)
+			perror("pipe_read");
 		offset = strtol(rbuf, NULL, 0);
 		Dprintf("madvise inject to addr %lx\n", chunkset[0].p + offset * PS);
 		if ((ret = madvise(chunkset[0].p + offset * PS, PS,
