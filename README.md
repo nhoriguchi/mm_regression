@@ -78,4 +78,4 @@ RECIPEFILES="$(make allrecipes | grep foo)" make test
 ```
 
 ## Contact
-- Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>
+- Naoya Horiguchi <n-horiguchi@ah.jp.nec.com> / <nao.horiguchi@gmail.com>
