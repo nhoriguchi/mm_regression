@@ -20,7 +20,7 @@ if [ "$BACKEND" == ksm ] ; then
 	KSM=true
 fi
 
-TIMEOUT=5
+TIMEOUT=10
 
 case "$BACKEND" in
 	buddy|zero|huge_zero)
