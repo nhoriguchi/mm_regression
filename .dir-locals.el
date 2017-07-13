@@ -4,7 +4,10 @@
  (sh-mode . ((indent-tabs-mode . t)
 	     (sh-basic-offset . 4)
 	     (tab-width . 4)))
- (c-mode . ((c-file-style . "Linux")))
+ (c-mode . ((c-file-style . "Linux")
+            (indent-tabs-mode . t)
+            (tab-width . 8)
+            ))
  ("src/imported"
   . ((nil . ((change-log-default-name
               . "ChangeLog.local"))))))
