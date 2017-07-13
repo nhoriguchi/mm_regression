@@ -1,11 +1,11 @@
 #!/bin/bash
 
-SDIR=`dirname $BASH_SOURCE`
+SDIR=$(dirname $BASH_SOURCE)
 PID=""
 PFN=""
 ERRORTYPE=""
 DOUBLE=false
-VERBOSE=false
+VERBOSE=
 TARGET=
 while getopts "p:a:e:Dvh" opt ; do
     case $opt in
@@ -17,6 +17,9 @@ while getopts "p:a:e:Dvh" opt ; do
         h) usage 0 ;;
     esac
 done
+
+# new MCE injection interface since 4.12
+SYSDIR=/sys/kernel/debug/mce-inject
 
 usage() {
     local sname=`basename $BASH_SOURCE`
@@ -35,38 +38,77 @@ usage() {
 
 inject_error() {
 	local tmpd=$(mktemp -d)
+	local cpu=`cat /proc/self/stat | cut -d' ' -f39`
+	local bank=1
 
     if [ "$ERRORTYPE" = "hard-offline" ] ; then
         echo $[$TARGET * 4096] > /sys/devices/system/memory/hard_offline_page 2> /dev/null
     elif [ "$ERRORTYPE" = "soft-offline" ] ; then
         echo $[$TARGET * 4096] > /sys/devices/system/memory/soft_offline_page 2> /dev/null
     elif [ "$ERRORTYPE" = "mce-srao" ] ; then
-        cat <<EOF > $tmpd/mce-inject
-CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 2
+		[ "$VERBOSE" ] && echo "cpu:$cpu, addr:$[TARGET * 4096], bank:$bank, ERRORTYPE:$ERRORTYPE"
+		if [ -d "$SYSDIR" ] ; then
+			echo $cpu               > $SYSDIR/cpu
+			echo hw                 > $SYSDIR/flags
+			echo $[$TARGET * 4096]  > $SYSDIR/addr
+			echo 0xbd0000000000017a > $SYSDIR/status
+			echo 0x8c               > $SYSDIR/misc
+			echo 0                  > $SYSDIR/synd
+			echo $bank              > $SYSDIR/bank
+		elif [ -e /dev/mcelog ] ; then
+			cat <<EOF > $tmpd/mce-inject
+CPU $cpu BANK $bank
 STATUS UNCORRECTED SRAO 0x17a
 MCGSTATUS RIPV MCIP
 ADDR $[$TARGET * 4096]
 MISC 0x8c
 RIP 0x73:0x1eadbabe
 EOF
-        mce-inject $tmpd/mce-inject
+			mce-inject $tmpd/mce-inject
+		else
+			echo "No MCE injection interface found in this system." >&2
+		fi
     elif [ "$ERRORTYPE" = "mce-srar" ] ; then
-        cat <<EOF > $tmpd/mce-inject
-CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 1
+		if [ -d "$SYSDIR" ] ; then
+			echo $cpu               > $SYSDIR/cpu
+			echo hw                 > $SYSDIR/flags
+			echo $[$TARGET * 4096]  > $SYSDIR/addr
+			echo 0xbd80000000000134 > $SYSDIR/status
+			echo 0x8c               > $SYSDIR/misc
+			echo 0                  > $SYSDIR/synd
+			echo $bank              > $SYSDIR/bank
+		elif [ -e /dev/mcelog ] ; then
+			cat <<EOF > $tmpd/mce-inject
+CPU $cpu BANK $bank
 STATUS UNCORRECTED SRAR 0x134
 MCGSTATUS RIPV MCIP EIPV
 ADDR $[$TARGET * 4096]
 MISC 0x8c
 RIP 0x73:0x3eadbabe
 EOF
-        mce-inject $tmpd/mce-inject
+			mce-inject $tmpd/mce-inject
+		else
+			echo "No MCE injection interface found in this system." >&2
+		fi
     elif [ "$ERRORTYPE" = "mce-ce" ] ; then
-        cat <<EOF > $tmpd/mce-inject
-CPU `cat /proc/self/stat | cut -d' ' -f39` BANK 2
+		if [ ! -d "$SYSDIR" ] ; then
+			echo $cpu               > $SYSDIR/cpu
+			echo hw                 > $SYSDIR/flags
+			echo $[$TARGET * 4096]  > $SYSDIR/addr
+			echo 0x9c000000000000c0 > $SYSDIR/status
+			echo 0x8c               > $SYSDIR/misc
+			echo 0                  > $SYSDIR/synd
+			echo $bank              > $SYSDIR/bank
+		elif [ -e /dev/mcelog ] ; then
+			cat <<EOF > $tmpd/mce-inject
+CPU $cpu BANK $bank
 STATUS CORRECTED 0xc0
 ADDR $[$TARGET * 4096]
 EOF
-        mce-inject $tmpd/mce-inject
+			mce-inject $tmpd/mce-inject
+		else
+			echo "No MCE injection interface found in this system." >&2
+		fi
     else
         echo "undefined injection type [$ERRORTYPE]. Abort"
         return 1
