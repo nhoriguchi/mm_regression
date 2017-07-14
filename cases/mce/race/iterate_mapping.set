@@ -25,33 +25,35 @@ case "$BACKEND" in
 	hugetlb_free|hugetlb_anon|hugetlb_shmem|hugetlb_file)
 		HUGETLB=100
 		HUGEPAGESIZE=2048 # kB
-		;;		 
+		;;
 esac
 
 EXPECTED_RETURN_CODE="START EXIT"
 
 _control() {
-    local pid=
+	local pid=
 
-    for i in $(seq $RACE_ITERATIONS) ; do
+	for i in $(seq $RACE_ITERATIONS) ; do
 		$test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping &
 		pid=$!
 
 		get_pagetypes $pid pagetypes.1 -b "$TARGET_PAGEFLAGS" -Nrla 0x700000000+0x10000000
 		# Too much MCE easyly triggers kernel panic. so let's inject MCE one
 		# by on every 1 sec.
+		echo "5 4 1 5" > /proc/sys/kernel/printk
 		if [ "$ERROR_TYPE" == mce-srao ] ; then
 			cat $TMPD/pagetypes.1 | cut -f2 | head -n4 | while read line ; do
 				sleep 1
-                $MCEINJECT -e $ERROR_TYPE -a 0x$line &
-            done
+				$MCEINJECT -q -e $ERROR_TYPE -a 0x$line &
+			done
 		else
 			cat $TMPD/pagetypes.1 | cut -f2 | while read line ; do
-                $MCEINJECT -e $ERROR_TYPE -a 0x$line &
-            done
+				$MCEINJECT -q -e $ERROR_TYPE -a 0x$line &
+			done
 		fi
+		echo "7 4 1 7" > /proc/sys/kernel/printk
 
-        kill_all_subprograms
-    done
-    set_return_code EXIT
+		kill_all_subprograms
+	done
+	set_return_code EXIT
 }
