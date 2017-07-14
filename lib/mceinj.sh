@@ -5,15 +5,15 @@ PID=""
 PFN=""
 ERRORTYPE=""
 DOUBLE=false
-VERBOSE=
+QUIET=
 TARGET=
-while getopts "p:a:e:Dvh" opt ; do
+while getopts "p:a:e:Dqh" opt ; do
     case $opt in
         p) PID=$OPTARG ;;
         a) PFN=$OPTARG ;;
         e) ERRORTYPE=$OPTARG ;;
         D) DOUBLE=true ;;
-        v) VERBOSE=true ;;
+        q) QUIET=true ;;
         h) usage 0 ;;
     esac
 done
@@ -46,7 +46,6 @@ inject_error() {
     elif [ "$ERRORTYPE" = "soft-offline" ] ; then
         echo $[$TARGET * 4096] > /sys/devices/system/memory/soft_offline_page 2> /dev/null
     elif [ "$ERRORTYPE" = "mce-srao" ] ; then
-		[ "$VERBOSE" ] && echo "cpu:$cpu, addr:$[TARGET * 4096], bank:$bank, ERRORTYPE:$ERRORTYPE"
 		if [ -d "$SYSDIR" ] ; then
 			echo $cpu               > $SYSDIR/cpu
 			echo hw                 > $SYSDIR/flags
@@ -110,7 +109,7 @@ EOF
 			echo "No MCE injection interface found in this system." >&2
 		fi
     else
-        echo "undefined injection type [$ERRORTYPE]. Abort"
+        echo "undefined injection type [$ERRORTYPE]. Abort" >&2
         return 1
     fi
     rm -rf ${tmpd}
@@ -118,21 +117,21 @@ EOF
 }
 
 if [[ ! "$ERRORTYPE" =~ (mce-srao|mce-srar|mce-ce|hard-offline|soft-offline) ]] ; then
-    echo "-e <ERRORTYPE> should be given."
+    echo "-e <ERRORTYPE> should be given." >&2
     exit 1
 fi
 
 if [ ! "$PFN" ] ; then
-    echo "-a <PFN> should be given."
+    echo "-a <PFN> should be given." >&2
     exit 1
 fi
 
 if [ "$PID" ] ; then
     TARGET=0x$(ruby -e 'printf "%x\n", IO.read("/proc/'$PID'/pagemap", 0x8, '$PFN'*8).unpack("Q")[0] & 0xfffffffffff')
-    echo "Injecting MCE ($ERRORTYPE) to local process (pid:$PID) at vfn:$PFN, pfn:$TARGET"
+    [ ! "$QUIET" ] && echo "Injecting MCE ($ERRORTYPE) to local process (pid:$PID) at vfn:$PFN, pfn:$TARGET"
 else
     TARGET="$PFN"
-    echo "Injecting MCE ($ERRORTYPE) to physical address pfn:$TARGET"
+    [ ! "$QUIET" ] && echo "Injecting MCE ($ERRORTYPE) to physical address pfn:$TARGET"
 fi
 inject_error $ERRORTYPE $TARGET 2>&1
 [ "$DOUBLE" = true ] && inject_error $ERRORTYPE $TARGET 2>&1
