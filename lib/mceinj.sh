@@ -46,15 +46,7 @@ inject_error() {
     elif [ "$ERRORTYPE" = "soft-offline" ] ; then
         echo $[$TARGET * 4096] > /sys/devices/system/memory/soft_offline_page 2> /dev/null
     elif [ "$ERRORTYPE" = "mce-srao" ] ; then
-		if [ -d "$SYSDIR" ] ; then
-			echo $cpu               > $SYSDIR/cpu
-			echo hw                 > $SYSDIR/flags
-			echo $[$TARGET * 4096]  > $SYSDIR/addr
-			echo 0xbd0000000000017a > $SYSDIR/status
-			echo 0x8c               > $SYSDIR/misc
-			echo 0                  > $SYSDIR/synd
-			echo $bank              > $SYSDIR/bank
-		elif [ -e /dev/mcelog ] ; then
+		if [ -e /dev/mcelog ] ; then
 			cat <<EOF > $tmpd/mce-inject
 CPU $cpu BANK $bank
 STATUS UNCORRECTED SRAO 0x17a
@@ -64,19 +56,19 @@ MISC 0x8c
 RIP 0x73:0x1eadbabe
 EOF
 			mce-inject $tmpd/mce-inject
+		elif [ -d "$SYSDIR" ] ; then
+			echo $cpu               > $SYSDIR/cpu
+			echo hw                 > $SYSDIR/flags
+			echo $[$TARGET * 4096]  > $SYSDIR/addr
+			echo 0xbd0000000000017a > $SYSDIR/status
+			echo 0x8c               > $SYSDIR/misc
+			echo 0                  > $SYSDIR/synd
+			echo $bank              > $SYSDIR/bank
 		else
 			echo "No MCE injection interface found in this system." >&2
 		fi
     elif [ "$ERRORTYPE" = "mce-srar" ] ; then
-		if [ -d "$SYSDIR" ] ; then
-			echo $cpu               > $SYSDIR/cpu
-			echo hw                 > $SYSDIR/flags
-			echo $[$TARGET * 4096]  > $SYSDIR/addr
-			echo 0xbd80000000000134 > $SYSDIR/status
-			echo 0x8c               > $SYSDIR/misc
-			echo 0                  > $SYSDIR/synd
-			echo $bank              > $SYSDIR/bank
-		elif [ -e /dev/mcelog ] ; then
+		if [ -e /dev/mcelog ] ; then
 			cat <<EOF > $tmpd/mce-inject
 CPU $cpu BANK $bank
 STATUS UNCORRECTED SRAR 0x134
@@ -86,11 +78,26 @@ MISC 0x8c
 RIP 0x73:0x3eadbabe
 EOF
 			mce-inject $tmpd/mce-inject
+		elif [ -d "$SYSDIR" ] ; then
+			echo $cpu               > $SYSDIR/cpu
+			echo hw                 > $SYSDIR/flags
+			echo $[$TARGET * 4096]  > $SYSDIR/addr
+			echo 0xbd80000000000134 > $SYSDIR/status
+			echo 0x8c               > $SYSDIR/misc
+			echo 0                  > $SYSDIR/synd
+			echo $bank              > $SYSDIR/bank
 		else
 			echo "No MCE injection interface found in this system." >&2
 		fi
     elif [ "$ERRORTYPE" = "mce-ce" ] ; then
-		if [ ! -d "$SYSDIR" ] ; then
+		if [ -e /dev/mcelog ] ; then
+			cat <<EOF > $tmpd/mce-inject
+CPU $cpu BANK $bank
+STATUS CORRECTED 0xc0
+ADDR $[$TARGET * 4096]
+EOF
+			mce-inject $tmpd/mce-inject
+		elif [ ! -d "$SYSDIR" ] ; then
 			echo $cpu               > $SYSDIR/cpu
 			echo hw                 > $SYSDIR/flags
 			echo $[$TARGET * 4096]  > $SYSDIR/addr
@@ -98,13 +105,6 @@ EOF
 			echo 0x8c               > $SYSDIR/misc
 			echo 0                  > $SYSDIR/synd
 			echo $bank              > $SYSDIR/bank
-		elif [ -e /dev/mcelog ] ; then
-			cat <<EOF > $tmpd/mce-inject
-CPU $cpu BANK $bank
-STATUS CORRECTED 0xc0
-ADDR $[$TARGET * 4096]
-EOF
-			mce-inject $tmpd/mce-inject
 		else
 			echo "No MCE injection interface found in this system." >&2
 		fi
