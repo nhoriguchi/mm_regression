@@ -158,6 +158,25 @@ static void *data_alloc(void)
 	return p + pagesize / 4;
 }
 
+static void *mlock_data_alloc(void)
+{
+	char	*p = mmap(NULL, pagesize, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANON, -1, 0);
+	int	i;
+
+	if (p == NULL) {
+		fprintf(stderr, "%s: cannot allocate memory\n", progname);
+		exit(1);
+	}
+	srandom(getpid() * time(NULL));
+	for (i = 0; i < pagesize; i++)
+		p[i] = random();
+	if (mlock(p, pagesize) == -1) {
+		fprintf(stderr, "%s: cannot mlock(2) memory\n", progname);
+		exit(1);
+	}
+	return p + pagesize / 4;
+}
+
 static void *instr_alloc(void)
 {
 	char	*p = (char *)dosums;
@@ -333,6 +352,10 @@ struct test {
 	{
 		"copyin", "Kernel copies data from user. Probably fatal",
 		data_alloc, inject_uc, 1, trigger_copyin, F_MCE|F_CMCI|F_SIGBUS|F_FATAL,
+	},
+	{
+		"mlock", "mlock target page then inject/read to generates SRAR machine check",
+		mlock_data_alloc, inject_uc, 1, trigger_single, F_MCE|F_CMCI|F_SIGBUS,
 	},
 	{ NULL }
 };
