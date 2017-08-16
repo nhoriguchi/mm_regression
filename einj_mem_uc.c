@@ -82,6 +82,15 @@ static void inject_llc(unsigned long long addr, int notrigger)
 	wfile(EINJ_DOIT, 1);
 }
 
+static int is_advanced_ras(char *model)
+{
+	if (strstr(model, "E7-"))
+		return 1;
+	if (strstr(model, "Platinum"))
+		return 1;
+	return 0;
+}
+
 static void check_configuration(void)
 {
 	char	model[512];
@@ -109,7 +118,7 @@ static void check_configuration(void)
 		exit(1);
 	}
 	lcpus_persocket = ncpus / nsockets;
-	if (!force_flag && strstr(model, "E7-") == NULL) {
+	if (!force_flag && !is_advanced_ras(model)) {
 		fprintf(stderr, "%s: warning: cpu may not support recovery\n", progname);
 		exit(1);
 	}
