@@ -48,7 +48,8 @@ _control() {
 		"now doing memory compaction")
 			for i in $(seq 12) ; do
 				sleep 1
-				$PAGETYPES -r -p $pid -a 0x700000000+10 -Nl | grep -v offset
+				echo 1 > /proc/sys/vm/compact_memory
+				$PAGETYPES -r -p $pid -a 0x700000000+1024 -Nl | grep -v offset
 			done
 			kill -SIGUSR1 $pid
 			;;
