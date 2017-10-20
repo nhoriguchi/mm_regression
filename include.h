@@ -793,6 +793,14 @@ static void do_memory_error_injection(struct op_control *opc) {
 		unsigned long offset = 0;
 		int ret;
 
+		if (!testpipe) { /* no offset considered */
+			if ((ret = madvise(chunkset[0].p, PS,
+					   !strcmp(error_type, "madv_hard") ?
+					   MADV_HWPOISON : MADV_SOFT_OFFLINE)) != 0)
+				perror("madvise");
+			goto out;
+		}
+
 		pprintf_wait_func(NULL, opc, "error injection with madvise\n");
 		ret = pipe_read(rbuf);
 		/* TODO: how to handle this issue? (currently soft retry) */
@@ -808,7 +816,7 @@ static void do_memory_error_injection(struct op_control *opc) {
 	} else {
 		errmsg("unknown error_type: %s\n", error_type);
 	}
-
+out:
 	if (opc_defined(opc, "access_after_injection")) {
 		pprintf_wait_func(NULL, opc, "writing affected region\n");
 		do_access(opc);
