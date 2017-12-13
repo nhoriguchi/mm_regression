@@ -88,6 +88,8 @@ static int is_advanced_ras(char *model)
 		return 1;
 	if (strstr(model, "Platinum"))
 		return 1;
+	if (strstr(model, "Gold"))
+		return 1;
 	return 0;
 }
 
