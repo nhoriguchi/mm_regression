@@ -4,7 +4,7 @@
 # Not care about head/tail difference for now.
 PRIORITY=13
 
-. $TRDIR/setup_mce_test.sh
+. $TRDIR/setup_mce_test.sh || exit 1
 
 BACKEND=__MARK_BACKEND
 ERROR_TYPE=__MARK_ERROR_TYPE
@@ -33,16 +33,15 @@ EXPECTED_RETURN_CODE="START EXIT"
 _control() {
 	local pid=
 
+	echo 1 > /sys/kernel/debug/mce/fake_panic
+	echo "5 4 1 5" > /proc/sys/kernel/printk
 	for i in $(seq $RACE_ITERATIONS) ; do
 		$test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping &
 		pid=$!
 
 		get_pagetypes $pid pagetypes.1 -b "$TARGET_PAGEFLAGS" -Nrla 0x700000000+0x10000000
-		# Too much MCE easyly triggers kernel panic. so let's inject MCE one
-		# by on every 1 sec.
-		echo "5 4 1 5" > /proc/sys/kernel/printk
 		if [ "$ERROR_TYPE" == mce-srao ] ; then
-			cat $TMPD/pagetypes.1 | cut -f2 | head -n4 | while read line ; do
+			cat $TMPD/pagetypes.1 | cut -f2 | head -n1 | while read line ; do
 				sleep 1
 				$MCEINJECT -q -e $ERROR_TYPE -a 0x$line &
 			done
@@ -51,9 +50,14 @@ _control() {
 				$MCEINJECT -q -e $ERROR_TYPE -a 0x$line &
 			done
 		fi
-		echo "7 4 1 7" > /proc/sys/kernel/printk
 
 		kill_all_subprograms
 	done
+	echo 0 > /sys/kernel/debug/mce/fake_panic
+	echo "7 4 1 7" > /proc/sys/kernel/printk
 	set_return_code EXIT
+}
+
+_check() {
+	check_kernel_message -v "kernel panic"
 }
