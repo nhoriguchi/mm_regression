@@ -16,20 +16,28 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/signal.h>
 #include <sys/wait.h>
+#include <sys/user.h>
+#include <sys/ptrace.h>
 
 static char *progname;
+static int pagesize;
 
 long	addr;
 double	delay;
 int	pid;
 int	tflag, dflag, bflag, sflag, mflag, pflag, vflag;
+int 	trace;
 
 static void usage(void)
 {
+	fprintf(stderr, "Usage: %s -P PID\n", progname);
 	fprintf(stderr, "Usage: %s [hornetopts] -p PID\n", progname);
 	fprintf(stderr, "Usage: %s [hornetopts] command args ...\n", progname);
 	fprintf(stderr, "  hornetopts = [-D delay][ -a ADDRESS][-t|-d|-b|-s|-m]\n");
@@ -41,6 +49,15 @@ static void usage(void)
 #define EINJ_MASK "/sys/kernel/debug/apei/einj/param2"
 #define EINJ_NOTRIGGER "/sys/kernel/debug/apei/einj/notrigger"
 #define EINJ_DOIT "/sys/kernel/debug/apei/einj/error_inject"
+
+#define check_ptrace(req, pid, addr, data) 			\
+	do { 							\
+		if (ptrace(req, pid, addr, data) == -1) { 	\
+			fprintf(stderr, "Failed to run #req: %s\n", \
+				strerror(errno)); 		\
+			return 1; 				\
+		} 						\
+	} while (0)
 
 static void wfile(char *file, unsigned long val)
 {
@@ -139,7 +156,6 @@ static long randaddr(long lo, long hi)
 	return a & ~0x3ful;
 }
 
-	
 static long pickaddr(int pid, long lo, long hi, long *phys)
 {
 	int pagesize = getpagesize();
@@ -192,10 +208,12 @@ int main(int argc, char **argv)
 	int	c;
 	int	status;
 	long	lo, hi, phys, virt;
+	struct user_regs_struct regs;
 
 	progname = argv[0];
+	pagesize = getpagesize();
 
-	while ((c = getopt(argc, argv, "D:a:tdbsmp:v")) != -1) switch (c) {
+	while ((c = getopt(argc, argv, "D:P:a:tdbsmp:v")) != -1) switch (c) {
 	case 'D': delay = atof(optarg); break;
 	case 'a': addr = strtol(optarg, NULL, 0); break;
 	case 't': tflag = 1; break;
@@ -204,6 +222,7 @@ int main(int argc, char **argv)
 	case 's': sflag = 1; break;
 	case 'm': mflag = 1; break;
 	case 'p': pflag = 1; pid = atoi(optarg); break;
+	case 'P': trace = 1; pid = atoi(optarg); break;
 	case 'v': vflag++; break;
 	default: usage(); break;
 	}
@@ -212,16 +231,26 @@ int main(int argc, char **argv)
 	wfile(EINJ_MASK, ~0x0ul);
 	wfile(EINJ_NOTRIGGER, 1);
 
-	if (!pflag)
+	if (!pflag && !trace)
 		pid = startproc(&argv[optind]);
 	if (delay != 0.0)
 		usleep((useconds_t)(delay * 1.0e6));
-	if (kill(pid, SIGSTOP) == -1) {
-		fprintf(stderr, "%s: cannot stop process\n", progname);
-		return 1;
-	}
+	if (trace) {
+		check_ptrace(PTRACE_ATTACH, pid, NULL, NULL);
+		waitpid(pid, NULL, 0);
+		check_ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+		virt = regs.rip;
+		check_ptrace(PTRACE_PEEKTEXT, pid, virt, NULL);
+		addr = virt;
+	} else {
+		if (kill(pid, SIGSTOP) == -1) {
+			fprintf(stderr, "%s: cannot stop process\n", progname);
+			return 1;
+		}
 
-	parsemaps(pid, &lo, &hi);
+		parsemaps(pid, &lo, &hi);
+
+	}
 
 	if ((virt = pickaddr(pid, lo, hi, &phys)) == -1) {
 		kill(pid, SIGKILL);
@@ -231,9 +260,14 @@ int main(int argc, char **argv)
 	wfile(EINJ_ADDR, phys);
 	wfile(EINJ_DOIT, 1);
 
-	if (vflag) printf("%s: injected UC error at virt=%lx phys=%lx to pid=%d\n",
-		progname, virt, phys, pid);
+	if (vflag) printf("%s: injected UC error at virt=%lx phys=%lx to pid=%d%s\n",
+		progname, virt, phys, pid, trace == 1 ? "(ptrace)" : NULL);
 
+	if (trace) {
+		sleep(1);
+		check_ptrace(PTRACE_DETACH, pid, NULL, NULL);
+		return 0;
+	}
 	if (kill(pid, SIGCONT) == -1) {
 		fprintf(stderr, "%s: cannot resume process\n", progname);
 		return 1;

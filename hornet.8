@@ -27,6 +27,13 @@ hornet \- inject an uncorrectable memory error into a process
 ]
 \-p
 .I PID
+.br
+.B hornet
+[
+.B \-v
+]
+\-P
+.I PID
 .SH CONFIGURATION
 .B hornet
 requires that error injection be enabled in ACPI 5.0 mode by the BIOS and that the
@@ -75,6 +82,9 @@ in the process.
 .TP
 .BI \-p " PID"
 inject errors into an already running process
+.TP
+.BI \-P " PID"
+stop the process using ptrace(2), inject at the next instruction to be executed, then continue.
 .SH EXIT STATUS
 .SH FILES
 .PP
