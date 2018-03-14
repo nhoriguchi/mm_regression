@@ -27,7 +27,6 @@
 #include <sys/ptrace.h>
 
 static char *progname;
-static int pagesize;
 
 long	addr;
 double	delay;
@@ -37,10 +36,10 @@ int 	trace;
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: %s -P PID\n", progname);
+	fprintf(stderr, "Usage: %s [-v] -P PID\n", progname);
 	fprintf(stderr, "Usage: %s [hornetopts] -p PID\n", progname);
 	fprintf(stderr, "Usage: %s [hornetopts] command args ...\n", progname);
-	fprintf(stderr, "  hornetopts = [-D delay][ -a ADDRESS][-t|-d|-b|-s|-m]\n");
+	fprintf(stderr, "  hornetopts = [-D delay][-v][ -a ADDRESS][-t|-d|-b|-s|-m]\n");
 	exit(1);
 }
 
@@ -50,13 +49,13 @@ static void usage(void)
 #define EINJ_NOTRIGGER "/sys/kernel/debug/apei/einj/notrigger"
 #define EINJ_DOIT "/sys/kernel/debug/apei/einj/error_inject"
 
-#define check_ptrace(req, pid, addr, data) 			\
-	do { 							\
-		if (ptrace(req, pid, addr, data) == -1) { 	\
-			fprintf(stderr, "Failed to run #req: %s\n", \
-				strerror(errno)); 		\
-			return 1; 				\
-		} 						\
+#define check_ptrace(req, pid, addr, data) 				\
+	do { 								\
+		if (ptrace(req, pid, addr, data) == -1) { 		\
+			fprintf(stderr, "Failed to run "#req": %s\n",	\
+				strerror(errno)); 			\
+			return 1; 					\
+		} 							\
 	} while (0)
 
 static void wfile(char *file, unsigned long val)
@@ -176,7 +175,8 @@ static long pickaddr(int pid, long lo, long hi, long *phys)
 	else
 		a = randaddr(lo, hi);
 again:
-	if (vflag) printf("checking virtual address 0x%lx in [0x%lx,0x%lx]\n", a, lo, hi);
+	if (vflag)
+		printf("checking virtual address 0x%lx in [0x%lx,0x%lx]\n", a, lo, hi);
 	offset = a / pagesize * (sizeof pinfo);
 	if (pread(fd, &pinfo, sizeof pinfo, offset) != sizeof pinfo) {
 		fprintf(stderr, "%s: cannot read pagemap for pid=%d addr=%lx\n", progname, pid, a);
@@ -211,7 +211,6 @@ int main(int argc, char **argv)
 	struct user_regs_struct regs;
 
 	progname = argv[0];
-	pagesize = getpagesize();
 
 	while ((c = getopt(argc, argv, "D:P:a:tdbsmp:v")) != -1) switch (c) {
 	case 'D': delay = atof(optarg); break;
@@ -241,7 +240,7 @@ int main(int argc, char **argv)
 		check_ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 		virt = regs.rip;
 		check_ptrace(PTRACE_PEEKTEXT, pid, virt, NULL);
-		addr = virt;
+		lo = hi = addr = virt;
 	} else {
 		if (kill(pid, SIGSTOP) == -1) {
 			fprintf(stderr, "%s: cannot stop process\n", progname);
@@ -261,7 +260,7 @@ int main(int argc, char **argv)
 	wfile(EINJ_DOIT, 1);
 
 	if (vflag) printf("%s: injected UC error at virt=%lx phys=%lx to pid=%d%s\n",
-		progname, virt, phys, pid, trace == 1 ? "(ptrace)" : NULL);
+		progname, virt, phys, pid, trace == 1 ? "(ptrace)" : "");
 
 	if (trace) {
 		sleep(1);
