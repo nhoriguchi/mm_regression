@@ -1,4 +1,4 @@
-#!/bin/bashp
+#!/bin/bash
 
 MCEINJECT=$(dirname $(readlink -f $BASH_SOURCE))/mceinj.sh
 
@@ -23,6 +23,11 @@ check_mce_capability() {
 	if ! grep -q "mcgcap=" $GTMPD/cap_check 2> /dev/null ; then
 		pushd $(dirname $BASH_SOURCE)/cap_check > /dev/null
 		make check > $GTMPD/cap_check
+		# TEMPORARY DIRTY HACK, SHOULD BE IMPROVED !!
+		if [ $? -ne 0 ] ; then
+			echo "failed to build cap_check module ... give up this testcase"
+			MCE_SER_SUPPORTED=
+		fi
 		popd > /dev/null
 	fi
 	local mcgcap=$(grep "mcgcap=" $GTMPD/cap_check | cut -f2 -d= | tail -n1)
