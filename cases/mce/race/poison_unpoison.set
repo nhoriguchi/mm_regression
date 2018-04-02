@@ -1,6 +1,10 @@
 #! BACKEND: buddy hugetlb_free anonymous pagecache hugetlb_anon hugetlb_shmem hugetlb_file ksm thp zero huge_zero
 #! ERROR_TYPE: mce-srao hard-offline soft-offline
 
+# set lower priority because unpoison is essentially unstable, and we can't
+# expect this to work fine.
+PRIORITY=15
+
 . $TRDIR/setup_mce_test.sh
 
 EXPECTED_RETURN_CODE="START EXIT"
@@ -21,12 +25,6 @@ if [ "$BACKEND" == ksm ] ; then
 fi
 
 TIMEOUT=10
-
-case "$BACKEND" in
-	buddy|zero|huge_zero)
-		PRIORITY=15 # low priority
-		;;
-esac
 
 random_poison() {
 	echo "random_poison thread running ..."
