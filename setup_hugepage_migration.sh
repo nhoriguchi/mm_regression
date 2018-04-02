@@ -23,6 +23,11 @@ check_migration_pagemap() {
 	fi
 }
 
+# TODO: handle the case like below
+# -700000000      71e00   1       ___U_lA____Ma_bH______t___________f_____1
+# -700000001      71e01   1ff     ___________Ma___T_____t___________f_____1
+# +700000000      73fd2   1       __RUDlA____Ma_b___________________f_____1
+# +700000001      71e01   1ff     __RUDlA____Ma_b___________________f_____1
 check_migration_hugeness() {
 	local before=$1
 	local after=$2

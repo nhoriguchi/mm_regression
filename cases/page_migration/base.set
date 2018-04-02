@@ -18,7 +18,13 @@ if [[ "$BACKEND" =~ hugetlb ]] ; then
 	HUGEPAGESIZE=2048 # kB
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
 elif  [[ "$BACKEND" =~ thp ]] ; then
-	THP=true
+	THP=1 # true
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
+
+	# Rather than other migration sources, soft offline makes thp split on
+	# page migration.
+	if [ "$MIGRATE_SRC" == madv_soft ] ; then
+		EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_DISAPPEARED THP_SPLIT EXIT"
+	fi
 fi
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 10 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"

@@ -16,6 +16,14 @@
 
 . $TRDIR/setup_page_migration.sh
 
+# In older kernel (< 4.15), if the hugepage pool of destination node is fully
+# used, hugepage migraion fails due to ENOMEM. But in newer kernels, hugepage
+# migration succeeds even in such a situation, so let the testcase know that.
+# CONFIG_EXPECTED_BEHAVIOR_HUGEPAGE_MIGRATION=true means that the kernel is
+# supposed to have the newer behavior. Otherwise, the test expects the older
+# behavior.
+CONFIG_HUGEPAGE_MIGRATION_EXPECTED_NEWER_BEHAVIOR=true
+
 BACKEND=hugetlb_anon
 MIGRATE_SRC=__MARK_MIGRATE_SRC
 BACKGROUND=__MARK_BACKGROUND
@@ -40,7 +48,7 @@ elif [ "$BACKGROUND" == allocate0 ] ; then
 	ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
 	ALLOCATE_NODE=0
 	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ALLOCATE"
-elif [ "$BACKGROUND" == allocate1 ] ; then
+elif [ "$BACKGROUND" == allocate1 ] ; then # allocate
 	ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
 	ALLOCATE_NODE=1
 	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ALLOCATE"
@@ -48,7 +56,9 @@ fi
 
 EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE START"
 
-if [ "$BACKGROUND" == reserve ] ; then
+if [ "$CONFIG_HUGEPAGE_MIGRATION_EXPECTED_NEWER_BEHAVIOR" == true ] ; then
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
+elif [ "$BACKGROUND" == reserve ] ; then
 	if [ __MARK_OVERCOMMIT == overcommit ] ; then
 		EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
 	else
