@@ -7,6 +7,8 @@ SHMEM=true
 SHMEM_DIR=work/shmem
 NUMA_NODE=2
 
+NR_THP=1
+
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
 SPLIT_THP=
@@ -23,9 +25,9 @@ elif [ __MARK_THP_TYPE == double_mapping ] ; then
 elif [ __MARK_THP_TYPE == pmd_split ] ; then
 	SPLIT_THP="split_thp:only_pmd access"
 elif [ __MARK_THP_TYPE == thp_split ] ; then
-	SPLIT_THP=split_thp
+	SPLIT_THP="split_thp access"
 	HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 fi
 
-TEST_PROGRAM="$test_alloc_generic -B pagecache -N 2 -w $SHMEM_DIR -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="$test_alloc_generic -B pagecache -N $NR_THP -w $SHMEM_DIR -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="START INJECT MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
