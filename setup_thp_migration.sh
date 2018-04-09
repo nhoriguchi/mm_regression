@@ -19,13 +19,13 @@ _control() {
     echo_log "$line"
     case "$line" in
 		"after_access")
-			# get_mm_stats 0 $pid $(pgrep -P $pid)
+			get_mm_stats 0 $pid $(pgrep -P $pid) > /dev/null
             kill -SIGUSR1 $pid
             ;;
         "after_fork")
 			echo $pid > $TMPD/pid.parent
 			pgrep -P $pid > $TMPD/pid.child
-			# get_mm_stats 1 $pid $(pgrep -P $pid) > /dev/null
+			get_mm_stats 1 $pid $(pgrep -P $pid) > /dev/null
 
             kill -SIGUSR1 $pid
             ;;
