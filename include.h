@@ -406,6 +406,7 @@ static void do_mmap(struct op_control *opc) {
 }
 
 /* TODO: using NR_<operation> for error message */
+/* TODO: properly report the return value */
 static int do_work_memory(int (*func)(struct mem_chunk *mc, void *arg),
 			  void *args) {
 	int i, j;
@@ -528,6 +529,7 @@ static int __mbind_chunk(struct mem_chunk *mc, void *args) {
 	int i;
 	struct mbind_arg *mbind_arg = (struct mbind_arg *)args;
 
+	printf("%s: called.\n", __func__);
 	if (mbind_arg->hp_partial) {
 		for (i = 0; i < (size - 1) / HPS + 1; i++)
 			mbind(p + i * HPS, PS,
