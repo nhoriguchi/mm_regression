@@ -7,7 +7,7 @@ SHMEM=true
 SHMEM_DIR=work/shmem
 NUMA_NODE=2
 
-NR_THP=1
+NR_THP=2
 
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=

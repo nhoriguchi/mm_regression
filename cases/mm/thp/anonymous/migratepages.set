@@ -2,6 +2,8 @@
 
 . $TRDIR/setup_thp_migration.sh
 
+NR_THP=2
+
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
 SPLIT_THP=
@@ -23,5 +25,5 @@ elif [ __MARK_THP_TYPE == thp_split ] ; then
 	HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 fi
 
-TEST_PROGRAM="$test_alloc_generic -B thp -N 1 -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="$test_alloc_generic -B thp -N $NR_THP -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="START MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
