@@ -206,7 +206,7 @@ static void create_regular_file(void) {
 
 	Dprintf("%s: fpath %s\n", __func__, fpath);
 	if(access(fpath, F_OK) != -1) {
-		printf("%s: %s already exists.\n", __func__, fpath);
+		Dprintf("%s: %s already exists.\n", __func__, fpath);
 		fd = open(fpath, O_RDWR, 0755);
 		if (fd == -1)
 			err("open");
