@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# parse_recipefile <before> <after>
+# replace some lines in <before> recipefile, and write into <after> recipefile.
 parse_recipefile() {
     local file=
     while read line ; do
