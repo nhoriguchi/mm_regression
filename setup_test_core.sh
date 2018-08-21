@@ -444,7 +444,7 @@ do_test_try() {
 	local failure_before="$(cat $TMPD/_failure)"
 
 	echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
-	check_test_flag && break
+	check_test_flag && return 1
 	# check_inclusion_of_fixedby_patch && break
 
 	if [ "$TEST_PROGRAM" ] ; then
