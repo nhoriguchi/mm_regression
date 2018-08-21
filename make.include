@@ -11,6 +11,7 @@ cleanup_recipes:
 update_recipes:
 	@make cleanup_recipes > /dev/null 2>&1 || true
 	@make split_recipes > /dev/null || true
+	@make prepare_result_directory RUNNAME=$(RUNNAME)
 	@true
 
 # Prepare result directory under work/<RUNNAME>.
@@ -24,8 +25,8 @@ prepare_result_directory:
 		bash test_core/lib/setup_result_directory.sh $(RUNNAME); \
 	else \
 		echo No RUNNAME= given; \
+		@false ; \
 	fi
-	@true
 
 summary:
 	@ruby test_core/lib/test_summary.rb -l
@@ -49,5 +50,6 @@ recipe_priority:
 	@true
 
 # You need give RUNNAME
-waiting_recipes: update_recipes
+waiting_recipes:
+	@make update_recipes RUNNAME=$(RUNNAME)
 	@ruby test_core/lib/test_summary.rb -c work/${RUNNAME} | grep "\-\-\-\-" | cut -f2 -d ' ' | sed -e 's/^/cases\//' 2> /dev/null

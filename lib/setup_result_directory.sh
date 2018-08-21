@@ -13,7 +13,6 @@ for existing in $(find work/$RUNNAME -name '_recipe') ; do
 done
 
 for rc in $(make allrecipes | cut -f2- -d/) ; do
-	echo "---> $rc"
 	if [ ! -d work/$RUNNAME/$rc ] ; then
 		mkdir -p work/$RUNNAME/$rc
 		parse_recipefile cases/$rc work/$RUNNAME/$rc/_recipe
