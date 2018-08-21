@@ -24,7 +24,7 @@ get_test_core:
 
 install: $(exe)
 	for file in $? ; do \
-	  mv $$file $(dstdir) ; \
+		 mv $$file $(dstdir) ; \
 	done
 
 clean:
@@ -35,20 +35,9 @@ clean:
 	done
 
 test: all
-	TESTCASE_FILTER="$(TC)"
-	@bash run-test.sh -v -r sample.rc $(TESTCASE_FILTER)
+	@bash test_core/run-test.sh $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME)) $(addprefix -d ,$(RECIPEDIR))
 
 list: get_test_core
 	@bash test_core/display_testcases.sh -a
 
-test2: all
-	@bash test_core/run-test.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/sample_newtype
-
-test2/sff: all
-	@bash test_core/run-test.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/dir1/dir2/recipe12
-
-test3: all
-	@bash test_core/run-test.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) cases/sample_sync_newtype
-
-test4: all
-	@bash test_core/run-test.sh -v -t $@ $(addprefix '-f ',$(TESTCASE_FILTER)) -d cases
+-include test_core/make.include
