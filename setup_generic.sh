@@ -51,13 +51,13 @@ FALSENEGATIVE=false
 # for example with "do_test | tee $OFILE" doesn't work because do_test
 # runs in sub-process, and testcase/success/failure counts are broken.
 echo_log() {
-    if [ "$LOGLEVEL" -gt 0 ] ; then
+    if [ "$LOGLEVEL" -ge 1 ] ; then
 		echo "$@" | tee -a $OFILE
 	fi
 }
 
 echo_verbose() {
-    if [ "$LOGLEVEL" -gt 3 ] ; then
+    if [ "$LOGLEVEL" -ge 2 ] ; then
         echo "$@"
     else
         echo "$@" > /dev/null

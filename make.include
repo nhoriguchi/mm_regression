@@ -1,3 +1,5 @@
+# assume that this extension is imported from a ../Makefile
+
 split_recipes:
 	@ruby test_core/lib/split_recipe.rb > /dev/null
 	@true
@@ -9,6 +11,20 @@ cleanup_recipes:
 update_recipes:
 	@make cleanup_recipes > /dev/null 2>&1 || true
 	@make split_recipes > /dev/null || true
+	@true
+
+# Prepare result directory under work/<RUNNAME>.
+#
+# NOTE: remove any result directories of non-existent recipes, so be careful
+# not to delete important test result data when you change recipe name.
+#
+# TODO: get RUNNAME
+prepare_result_directory:
+	if [ $(RUNNAME) ] ; then \
+		bash test_core/lib/setup_result_directory.sh $(RUNNAME); \
+	else \
+		echo No RUNNAME= given; \
+	fi
 	@true
 
 summary:

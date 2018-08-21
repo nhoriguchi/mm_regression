@@ -123,7 +123,7 @@ set_and_check_hugetlb_pool() {
         return 0
     else
         count_warning "set hugetlb pool size to $1: NG"
-		if [ "$LOGLEVEL" -gt 3 ] ; then
+		if [ "$LOGLEVEL" -ge 2 ] ; then
 			show_hugetlb_pool
 		fi
         return 1

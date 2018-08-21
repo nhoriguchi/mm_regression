@@ -12,7 +12,7 @@ RUN_ALL_WAITING=
 
 while getopts v:s:t:f:Spd:r:DVh:l:w OPT ; do
     case $OPT in
-        v) LOGLEVEL="$OPTARG" ;;
+        v) export LOGLEVEL="$OPTARG" ;;
         s) KERNEL_SRC="$OPTARG" ;;
         t) TESTNAME="$OPTARG" ;;
         f) TESTCASE_FILTER="$TESTCASE_FILTER $OPTARG" ;;

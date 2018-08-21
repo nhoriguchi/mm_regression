@@ -31,7 +31,13 @@ dmesg_filter() {
 get_kernel_message_diff() {
 	echo "####### DMESG #######"
 	diff $TMPD/_dmesg_before $TMPD/_dmesg_after 2> /dev/null | grep -v '^< ' | \
-		dmesg_filter | tee $TMPD/_dmesg_diff
+		dmesg_filter > $TMPD/_dmesg_diff
+	# expecting environment format DMESG_DIFF_LIMIT is like "head -n10" or "tail -20"
+	if [ "$DMESG_DIFF_LIMIT" ] ; then
+		$DMESG_DIFF_LIMIT $TMPD/_dmesg_diff
+	else
+		cat $TMPD/_dmesg_diff
+	fi
 	echo "####### DMESG END #######"
 	rm $TMPD/_dmesg_before $TMPD/_dmesg_after 2> /dev/null
 }
@@ -438,7 +444,7 @@ do_test_try() {
 	local failure_before="$(cat $TMPD/_failure)"
 
 	echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
-	check_test_flag && break
+	check_test_flag && return 1
 	# check_inclusion_of_fixedby_patch && break
 
 	if [ "$TEST_PROGRAM" ] ; then

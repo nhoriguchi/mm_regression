@@ -3,13 +3,22 @@ require 'optparse'
 require 'tmpdir'
 
 class TestCaseSummary
-  attr_accessor :testcaseid, :testcount, :success, :failure, :later
+  attr_accessor :testcaseid, :testcount, :success, :failure, :later, :date, :priority
 
   def initialize run_dir, tc_dir
     @runname = run_dir
     @tc_dir = run_dir + '/' + tc_dir
     @testcaseid = "#{tc_dir.gsub(run_dir + '/', '')}"
-    data_check
+    @date = File.mtime(@tc_dir)
+    @priority = 10 # default
+    File.read(@tc_dir + '/_recipe').split("\n").select do |line|
+      @priority = $1.to_i if line =~ /^PRIORITY=(\d+)/
+    end
+    if data_check != true
+      @testcount = @success = @failure = @later = 0
+      @return_code_seq = ""
+      return
+    end
     @testcount = File.read(@tc_dir + "/_testcount").to_i
     @success = File.read(@tc_dir + "/_success").to_i
     @failure = File.read(@tc_dir + "/_failure").to_i
@@ -20,14 +29,13 @@ class TestCaseSummary
   # If a testcase failed badly, some result data might not be stored,
   # so let's skip such cases.
   def data_check
-    tmp = ["_testcount", "_success", "_failure", "_later"].any? do |f|
-      ! File.exist?(@tc_dir + "/" + f)
+    tmp = ["_testcount", "_success", "_failure", "_later"].all? do |f|
+      File.exist?(@tc_dir + "/" + f)
     end
-
-    if tmp == true
+    if tmp != true
       # STDERR.puts "testcase <#{@testcaseid}> doesn't have valid testcount data. Skipped."
-      raise
     end
+    return tmp
   end
 
   def testcase_result
@@ -58,7 +66,7 @@ class TestCaseSummary
 end
 
 class RunSummary
-  attr_accessor :dir, :tc_summary, :testcases, :testcount, :success, :failure, :later, :tc_hash, :recipelist
+  attr_accessor :dir, :tc_summary, :testcount, :success, :failure, :later, :tc_hash, :recipelist
 
   def initialize test_summary, dir
     @test_summary = test_summary
@@ -68,24 +76,13 @@ class RunSummary
     end
 
     @dir = dir
-    # No 'cases/' prefix, but includes some 'internal nodes'
-    @testcases = Dir.glob("#{dir}/**/*").select do |g|
-      File.directory? g # and File.exist? "#{g}/result"
-    end.map do |tc|
-      "#{tc.gsub(dir + '/', '')}"
-    end.sort
 
     @tc_summary = []
     @tc_hash = {}
-    @testcases.each do |tc|
-      begin
-        tcs = TestCaseSummary.new(dir, tc)
-        @tc_summary << tcs
-        @tc_hash[tc] = tcs
-      rescue
-        # "internal node" directory goes this path
-        # STDERR.puts "sorry no real rescue yet. #{tc}"
-      end
+    @recipelist.each do |tc|
+      tcs = TestCaseSummary.new(dir, tc)
+      @tc_summary << tcs
+      @tc_hash[tc] = tcs
     end
   end
 
@@ -134,6 +131,8 @@ class TestSummary
       do_finishcheck
     elsif @options[:coverage]
       show_coverage
+    elsif @options[:progresscoverage]
+      show_progress_coverage
     elsif @options[:timesummary]
       show_timesummary
     elsif @options[:recipes]
@@ -148,14 +147,14 @@ class TestSummary
     skipped = 0
     notrun = 0
     recipe_list.each do |recipe|
-      if @test_summary_hash.key? recipe
-        if @test_summary_hash[recipe].started?
-          run += 1
-        else
-          skipped += 1
-        end
-      else
+      if ! @test_summary_hash.key? recipe
         notrun += 1
+      elsif @test_summary_hash[recipe].testcase_result == "NONE"
+        notrun += 1
+      elsif @test_summary_hash[recipe].testcase_result == "SKIP"
+        skipped += 1
+      else
+        run += 1
       end
     end
 
@@ -170,7 +169,6 @@ class TestSummary
     else
       recipe_list = `echo $RECIPEFILES | bash test_core/lib/filter_recipe.sh | cut -f1`.chomp.split("\n").map {|r| r.gsub(/.*cases\//, '')}
     end
-
     if check_finished recipe_list
       puts "All of given recipes are finished."
       exit 0
@@ -184,11 +182,32 @@ class TestSummary
     covered = 0
     uncovered = 0
     @full_recipe_list.each do |recipe|
-      if @test_summary_hash.key? recipe
+      if @test_summary_hash[recipe].started?
         puts "#{@test_summary_hash[recipe].testcase_result} #{recipe}"
         covered += 1
       else
-        puts "---- #{recipe}"
+        puts "NONE #{recipe}"
+        uncovered += 1
+      end
+    end
+
+    if covered + uncovered == 0
+      coverage = 0
+    else
+      coverage = 100*covered/(covered+uncovered)
+    end
+    puts "Coverage: #{covered} / #{covered + uncovered} (#{coverage}%)"
+  end
+
+  def show_progress_coverage
+    covered = 0
+    uncovered = 0
+    @full_recipe_list.each do |recipe|
+      if @test_summary_hash[recipe].started?
+        puts "#{@test_summary_hash[recipe].testcase_result} #{@test_summary_hash[recipe].date.strftime("%Y%m%d/%H%M%S")} [%02d] cases/#{recipe}" % [@test_summary_hash[recipe].priority]
+        covered += 1
+      else
+        puts "#{@test_summary_hash[recipe].testcase_result} --------/------ [%02d] cases/#{recipe}" % [@test_summary_hash[recipe].priority]
         uncovered += 1
       end
     end
@@ -215,11 +234,8 @@ class TestSummary
 
   def show_recipe_status
     @options[:recipes].each do |recipe|
-      if @test_summary_hash.key? recipe
-        puts "#{@test_summary_hash[recipe].testcase_result} #{recipe}"
-      else
-        puts "---- #{recipe}"
-      end
+      recipe.gsub!(/^cases\//, '')
+      puts "#{@test_summary_hash[recipe].testcase_result} #{recipe}"
     end
   end
 
@@ -264,6 +280,9 @@ class TestSummary
       end
       opts.on("-c", "--coverage") do
         @options[:coverage] = true
+      end
+      opts.on("-C", "--progress-coverage") do
+        @options[:progresscoverage] = true
       end
       opts.on("-F", "--finishcheck") do
         @options[:finishcheck] = true
@@ -311,19 +330,3 @@ if $0 == __FILE__
     ts.do_work
   end
 end
-
-#   def get_targets
-#     if @options[:latest]
-#       tmp = Dir.glob("#{@options[:workdir]}/*").select do |g|
-#         File.directory? g
-#       end
-#       tmp.delete_if {|d| d =~ /\/hugetlbfs/}
-#       raise "not target directory found" if tmp.empty?
-#       tmp.sort_by! {|f| File.mtime(f)}
-#       0.upto(@options[:latest] - 1) do |i|
-#         puts "latest result dir is #{tmp[-1-i]}"
-#         @targets << tmp[-1-i]
-#       end
-#     end
-#   end
-

@@ -2,8 +2,8 @@ MEMTOTAL=$(grep ^MemTotal: /proc/meminfo | awk '{print $2}')
 MEMFREE=$(grep ^MemFree: /proc/meminfo | awk '{print $2}')
 KERNEL_SRC=/src/linux-dev
 
-# higher value means more verbose (0-5, 0:nothing, 5:all)
-[ ! "$LOGLEVEL" ] && export LOGLEVEL=3
+# higher value means more verbose (0:minimum, 1:normal (default), 2:verbose)
+[ ! "$LOGLEVEL" ] && export LOGLEVEL=1
 [ ! "$SOFT_RETRY" ] && SOFT_RETRY=2
 
 [ ! "$HIGHEST_PRIORITY" ] && export HIGHEST_PRIORITY=0
