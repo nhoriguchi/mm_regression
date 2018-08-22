@@ -257,7 +257,8 @@ class TestSummary
     @options = {
       # :workdir => File.expand_path(File.dirname(__FILE__) + "/../../work"),
       # :recipedir => File.expand_path(File.dirname(__FILE__) + "/../../cases"),
-      :workdir => "#{Dir::pwd}/work",
+      # :workdir => "#{Dir::pwd}/work",
+      :workdir => "work",
       :recipedir => "#{Dir::pwd}/cases",
     }
     OptionParser.new do |opts|
@@ -311,9 +312,15 @@ class TestSummary
   end
 
   def check_args
-    if @options[:latest] and @runname
+    if @options[:latest] and ! @targets.empty?
       puts "both of runname and -l option are given (not intended)"
       exit
+    else
+      tmp = Dir.glob(@options[:workdir] + "/*/full_recipe_list").sort do |a, b|
+        File.mtime(a) <=> File.mtime(b)
+      end
+      # TODO: assuming @options[:workdir] is 'work'
+      @targets = [tmp[-1].split('/')[-3..-2].join('/')]
     end
   end
 
