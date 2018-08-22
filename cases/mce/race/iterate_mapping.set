@@ -39,7 +39,7 @@ _control() {
 		$test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping &
 		pid=$!
 
-		get_pagetypes $pid pagetypes.1 -b "$TARGET_PAGEFLAGS" -Nrla 0x700000000+0x10000000
+		get_pagetypes $pid pagetypes.1 -b "$TARGET_PAGEFLAGS" -Nrla 0x700000000+0x10000000 > /dev/null
 		if [ "$ERROR_TYPE" == mce-srao ] ; then
 			cat $TMPD/pagetypes.1 | cut -f2 | head -n1 | while read line ; do
 				sleep 1

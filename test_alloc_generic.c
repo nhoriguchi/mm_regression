@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 
 	signal(SIGUSR1, sig_handle);
 
-	while ((c = getopt(argc, argv, "vp:n:N:B:L:f:w:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:B:L:f:w:s")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -108,6 +108,10 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'w':
 			workdir = optarg;
+			break;
+		case 's':
+			/* use rich signal handler */
+			sigaction(SIGBUS, &sa, NULL);
 			break;
 		default:
 			errmsg("invalid option\n");
