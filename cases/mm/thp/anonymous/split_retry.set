@@ -1,0 +1,102 @@
+#!1 THP_TYPE: base shared_thp double_mapping pmd_split thp_split
+
+# TODO: might fail at the first trial after reboot.
+
+. $TRDIR/setup_thp_migration.sh
+
+MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
+FORK=
+SPLIT_THP=
+HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+# ACTION=migratepages
+ACTION=mbind:flags=move_all
+
+if [ __MARK_THP_TYPE == shared_thp ] ; then
+	FORK=fork:wait_after
+elif [ __MARK_THP_TYPE == double_mapping ] ; then
+	FORK=fork:wait_after
+	SPLIT_THP=split_thp:only_pmd
+elif [ __MARK_THP_TYPE == pmd_split ] ; then
+	SPLIT_THP=split_thp:only_pmd
+elif [ __MARK_THP_TYPE == thp_split ] ; then
+	SPLIT_THP=split_thp
+	HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
+fi
+
+TEST_PROGRAM="$test_alloc_generic -B thp -N $[MEMFREE/4/512*3/10] -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION access munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="$test_alloc_generic -B thp -N 128 -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION access munmap:wait_before exit:wait_before'"
+EXPECTED_RETURN_CODE="START MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
+
+_prepare() {
+	prepare_mmgeneric || return 1
+
+	# ###: This patchset was not accepted :(
+	# if ! grep -q thp_migrate_failure /proc/vmstat ; then
+	# 	echo "no thp_migrate_failure entry in /proc/vmstat"
+	# 	return 1
+	# fi
+
+	set_thp_defrag_never
+	khpd_off
+
+	mkfifo $TMPD/.tmp_pipe
+	chmod a+x $TMPD/.tmp_pipe
+
+	# Background memeater try to allocate all free pages in node 1,
+	# then create fragmented status to drive memory compaction.
+	echo "$test_alloc_generic -B thp -N $[MEMFREE/4/512*6/10] -L 'mmap_numa:preferred_cpu_node=1:preferred_mem_node=1 access split_thp madvise:advice=dontneed:wait_after:offset=0:length=31:step=32'"
+	$test_alloc_generic -B thp -N $[MEMFREE/4/512*6/10] -p $TMPD/.tmp_pipe -L "mmap_numa:preferred_cpu_node=1:preferred_mem_node=1 access split_thp madvise:advice=dontneed:wait_after:offset=0:length=31:step=32" &
+	local backpid=$!
+	if ! check_process_status $backpid ; then
+		set_return_code "BACKGROUND_FAILED"
+		return 1
+	elif read -t60 line <> $TMPD/.tmp_pipe ; then
+		# enter here after madvise:wait_after above
+		echo "---------> $line"
+	fi
+	echo "prepare done"
+	local order10=$(cat /proc/buddyinfo | awk -e 'BEGIN {sum=0} {sum+=$15} END {print sum}')
+}
+
+_check() {
+	# local thpmig_failure_before=$(grep thp_migrate_failure $TMPD/vmstat.2 | awk -e '{print $2}')
+	# local thpmig_failure_after=$(grep thp_migrate_failure $TMPD/vmstat.3 | awk -e '{print $2}')
+
+	local pagetype_before=$TMPD/pagetypes.2
+	local pagetype_after=$TMPD/pagetypes.3
+	if [ "$FORK" ] ; then
+		pagetype_before=$TMPD/pagetypes.2.$pid
+		pagetype_after=$TMPD/pagetypes.3.$pid
+	fi
+
+	grep -e H_ $pagetype_before | cut -f1,2 > $TMPD/pagetypes.huge.2
+	grep -v _t_ $pagetype_after | cut -f1,2 > $TMPD/pagetypes.huge.3
+	grep _t_ $pagetype_after | cut -f1,2 > $TMPD/pagetypes.huge.4
+	diff -u1000000 $TMPD/pagetypes.huge.2 $TMPD/pagetypes.huge.3 > $TMPD/pagetypes.huge.diff.A
+	diff -u1000000 $TMPD/pagetypes.huge.2 $TMPD/pagetypes.huge.4 > $TMPD/pagetypes.huge.diff.B
+
+	grep '^+' $TMPD/pagetypes.huge.diff.A | grep -v '^+++' > $TMPD/split_retry.A
+	grep '^+' $TMPD/pagetypes.huge.diff.B | grep -v '^+++' > $TMPD/split_retry.B
+
+	# count_testcount
+	# if [ "$thpmig_failure_before" == "$thpmig_failure_after" ] ; then
+	# 	count_failure "thp migration didn't fail, so no retry happen"
+	# else
+	# 	count_success "thp migration failed/retried after split"
+	# fi
+
+	count_testcount
+	if [ -s "$TMPD/split_retry.A" ] ; then
+		count_success "retry normal page migration after thp split"
+	else
+		count_failure "retry normal page migration after thp split"
+	fi
+
+	diff -u10000 $TMPD/vmstat.2 $TMPD/vmstat.3 | grep -e thp -e migr
+}
+
+_cleanup() {
+	set_thp_defrag_always
+	khpd_on
+	cleanup_mmgeneric || return 1
+}

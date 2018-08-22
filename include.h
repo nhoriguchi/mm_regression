@@ -9,6 +9,22 @@ int flag = 1;
 
 void sig_handle(int signo) { ; }
 
+void sigbus_action(int signo, siginfo_t *si, void *args)
+{
+	printf("Signal received: pid:%d, signo:%d, si_code:%d, si_addr:%p, si_addr_lsb:%d\n",
+	       getpid(), signo, si->si_code, si->si_addr, si->si_addr_lsb);
+	if (si->si_code == BUS_MCEERR_AR) {
+		exit(135);
+	} else {
+		exit(1);
+	}
+}
+
+struct sigaction sa = {
+	.sa_sigaction = sigbus_action,
+	.sa_flags = SA_SIGINFO,
+};
+
 #define ADDR_INPUT 0x700000000000
 
 /* for multi_backend operation */
@@ -206,7 +222,7 @@ static void create_regular_file(void) {
 
 	Dprintf("%s: fpath %s\n", __func__, fpath);
 	if(access(fpath, F_OK) != -1) {
-		printf("%s: %s already exists.\n", __func__, fpath);
+		Dprintf("%s: %s already exists.\n", __func__, fpath);
 		fd = open(fpath, O_RDWR, 0755);
 		if (fd == -1)
 			err("open");
@@ -406,6 +422,7 @@ static void do_mmap(struct op_control *opc) {
 }
 
 /* TODO: using NR_<operation> for error message */
+/* TODO: properly report the return value */
 static int do_work_memory(int (*func)(struct mem_chunk *mc, void *arg),
 			  void *args) {
 	int i, j;
@@ -528,6 +545,7 @@ static int __mbind_chunk(struct mem_chunk *mc, void *args) {
 	int i;
 	struct mbind_arg *mbind_arg = (struct mbind_arg *)args;
 
+	printf("%s: called.\n", __func__);
 	if (mbind_arg->hp_partial) {
 		for (i = 0; i < (size - 1) / HPS + 1; i++)
 			mbind(p + i * HPS, PS,

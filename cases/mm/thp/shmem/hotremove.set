@@ -12,6 +12,7 @@ FORK=
 SPLIT_THP=
 HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
 ACTION=hotremove:busyloop:pageflags=$(get_backend_pageflags thp_shmem)
+ACTION=hotremove:pageflags=$(get_backend_pageflags thp_shmem)
 
 BACKEND=__MARK_BACKEND
 BACKGROUND=__MARK_BACKGROUND

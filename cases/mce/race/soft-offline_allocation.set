@@ -1,0 +1,91 @@
+#! BACKEND: anonymous pagecache
+
+# set lower priority because unpoison is essentially unstable, and we can't
+# expect this to work fine.
+PRIORITY=15
+
+. $TRDIR/setup_mce_test.sh
+
+EXPECTED_RETURN_CODE="START NO_BUS_MCEERR_AR EXIT"
+
+BACKEND=__MARK_BACKEND
+
+THP=
+NR_PAGES=$[2*256*1024]
+DMESG_DIFF_LIMIT="head -n20"
+
+TIMEOUT=300
+
+_prepare() {
+	[ -e "$TMPD/BUS_MCEERR_AR" ] && rm -f $TMPD/BUS_MCEERR_AR
+	[ -e "$TMPD/UNKNOWN_FAULT" ] && rm -f $TMPD/UNKNOWN_FAULT
+	return 0
+}
+
+random_allocation() {
+	echo "random_allocation thread running ..."
+	while true ; do
+		$test_alloc_generic -B $BACKEND -n $NR_PAGES -L 'mmap access'
+		local ret=$?
+		if [ "$ret" -eq 135 ] ; then
+			echo "test_alloc_generic returned with $ret (bus error)"
+			date >> $TMPD/BUS_MCEERR_AR
+			break
+		elif [ "$ret" -ne 0 ] ; then
+			echo "test_alloc_generic returned with $ret (???)"
+			date >> $TMPD/UNKNOWN_FAULT
+			break
+		fi
+	done
+}
+
+random_soft_offline() {
+	local pid_alloc=$1
+	echo "random_soft_offline thread running ..."
+
+	while true ; do
+		local heads="$($PAGETYPES -r -b buddy -Nlr | grep -v offset | cut -f1 | head -n100)"
+		for head in $heads ; do
+			echo 0x${head}000 > /sys/devices/system/memory/soft_offline_page 2> /dev/null
+		done
+		all_unpoison > /dev/null 2>&1
+
+		if ! check_process_status $pid_alloc ; then
+			echo "$FUNCNAME: random_allocation thread is stopped, so return this thread too."
+			break
+		fi
+	done
+}
+
+_control() {
+	random_allocation &
+	local pid_alloc=$!
+	pids="$pids $pid_alloc"
+	random_soft_offline $pid_alloc &
+	local pid_soft_offline=$!
+	pids="$pids $pid_soft_offline"
+
+	trap 'kill -9 $pids' 2
+
+	echo_log "Running race testing for $TIMEOUT seconds ..."
+	(
+		sleep $TIMEOUT
+		check_process_status $pid_soft_offline && kill -SIGKILL $pid_soft_offline
+	) &
+	wait $pid_soft_offline
+	# timeout -sSIGINT $TIMEOUT wait $pid_soft_offline
+
+	kill -9 $pids 2> /dev/null
+
+	if [ -s "$TMPD/BUS_MCEERR_AR" ] ; then
+		set_return_code BUS_MCEERR_AR
+	else
+		set_return_code NO_BUS_MCEERR_AR
+	fi
+
+	set_return_code EXIT
+}
+
+_check() {
+	true;
+}
