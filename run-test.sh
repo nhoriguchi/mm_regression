@@ -169,5 +169,4 @@ for recipe in $RECIPEFILES ; do
 	wait $testcase_pid
 done
 
-ruby $TCDIR/lib/test_summary.rb $GTMPD
 echo_log "<========= end testing $(basename $TRDIR):$TESTNAME"
