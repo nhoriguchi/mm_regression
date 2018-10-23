@@ -1,4 +1,4 @@
-TEST_PROGRAM="$test_sample -m private -n 1"
+TEST_PROGRAM="lib/test_sample -m private -n 1"
 EXPECTED_RETURN_CODE="START CHECK1 EXIT"
 
 _control() {
@@ -12,7 +12,7 @@ _control() {
 			set_return_code CHECK1
 		    kill -SIGUSR1 ${pid}
 		    ;;
-		"$test_sample exit")
+		"lib/test_sample exit")
 		    kill -SIGUSR1 ${pid}
 		    set_return_code "EXIT"
 		    return 0
