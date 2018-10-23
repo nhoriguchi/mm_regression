@@ -204,6 +204,7 @@ class TestSummary
     uncovered = 0
     @full_recipe_list.each do |recipe|
       if @test_summary_hash[recipe].started?
+        # pp @test_summary_hash[recipe]
         puts "#{@test_summary_hash[recipe].testcase_result} #{@test_summary_hash[recipe].date.strftime("%Y%m%d/%H%M%S")} [%02d] cases/#{recipe}" % [@test_summary_hash[recipe].priority]
         covered += 1
       else
@@ -218,6 +219,7 @@ class TestSummary
       coverage = 100*covered/(covered+uncovered)
     end
     puts "Coverage: #{covered} / #{covered + uncovered} (#{coverage}%)"
+    puts "Target: #{@targets.join(", ")}"
   end
 
   def show_timesummary
@@ -258,20 +260,20 @@ class TestSummary
       # :workdir => File.expand_path(File.dirname(__FILE__) + "/../../work"),
       # :recipedir => File.expand_path(File.dirname(__FILE__) + "/../../cases"),
       # :workdir => "#{Dir::pwd}/work",
+      :latest => nil,
       :workdir => "work",
       :recipedir => "#{Dir::pwd}/cases",
     }
     OptionParser.new do |opts|
-      opts.banner = "Usage: #{$0} [-options] seriesfile"
+      opts.banner = "Usage: #{$0} [-options] work/<runname>"
       opts.on("-o dir", "--outdir") do |d|
         @options[:outdir] = d
       end
       opts.on("-w workdir", "--workdir") do |d|
         @options[:workdir] = d
       end
-      opts.on("-l [n]", "--latest") do |n|
-        @options[:latest] = n.to_i
-        @options[:latest] = 1 if @options[:latest] == 0
+      opts.on("-l", "--latest") do
+        @options[:latest] = true
       end
       opts.on("-f filter", "--filter") do |f|
         @options[:filter] = f
@@ -299,7 +301,7 @@ class TestSummary
 
     @targets = args.map do |dat|
       if File.directory? dat # maybe work/<runname> form
-        dat = File.expand_path dat
+        dat = "work/" + dat.split("/")[-1]
       elsif File.exist? dat # maybe tar file
         tmpdir = Dir.mktmpdir
         system "tar -x --force-local -zf #{dat} -C #{tmpdir}"
@@ -307,15 +309,16 @@ class TestSummary
       end
       dat
     end
-
     check_args
   end
 
   def check_args
-    if @options[:latest] and ! @targets.empty?
+    if @options[:latest].nil? and @targets.empty?
       puts "both of runname and -l option are given (not intended)"
       exit
-    else
+    end
+
+    if @options[:latest]
       tmp = Dir.glob(@options[:workdir] + "/*/full_recipe_list").sort do |a, b|
         File.mtime(a) <=> File.mtime(b)
       end
