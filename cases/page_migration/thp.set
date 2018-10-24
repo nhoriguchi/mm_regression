@@ -5,7 +5,7 @@
 #!3 MIGRATE_SRC: mbind
 #!3 OPERATION: partial
 
-. $TRDIR/setup_page_migration.sh
+. $TRDIR/lib/setup_page_migration.sh
 
 MIGRATE_SRC=__MARK_MIGRATE_SRC
 RACE_SRC=__MARK_RACE_SRC
@@ -17,11 +17,11 @@ BACKEND=thp
 if [ "$RACE_SRC" == race_with_gup ] ; then
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_SPLIT EXIT"
 	# madv_soft calls get_user_pages()
-	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft munmap:wait_before exit:wait_before'"
+	TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft munmap:wait_before exit:wait_before'"
 	# BUG_ON in mm/vmscan.c:1430
 elif [ "$RACE_SRC" == race_with_procpid ] ; then
 	EXPECTED_RETURN_CODE="START EXIT"
-	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access madv_soft:wait_before:wait_after'"
+	TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N $THP -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access madv_soft:wait_before:wait_after'"
 	_control() {
 		local pid="$1"
 		local line="$2"
@@ -53,11 +53,11 @@ elif [ "$RACE_SRC" == race_with_procpid ] ; then
 elif [ "$RACE_SRC" == race_with_process_vm_access ] ; then
 	# TODO: really need busyloop flag?
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
-	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after process_vm_access:busyloop munmap:wait_before exit:wait_before'"
+	TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after process_vm_access:busyloop munmap:wait_before exit:wait_before'"
 elif [ "$RACE_SRC" == race_with_map_fault_unmap ] ; then
 	_control() {
 		for i in $(seq 5) ; do
-			$test_alloc_generic -B thp -N 10 -L iterate_mapping &
+			lib/test_alloc_generic -B thp -N 10 -L iterate_mapping &
 			local pid=$!
 			sleep 0.3
 			for j in $(seq 100) ; do
@@ -78,7 +78,7 @@ elif [ "$RACE_SRC" == race_with_fork ] ; then
 	# BUG_ON in cow path
 	_control() {
 		for i in $(seq 5) ; do
-			$test_alloc_generic -B thp -N $THP -L "start mmap access fork_stress" &
+			lib/test_alloc_generic -B thp -N $THP -L "start mmap access fork_stress" &
 			local pid=$!
 			sleep 0.3
 			for j in $(seq 100) ; do
@@ -98,5 +98,5 @@ elif [ "$RACE_SRC" == race_with_mremap ] ; then
 else
 	# no race mbind/partial case
 	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED PMD_SPLIT EXIT"
-	TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after mbind:hp_partial munmap:wait_before exit:wait_before'"
+	TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after mbind:hp_partial munmap:wait_before exit:wait_before'"
 fi

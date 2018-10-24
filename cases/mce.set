@@ -1,4 +1,4 @@
-#!1 BACKEND: anonymous pagecache ksm zero
+#!1 BACKEND: anonymous pagecache ksm
 #!1 ERROR_TYPE: mce-srao hard-offline soft-offline madv_hard madv_soft
 #!1 ACCESS_LATER: later_access avoid_access
 
@@ -14,7 +14,7 @@
 # remaining setting parameter
 # BACKEND: hugetlb_shmem hugetlb_file huge_zero
 
-. $TRDIR/setup_mce_test.sh
+. $TRDIR/lib/setup_mce_test.sh
 
 BACKEND=__MARK_BACKEND
 ERROR_TYPE=__MARK_ERROR_TYPE
@@ -28,14 +28,8 @@ elif [ "__MARK_ERROR_OFFSET" == tail ] ; then
 	ERROR_OFFSET=1
 fi
 
-case "$BACKEND" in
-	buddy|zero|huge_zero)
-		PRIORITY=15 # low priority
-		;;
-esac
-
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 32 -L 'start:wait_after mmap access:wait_after=1000000 $INJOP munmap:wait_before exit:wait_before' ${DEBUG:+-v}"
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 2 -L 'start:wait_after mmap access:wait_after=1000000 $INJOP munmap:wait_before exit:wait_before' ${DEBUG:+-v}"
+TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N 32 -L 'start:wait_after mmap access:wait_after=1000000 $INJOP munmap:wait_before exit:wait_before' ${DEBUG:+-v}"
+TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N 2 -L 'start:wait_after mmap access:wait_after=1000000 $INJOP munmap:wait_before exit:wait_before' ${DEBUG:+-v}"
 
 case "$BACKEND" in
 	thp)

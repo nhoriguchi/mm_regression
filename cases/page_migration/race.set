@@ -4,7 +4,7 @@
 
 # TODO: race with madv_free
 
-. $TRDIR/setup_page_migration.sh
+. $TRDIR/lib/setup_page_migration.sh
 
 BACKEND=__MARK_BACKEND
 MIGRATE_SRC=__MARK_MIGRATE_SRC
@@ -26,28 +26,28 @@ WAITSEC=3
 
 run_race_src() {
 	if [ "$RACE_SRC" == iterate_mapping ] ; then
-		$test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping > /dev/null 2>&1
+		lib/test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping > /dev/null 2>&1
 	elif [ "$RACE_SRC" == gup ] ; then
 		# how to wait allocation done?
-		$test_alloc_generic -B $BACKEND -N 100 -L 'start mmap access:wait_after madv_soft' > /dev/null 2>&1 &
+		lib/test_alloc_generic -B $BACKEND -N 100 -L 'start mmap access:wait_after madv_soft' > /dev/null 2>&1 &
 		local mypid=$!
 		sleep 2
 		kill -SIGUSR1 $mypid
 	elif [ "$RACE_SRC" == mremap_stress ] ; then
-		$test_alloc_generic -B $BACKEND -N 10 -L 'start mmap access mremap_stress' > /dev/null 2>&1
+		lib/test_alloc_generic -B $BACKEND -N 10 -L 'start mmap access mremap_stress' > /dev/null 2>&1
 	elif [ "$RACE_SRC" == iterate_fault_dontneed ] ; then
-		exec $test_alloc_generic -B $BACKEND -N 10 -L iterate_fault_dontneed > /dev/null 2>&1
+		exec lib/test_alloc_generic -B $BACKEND -N 10 -L iterate_fault_dontneed > /dev/null 2>&1
 	fi
 }
 
 run_migrate_src() {
 	if [ "$MIGRATE_SRC" == migratepages ] ; then
 		for j in $(seq 100) ; do
-			migratepages $(pgrep -f $test_alloc_generic) 0 1 > /dev/null 2>&1
-			migratepages $(pgrep -f $test_alloc_generic) 1 0 > /dev/null 2>&1
+			migratepages $(pgrep -f lib/test_alloc_generic) 0 1 > /dev/null 2>&1
+			migratepages $(pgrep -f lib/test_alloc_generic) 1 0 > /dev/null 2>&1
 		done
 	elif [ "$MIGRATE_SRC" == move_pages ] ; then
-		$iterate_numa_move_pages 10 $(pgrep -f $test_alloc_generic) > /dev/null 2>&1
+		lib/iterate_numa_move_pages 10 $(pgrep -f lib/test_alloc_generic) > /dev/null 2>&1
 	fi
 }
 
@@ -61,7 +61,7 @@ _control() {
 		local pidmove=$!
 		sleep $WAITSEC
 		disown -a
-		pkill -SIGKILL -f $test_alloc_generic > /dev/null 2>&1
+		pkill -SIGKILL -f lib/test_alloc_generic > /dev/null 2>&1
 		kill -SIGTERM $pidmove > /dev/null 2>&1
 	done
 	get_mm_stats 2

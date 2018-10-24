@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $TRDIR/setup_kvm.sh || return 1
+. $TRDIR/lib/setup_kvm.sh || return 1
 
 TARGETGVA=""
 TARGETGPA=""

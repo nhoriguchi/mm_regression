@@ -4,41 +4,11 @@
 
 get_vma_protection() { grep -A 2 700000000000 /proc/$pid/maps; }
 
-prepare_hugepage_migration() {
-	prepare_mm_generic || return 1
-
-	if [ "$RESERVE_HUGEPAGE" ] ; then
-		echo_log "$test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L \"mmap:wait_after\" &"
-		$test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L "mmap:wait_after" &
-		set_return_code RESERVE
-		sleep 1 # TODO: properly wait for reserve completion
-	fi
-
-	if [ "$ALLOCATE_HUGEPAGE" ] ; then
-		echo_log "$test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L \"mmap access busyloop\" &"
-		# ALLOCATE_NODE?
-		$test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L "mmap access busyloop" &
-		set_return_code ALLOCATE
-		sleep 1 # TODO: properly wait for reserve completion
-	fi
-
-	if [ "$MIGRATE_TYPE" = hotremove ] ; then
-		reonline_memblocks
-	fi
-
-	return 0
-}
-
-cleanup_hugepage_migration() {
-	cleanup_mm_generic
-
-	if [ "$MIGRATE_TYPE" = hotremove ] ; then
-		reonline_memblocks
-	fi
-}
-
 check_migration_pagemap() {
-	diff -u1000000 $TMPD/.mig.1 $TMPD/.mig.2 > $TMPD/.mig.diff
+	local before=$1
+	local after=$2
+
+	diff -u1000000 $before $after | grep -v -e '---' -e '+++' > $TMPD/.mig.diff
 	local before=$(grep "^-" $TMPD/.mig.diff | wc -l)
 	local after=$(grep "^+" $TMPD/.mig.diff | wc -l)
 	local unchange=$(grep "^ " $TMPD/.mig.diff | wc -l)
@@ -57,10 +27,18 @@ check_migration_pagemap() {
 	fi
 }
 
+# TODO: handle the case like below
+# -700000000      71e00   1       ___U_lA____Ma_bH______t___________f_____1
+# -700000001      71e01   1ff     ___________Ma___T_____t___________f_____1
+# +700000000      73fd2   1       __RUDlA____Ma_b___________________f_____1
+# +700000001      71e01   1ff     __RUDlA____Ma_b___________________f_____1
 check_migration_hugeness() {
-	grep H $TMPD/pagetypes.1 | cut -f1,2 > $TMPD/.pagetypes.huge.1
-	grep H $TMPD/pagetypes.2 | cut -f1,2 > $TMPD/.pagetypes.huge.2
-	diff -u1000000 $TMPD/.pagetypes.huge.1 $TMPD/.pagetypes.huge.2 > $TMPD/.pagetypes.huge.diff
+	local before=$1
+	local after=$2
+
+	grep -e H_ -e _T $before | cut -f1,2 > $TMPD/.pagetypes.huge.1
+	grep -e H_ -e _T $after  | cut -f1,2 > $TMPD/.pagetypes.huge.2
+	diff -u1000000 $TMPD/.pagetypes.huge.1 $TMPD/.pagetypes.huge.2 | grep -v -e '---' -e '+++' > $TMPD/.pagetypes.huge.diff
 	local before=$(grep "^-" $TMPD/.pagetypes.huge.diff | wc -l)
 	local after=$(grep "^+" $TMPD/.pagetypes.huge.diff | wc -l)
 	local unchange=$(grep "^ " $TMPD/.pagetypes.huge.diff | wc -l)
@@ -128,15 +106,16 @@ check_thp_split() {
 	fi
 }
 
-# assume before/after migration data is taken by "get_mm_stats 1 $pid"
-# and "get_mm_stats 2 $pid"
 check_migration_done() {
-	if check_migration_pagemap ; then
+	local before=$1
+	local after=$2
+
+	if check_migration_pagemap $before $after ; then
 		set_return_code MIGRATION_PASSED
 	else
 		set_return_code MIGRATION_FAILED
 	fi
-	check_migration_hugeness
+	check_migration_hugeness $before $after
 	local ret=$?
 	if [ "$ret" == 0 ] ; then
 		set_return_code HUGEPAGE_MIGRATED
@@ -146,6 +125,39 @@ check_migration_done() {
 		set_return_code HUGEPAGE_DISAPPEARED
 	elif [ "$ret" == 3 ] ; then
 		set_return_code HUGEPAGE_NOT_EXIST
+	fi
+}
+
+prepare_hugepage_migration() {
+	prepare_mm_generic || return 1
+
+	if [ "$RESERVE_HUGEPAGE" ] ; then
+		echo_log "lib/test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L \"mmap:wait_after\" &"
+		lib/test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L "mmap:wait_after" &
+		set_return_code RESERVE
+		sleep 1 # TODO: properly wait for reserve completion
+	fi
+
+	if [ "$ALLOCATE_HUGEPAGE" ] ; then
+		echo_log "lib/test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L \"mmap access busyloop\" &"
+		# ALLOCATE_NODE?
+		lib/test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L "mmap access busyloop" &
+		set_return_code ALLOCATE
+		sleep 1 # TODO: properly wait for reserve completion
+	fi
+
+	if [ "$MIGRATE_TYPE" = hotremove ] ; then
+		reonline_memblocks
+	fi
+
+	return 0
+}
+
+cleanup_hugepage_migration() {
+	cleanup_mm_generic
+
+	if [ "$MIGRATE_TYPE" = hotremove ] ; then
+		reonline_memblocks
 	fi
 }
 
@@ -196,7 +208,7 @@ control_hugepage_migration() {
 				get_mm_stats 2 $pid
 
 				if [ "$MIGRATE_SRC" ] ; then
-					check_migration_done
+					check_migration_done $TMPD/pagetypes.1 $TMPD/pagetypes.2
 				fi
 
 				# TODO: flag check enough?

@@ -1,6 +1,6 @@
 #!1 BACKEND: anonymous hugetlb_anon
 
-. $TRDIR/setup_page_migration.sh
+. $TRDIR/lib/setup_page_migration.sh
 
 NUMA_NODE=2
 
@@ -87,4 +87,4 @@ _control() {
 }
 
 EXPECTED_RETURN_CODE="START OFFLINED REONLINED EXIT"
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N $MEMSIZE -L '$MAPTYPE access:wait_after noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N $MEMSIZE -L '$MAPTYPE access:wait_after noop:wait_after $ACTION munmap:wait_before exit:wait_before'"

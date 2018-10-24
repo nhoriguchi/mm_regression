@@ -1,6 +1,6 @@
 #!40 OPERATION_SRC: noop hwpoison busy
 
-. $TRDIR/setup_hugetlb_migration.sh
+. $TRDIR/lib/setup_hugetlb_migration.sh
 
 MIGRATE_SRC=hotremove
 BACKEND=__MARK_BACKEND
@@ -90,4 +90,4 @@ _control() {
 }
 
 EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
-TEST_PROGRAM="$test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATED -L '$MAPTYPE access:wait_after noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="lib/test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATED -L '$MAPTYPE access:wait_after noop:wait_after $ACTION munmap:wait_before exit:wait_before'"

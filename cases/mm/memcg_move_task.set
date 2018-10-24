@@ -1,6 +1,6 @@
 #!1 FLAVOR: simple
 
-. $TRDIR/setup_mmgeneric.sh
+. $TRDIR/lib/setup_mmgeneric.sh
 
 EXPECTED_RETURN_CODE="START MOVE_PASS EXIT"
 

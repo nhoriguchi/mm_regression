@@ -131,7 +131,7 @@ check_numa_maps() {
 }
 
 if [ "$FLAVOR" == simple ] ; then
-	TEST_PROGRAM="$test_alloc_generic -B devmem -n 1 -L 'mmap access:wait_after exit:wait_before'"
+	TEST_PROGRAM="lib/test_alloc_generic -B devmem -n 1 -L 'mmap access:wait_after exit:wait_before'"
 	EXPECTED_RETURN_CODE="START EXIT"
 	_control() { control_vma_vm_pfnmap "$1" "$2"; }
 	_check() { check_vma_vm_pfnmap; }

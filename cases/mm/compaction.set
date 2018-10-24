@@ -2,9 +2,9 @@
 
 # NEED: khugepaged focused setting
 
-. $TRDIR/setup_mmgeneric.sh
+. $TRDIR/lib/setup_mmgeneric.sh
 
-TEST_PROGRAM="$test_alloc_generic -L 'start:wait_after memory_compaction exit:wait_before'"
+TEST_PROGRAM="lib/test_alloc_generic -L 'start:wait_after memory_compaction exit:wait_before'"
 EXPECTED_RETURN_CODE="START EXIT"
 PIPETIMEOUT=30
 THP=true

@@ -81,6 +81,6 @@ control_mbind_fuzz() {
     echo_log "... (running $MBIND_FUZZ_DURATION secs)"
     sleep $MBIND_FUZZ_DURATION
     echo_log "Done, kill the processes"
-    pkill -SIGUSR1 -f $test_alloc_generic
+    pkill -SIGUSR1 -f lib/test_alloc_generic
     set_return_code EXIT
 }

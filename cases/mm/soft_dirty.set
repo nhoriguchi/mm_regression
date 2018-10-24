@@ -2,7 +2,7 @@
 
 # NEED: khugepaged focused setting
 
-. $TRDIR/setup_mmgeneric.sh
+. $TRDIR/lib/setup_mmgeneric.sh
 
 BACKEND=__MARK_BACKEND
 
@@ -14,7 +14,7 @@ if [[ "$BACKEND" =~ hugetlb ]] ; then
 	HUGETLB=100
 fi
 
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 1 -L 'start mmap access:tag=1 access:tag=2:wait_before:wait_after munmap exit:wait_before'"
+TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N 1 -L 'start mmap access:tag=1 access:tag=2:wait_before:wait_after munmap exit:wait_before'"
 EXPECTED_RETURN_CODE="START SOFTDIRTY NO_SOFTDIRTY SOFTDIRTY EXIT"
 
 _prepare() {
