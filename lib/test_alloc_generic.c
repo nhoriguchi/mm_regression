@@ -15,7 +15,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/wait.h>
-#include "include.h"
+#include "./include.h"
 
 /* TODO: validation options' combination more */
 static void setup(void) {

@@ -4,7 +4,7 @@
 #! INJECT_TYPE: mce-srao hard-offline soft-offline hard-soft
 #! DIFFERENT_PFNS: samepfn diffpfn
 
-. $TRDIR/setup_mce_test.sh
+. $TRDIR/lib/setup_mce_test.sh
 
 TARGET_PAGEFLAG=$(get_backend_pageflags __MARK_BACKEND)
 
@@ -17,7 +17,7 @@ case "$BACKEND" in
 		EXPECTED_RETURN_CODE="START EXIT"
 		;;
     *)
-		TEST_PROGRAM="$test_alloc_generic -B 0xffffffff -N 1 -L 'mmap access'"
+		TEST_PROGRAM="lib/test_alloc_generic -B 0xffffffff -N 1 -L 'mmap access'"
 		EXPECTED_RETURN_CODE="START EXIT"
         ;;
 esac

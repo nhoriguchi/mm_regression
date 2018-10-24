@@ -3,7 +3,7 @@
 
 [ ! -x /usr/local/bin/sshvm ] && install $TCDIR/lib/sshvm /usr/local/bin/sshvm
 [ ! "$VM" ] && echo_log "You must give VM name in recipe file" && return 1
-
+guest
 SSH_OPT="-o ConnectTimeout=5"
 GPA2HPA=$(dirname $(readlink -f $BASH_SOURCE))/gpa2hpa.rb
 GUESTTESTALLOC=/usr/local/bin/test_alloc_generic
@@ -12,7 +12,7 @@ GUESTPAGETYPES=/usr/local/bin/page-types
 send_helper_to_guest() {
 	local vmip=$1
 
-	scp $test_alloc_generic $vmip:$GUESTTESTALLOC > /dev/null
+	scp lib/test_alloc_generic $vmip:$GUESTTESTALLOC > /dev/null
 	scp $PAGETYPES $vmip:$GUESTPAGETYPES > /dev/null
 }
 

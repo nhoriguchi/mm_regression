@@ -4,7 +4,7 @@
 
 #!1 FLAVOR: none overcommit free full_reserved
 
-. $TRDIR/setup_page_migration.sh
+. $TRDIR/lib/setup_page_migration.sh
 
 TEST_FLAGS=debug
 
@@ -83,7 +83,7 @@ check_reusable() {
 	echo_log "--- $FUNCNAME"
 	local pfn=$1
 	local available_pages=$(echo $[$(grep MemAvailable /proc/meminfo | awk '{print $2}') / 4])
-	$test_alloc_generic -B anonymous -n $available_pages -L 'mmap access:wait_after' &
+	lib/test_alloc_generic -B anonymous -n $available_pages -L 'mmap access:wait_after' &
 	local backpid=$!
 	echo_log "running background process ($backpid) ..."
 	sleep 3.0
@@ -103,7 +103,7 @@ check_reusable() {
 }
 
 __control_inuse() {
-	$test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATE -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft:wait_after' &
+	lib/test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATE -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft:wait_after' &
 	sleep 1.0
 	if ! pgrep -f test_alloc_generic ; then
 		ps axfw
@@ -142,7 +142,7 @@ __control_inuse() {
 
 __control_free() {
 	if [ "__MARK_FLAVOR" == full_reserved ] ; then
-		$test_alloc_generic -B hugetlb_anon -N $HUGETLB -L 'mmap:wait_after' &
+		lib/test_alloc_generic -B hugetlb_anon -N $HUGETLB -L 'mmap:wait_after' &
 	fi
 	echo_log "--- check initial page status"
 	$PAGETYPES -Nrl -b huge | grep -v offset | tee $TMPD/1 >&2

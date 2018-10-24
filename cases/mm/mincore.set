@@ -1,17 +1,17 @@
 #!1 FLAVOR: simple
 # hole
 
-. $TRDIR/setup_mmgeneric.sh
+. $TRDIR/lib/setup_mmgeneric.sh
 
 FLAVOR=__MARK_FLAVOR
 
 HUGETLB=200
 
 if [ "$FLAVOR" == simple ] ; then
-	TEST_PROGRAM="$test_mincore -f $GTMPD/holefile -t 0xffff"
+	TEST_PROGRAM="lib/test_mincore -f $GTMPD/holefile -t 0xffff"
 	EXPECTED_RETURN_CODE="START EXIT"
 elif [ "$FLAVOR" == hole ] ; then
-	TEST_PROGRAM="$test_mincore -f $GTMPD/holefile -t 010"
+	TEST_PROGRAM="lib/test_mincore -f $GTMPD/holefile -t 010"
 	EXPECTED_RETURN_CODE="START EXIT"
 fi
 

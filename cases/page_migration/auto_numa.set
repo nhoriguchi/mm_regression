@@ -1,6 +1,6 @@
 #!1 BACKEND: anonymous thp
 
-. $TRDIR/setup_page_migration.sh
+. $TRDIR/lib/setup_page_migration.sh
 
 NUMA_NODE=2
 MIGRATE_SRC=auto_numa
@@ -19,7 +19,7 @@ fi
 # in auto_numa testing, initial cpu affinity is important so set it with
 # preferred_cpu_node=0 parameter. And during waiting the memeat thread must keep
 # accessing the target region to drive NUMA hinting fault (done by :busyloop.)
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 20 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after $MIGRATE_SRC:busyloop munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N 20 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after $MIGRATE_SRC:busyloop munmap:wait_before exit:wait_before'"
 
 _control() {
     local pid="$1"

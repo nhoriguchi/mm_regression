@@ -2,7 +2,7 @@
 
 # TODO: might fail at the first trial after reboot.
 
-. $TRDIR/setup_thp_migration.sh
+. $TRDIR/lib/setup_thp_migration.sh
 
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
@@ -24,8 +24,8 @@ elif [ __MARK_THP_TYPE == thp_split ] ; then
 	HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 fi
 
-TEST_PROGRAM="$test_alloc_generic -B thp -N $[MEMFREE/4/512*3/10] -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION access munmap:wait_before exit:wait_before'"
-TEST_PROGRAM="$test_alloc_generic -B thp -N 128 -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION access munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="lib/test_alloc_generic -B thp -N $[MEMFREE/4/512*3/10] -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION access munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="lib/test_alloc_generic -B thp -N 128 -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION access munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="START MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
 
 _prepare() {
@@ -45,8 +45,8 @@ _prepare() {
 
 	# Background memeater try to allocate all free pages in node 1,
 	# then create fragmented status to drive memory compaction.
-	echo "$test_alloc_generic -B thp -N $[MEMFREE/4/512*6/10] -L 'mmap_numa:preferred_cpu_node=1:preferred_mem_node=1 access split_thp madvise:advice=dontneed:wait_after:offset=0:length=31:step=32'"
-	$test_alloc_generic -B thp -N $[MEMFREE/4/512*6/10] -p $TMPD/.tmp_pipe -L "mmap_numa:preferred_cpu_node=1:preferred_mem_node=1 access split_thp madvise:advice=dontneed:wait_after:offset=0:length=31:step=32" &
+	echo "lib/test_alloc_generic -B thp -N $[MEMFREE/4/512*6/10] -L 'mmap_numa:preferred_cpu_node=1:preferred_mem_node=1 access split_thp madvise:advice=dontneed:wait_after:offset=0:length=31:step=32'"
+	lib/test_alloc_generic -B thp -N $[MEMFREE/4/512*6/10] -p $TMPD/.tmp_pipe -L "mmap_numa:preferred_cpu_node=1:preferred_mem_node=1 access split_thp madvise:advice=dontneed:wait_after:offset=0:length=31:step=32" &
 	local backpid=$!
 	if ! check_process_status $backpid ; then
 		set_return_code "BACKGROUND_FAILED"

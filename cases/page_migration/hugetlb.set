@@ -14,7 +14,7 @@
 #!3 BACKGROUND: allocate1
 #!3 OVERCOMMIT: noovercommit
 
-. $TRDIR/setup_page_migration.sh
+. $TRDIR/lib/setup_page_migration.sh
 
 # In older kernel (< 4.15), if the hugepage pool of destination node is fully
 # used, hugepage migraion fails due to ENOMEM. But in newer kernels, hugepage
@@ -76,4 +76,4 @@ fi
 
 EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
 
-TEST_PROGRAM="$test_alloc_generic -B $BACKEND -N 2 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N 2 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"

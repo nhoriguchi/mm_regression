@@ -1,6 +1,6 @@
 #!1 MOUNT_OPTION: min_size min_max_size
 
-. $TRDIR/setup_mmgeneric.sh
+. $TRDIR/lib/setup_mmgeneric.sh
 
 HUGETLB=100
 
@@ -29,14 +29,14 @@ _control() {
 		set_return_code RESERVED
 	fi
 
-	$test_alloc_generic -B hugetlb_file -N 2 -w $tmp_hugetlb_mount -f base1 -L "mmap access:wait_after" &
+	lib/test_alloc_generic -B hugetlb_file -N 2 -w $tmp_hugetlb_mount -f base1 -L "mmap access:wait_after" &
 	sleep 0.1
 	show_hugetlb_pool
 	if [ "$(get_hugepage_reserved)" -eq 3 ] ; then
 		set_return_code RESV_CONSUMED
 	fi
 
-	$test_alloc_generic -B hugetlb_file -N 10 -w $tmp_hugetlb_mount -f base2 -L "mmap access:wait_after" &
+	lib/test_alloc_generic -B hugetlb_file -N 10 -w $tmp_hugetlb_mount -f base2 -L "mmap access:wait_after" &
 	sleep 0.1
 	show_hugetlb_pool
 	if [ "$(get_hugepage_reserved)" -eq 0 ] ; then

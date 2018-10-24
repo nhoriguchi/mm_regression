@@ -1,12 +1,12 @@
 #!1 FLAVOR: free dontneed
 
-. $TRDIR/setup_mmgeneric.sh
+. $TRDIR/lib/setup_mmgeneric.sh
 
 THP=true
 FLAVOR=__MARK_FLAVOR
 
 # TODO: background memory pressure?
-TEST_PROGRAM="$test_alloc_generic -v -B anonymous -B pagecache -B thp -B normal_shmem -N 10 -L 'mmap access:wait_after madvise:advice=$FLAVOR:wait_after munmap exit:wait_before'"
+TEST_PROGRAM="lib/test_alloc_generic -v -B anonymous -B pagecache -B thp -B normal_shmem -N 10 -L 'mmap access:wait_after madvise:advice=$FLAVOR:wait_after munmap exit:wait_before'"
 
 if [ "$FLAVOR" == free ] ; then
 	EXPECTED_RETURN_CODE="START INCORE EXIT"

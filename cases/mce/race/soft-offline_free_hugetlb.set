@@ -4,7 +4,7 @@
 # expect this to work fine.
 PRIORITY=15
 
-. $TRDIR/setup_mce_test.sh
+. $TRDIR/lib/setup_mce_test.sh
 
 EXPECTED_RETURN_CODE="START NO_BUS_MCEERR_AR EXIT"
 
@@ -25,8 +25,8 @@ _prepare() {
 random_hugetlb_allocation() {
 	echo "random_hugetlb_allocation thread running ..."
 	while true ; do
-		# $test_alloc_generic -B $BACKEND -N $[HUGETLB/2] -s -L 'mmap access'
-		$test_alloc_generic -B $BACKEND -N $[HUGETLB/2] -s -L 'mmap access'
+		# lib/test_alloc_generic -B $BACKEND -N $[HUGETLB/2] -s -L 'mmap access'
+		lib/test_alloc_generic -B $BACKEND -N $[HUGETLB/2] -s -L 'mmap access'
 		local ret=$?
 		if [ "$ret" -eq 135 ] ; then
 			echo "test_alloc_generic returned with $ret (SIGBUS(BUS_MCEERR_AR))"

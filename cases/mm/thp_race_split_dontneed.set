@@ -1,12 +1,12 @@
 ##!1 MOUNT_OPTION: min_size min_max_size
 
-# . $TRDIR/setup_mmgeneric.sh
+# . $TRDIR/lib/setup_mmgeneric.sh
 . $TCDIR/lib/mm.sh
 
 THP=true
 
 EXPECTED_RETURN_CODE="START EXIT"
-TEST_PROGRAM="$test_alloc_generic -B thp -N 1000 -L 'mmap access madvise:advice=dontneed:wait_before=7000000 exit:wait_before'"
+TEST_PROGRAM="lib/test_alloc_generic -B thp -N 1000 -L 'mmap access madvise:advice=dontneed:wait_before=7000000 exit:wait_before'"
 
 PIPETIMEOUT=10
 

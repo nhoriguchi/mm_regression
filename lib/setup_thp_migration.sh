@@ -1,5 +1,5 @@
-. $TRDIR/setup_mmgeneric.sh
-. $TRDIR/setup_page_migration.sh
+. $TRDIR/lib/setup_mmgeneric.sh
+. $TRDIR/lib/setup_page_migration.sh
 
 THP=true
 NUMA_NODE=2

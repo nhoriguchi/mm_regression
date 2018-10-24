@@ -1,6 +1,6 @@
 #!1 MIGRATE_SRC: migratepages mbind move_pages madv_soft
 
-. $TRDIR/setup_page_migration.sh
+. $TRDIR/lib/setup_page_migration.sh
 
 BACKEND=hugetlb_file
 MIGRATE_SRC=__MARK_MIGRATE_SRC
@@ -12,10 +12,10 @@ HUGETLB=1030 # need at least 512 * 2 hps
 EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
 
 _control() {
-	$test_hugetlb_pmd_share $MIGRATE_SRC &
+	lib/test_hugetlb_pmd_share $MIGRATE_SRC &
 	local pid1=$!
 	disown
-	$test_hugetlb_pmd_share &
+	lib/test_hugetlb_pmd_share &
 	local pid2=$!
 	disown
 

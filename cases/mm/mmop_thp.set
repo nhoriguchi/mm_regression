@@ -2,7 +2,7 @@
 #!1 FLAVOR: full partial
 #!1 FORK: nofork fork
 
-. $TRDIR/setup_page_migration.sh
+. $TRDIR/lib/setup_page_migration.sh
 
 NUMA_NODE=2
 THP=10
@@ -30,4 +30,4 @@ fi
 
 EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
 # busyloop work?
-TEST_PROGRAM="$test_alloc_generic -v -B thp -N $THP -L 'start:wait_after mmap access:wait_after $OP_FORK $OPERATION_TYPE munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="lib/test_alloc_generic -v -B thp -N $THP -L 'start:wait_after mmap access:wait_after $OP_FORK $OPERATION_TYPE munmap:wait_before exit:wait_before'"
