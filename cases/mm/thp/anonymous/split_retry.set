@@ -10,6 +10,7 @@ SPLIT_THP=
 HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
 # ACTION=migratepages
 ACTION=mbind:flags=move_all
+TEST_FLAGS=devel
 
 if [ __MARK_THP_TYPE == shared_thp ] ; then
 	FORK=fork:wait_after
@@ -72,8 +73,8 @@ _check() {
 	grep -e H_ $pagetype_before | cut -f1,2 > $TMPD/pagetypes.huge.2
 	grep -v _t_ $pagetype_after | cut -f1,2 > $TMPD/pagetypes.huge.3
 	grep _t_ $pagetype_after | cut -f1,2 > $TMPD/pagetypes.huge.4
-	diff -u1000000 $TMPD/pagetypes.huge.2 $TMPD/pagetypes.huge.3 > $TMPD/pagetypes.huge.diff.A
-	diff -u1000000 $TMPD/pagetypes.huge.2 $TMPD/pagetypes.huge.4 > $TMPD/pagetypes.huge.diff.B
+	diff -u1000000 $TMPD/pagetypes.huge.2 $TMPD/pagetypes.huge.3 | grep -v -e '---' -e '+++' > $TMPD/pagetypes.huge.diff.A
+	diff -u1000000 $TMPD/pagetypes.huge.2 $TMPD/pagetypes.huge.4 | grep -v -e '---' -e '+++' > $TMPD/pagetypes.huge.diff.B
 
 	grep '^+' $TMPD/pagetypes.huge.diff.A | grep -v '^+++' > $TMPD/split_retry.A
 	grep '^+' $TMPD/pagetypes.huge.diff.B | grep -v '^+++' > $TMPD/split_retry.B
@@ -92,7 +93,7 @@ _check() {
 		count_failure "retry normal page migration after thp split"
 	fi
 
-	diff -u10000 $TMPD/vmstat.2 $TMPD/vmstat.3 | grep -e thp -e migr
+	diff -u10000 $TMPD/vmstat.2 $TMPD/vmstat.3 | grep -v -e '---' -e '+++' | grep -e thp -e migr
 }
 
 _cleanup() {

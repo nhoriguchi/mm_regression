@@ -1,6 +1,8 @@
 #!1 BACKEND: anonymous thp
 #!1 MIGRATE_SRC: migratepages mbind move_pages madv_soft
 
+# TODO: このテストケースはどこか既存の他の set に移すべき
+
 . $TRDIR/setup_page_migration.sh
 
 BACKEND=__MARK_BACKEND

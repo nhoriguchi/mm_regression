@@ -4,7 +4,7 @@
 # NEED: khugepaged focused setting
 
 . $TRDIR/setup_mmgeneric.sh
-. $TRDIR/setup_hugepage_migration.sh
+. $TRDIR/setup_page_migration.sh
 
 INITIAL=__MARK_INITIAL
 BACKEND=__MARK_BACKEND

@@ -7,7 +7,7 @@ NR_THP=2
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
 SPLIT_THP=
-HUGEPAGE_CHECKCODE=HUGEPAGE_DISAPPEARED
+HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_MIGRATED
 ACTION=memory_error_injection:error_type=soft-offline
 ERROR_TYPE=soft-offline
 ERROR_OFFSET=1 # offset 0 is unmapped via split pmd
@@ -16,11 +16,11 @@ if [ __MARK_THP_TYPE == shared_thp ] ; then
 	FORK=fork:wait_after
 elif [ __MARK_THP_TYPE == double_mapping ] ; then
 	FORK=fork:wait_after
-	SPLIT_THP=split_thp:only_pmd
+	SPLIT_THP="split_thp:only_pmd"
 elif [ __MARK_THP_TYPE == pmd_split ] ; then
-	SPLIT_THP=split_thp:only_pmd
+	SPLIT_THP="split_thp:only_pmd"
 elif [ __MARK_THP_TYPE == thp_split ] ; then
-	SPLIT_THP=split_thp
+	SPLIT_THP="split_thp"
 	HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 fi
 

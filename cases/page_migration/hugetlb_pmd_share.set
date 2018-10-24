@@ -34,6 +34,6 @@ _control() {
 
 	get_mm_stats 2 $pid1
 
-	check_migration_done
+	check_migration_done $TMPD/pagetypes.1 $TMPD/pagetypes.2
 	set_return_code EXIT
 }

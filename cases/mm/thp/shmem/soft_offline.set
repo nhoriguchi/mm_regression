@@ -12,7 +12,7 @@ NR_THP=2
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
 SPLIT_THP=
-HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_MIGRATED
 ACTION=memory_error_injection:error_type=soft-offline
 ERROR_TYPE=soft-offline
 ERROR_OFFSET=513 # first 512 pages are not thp

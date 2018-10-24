@@ -39,7 +39,7 @@ _control() {
 			get_mm_stats 2 $pid
 
 			if [ "$MIGRATE_SRC" ] ; then
-				check_migration_done
+				check_migration_done $TMPD/pagetypes.1 $TMPD/pagetypes.2
 			fi
 
 			if [ "$THP" ] ; then
