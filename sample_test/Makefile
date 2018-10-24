@@ -1,11 +1,8 @@
 TESTCASE_FILTER=
-TC=
-
-OPT=-DDEBUG
-LIBOPT= #-lnuma # -lcgroup
+# TODO: some default values
 
 build:
-	make -C lib build
+	make --no-print-directory -C lib build
 
 all: get_test_core build
 
