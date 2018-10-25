@@ -4,7 +4,7 @@
 
 . $TRDIR/lib/setup_mmgeneric.sh
 
-BACKEND=__MARK_BACKEND
+BACKEND=__STR_BACKEND
 
 if [ "$BACKEND" == thp ] ; then
 	THP=true

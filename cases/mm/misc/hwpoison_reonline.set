@@ -5,7 +5,7 @@
 NUMA_NODE=2
 
 HUGEPAGESIZE=2048
-BACKEND=__MARK_BACKEND
+BACKEND=__STR_BACKEND
 MEMSIZE=$[$MEMTOTAL/$HUGEPAGESIZE*3/5] # 60% of total memsize
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 ACTION=hotremove:pageflags=$(get_backend_pageflags $BACKEND)

@@ -2,7 +2,7 @@
 
 . $TCDIR/lib/mm.sh
 
-FLAVOR=__MARK_FLAVOR
+FLAVOR=__STR_FLAVOR
 
 read_pagemap() {
 	local pid=$1

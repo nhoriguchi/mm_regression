@@ -13,9 +13,9 @@ VMIP=$(sshvm -i -n default $VM 2> /dev/null)
 
 . $TRDIR/lib/setup_mce_kvm.sh || return 1
 
-ERROR_TYPE=__MARK_ERROR_TYPE
-BACKEND=__MARK_BACKEND
-HOSTBACKEND=__MARK_HOSTBACKEND
+ERROR_TYPE=__STR_ERROR_TYPE
+BACKEND=__STR_BACKEND
+HOSTBACKEND=__STR_HOSTBACKEND
 
 # TODO: host ksm affects the result
 # KSM=true

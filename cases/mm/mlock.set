@@ -1,8 +1,8 @@
 #!1 MLOCK_VERSION: mlock2
 #!1 BACKEND: anonymous pagecache hugetlb_anon hugetlb_shmem hugetlb_file ksm thp zero huge_zero
 
-MLOCK_VERSION=__MARK_MLOCK_VERSION
-BACKEND=__MARK_BACKEND
+MLOCK_VERSION=__STR_MLOCK_VERSION
+BACKEND=__STR_BACKEND
 
 . $TRDIR/lib/setup_mmgeneric.sh
 

@@ -16,8 +16,8 @@
 
 . $TRDIR/lib/setup_mce_test.sh
 
-BACKEND=__MARK_BACKEND
-ERROR_TYPE=__MARK_ERROR_TYPE
+BACKEND=__STR_BACKEND
+ERROR_TYPE=__STR_ERROR_TYPE
 ACCESS_LATER_OPTION=
 INJOP=memory_error_injection:error_type=$ERROR_TYPE
 [ __MARK_ACCESS_LATER = later_access ] && INJOP="$INJOP:access_after_injection"

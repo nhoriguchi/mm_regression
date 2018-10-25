@@ -2,7 +2,7 @@
 
 . $TRDIR/lib/setup_page_migration.sh
 
-FLAVOR=__MARK_FLAVOR
+FLAVOR=__STR_FLAVOR
 
 NUMA_NODE=2
 THP=1

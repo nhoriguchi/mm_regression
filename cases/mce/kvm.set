@@ -7,7 +7,7 @@
 . $TRDIR/lib/setup_mce_kvm.sh || return 1
 PRIORITY=15
 
-FLAVOR=__MARK_FLAVOR
+FLAVOR=__STR_FLAVOR
 
 echo "FLAVOR: $FLAVOR"
 if [ "$FLAVOR" == panic ] ; then
