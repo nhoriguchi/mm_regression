@@ -465,7 +465,7 @@ do_test_try() {
 }
 
 warmup() {
-	$test_allocate_generic -B anonymous -N 1000 -L "mmap access" > /dev/null 2>&1
+	lib/test_allocate_generic -B anonymous -N 1000 -L "mmap access" > /dev/null 2>&1
 }
 
 # Returns fail if at least one of trails fails. So at least HARD_RETRY times
