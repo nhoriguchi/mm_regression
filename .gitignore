@@ -2,5 +2,6 @@
 # **
 **/tmp*
 **/Trash*
+**/test_core
 
 !.gitignore
