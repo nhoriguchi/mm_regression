@@ -23,9 +23,11 @@ check_install_package() {
 }
 
 kill_all_subprograms() {
-	for tp in $(grep ^src= $TRDIR/Makefile | cut -f2 -d=) ; do
+	for tp in $(grep ^src= $TRDIR/lib/Makefile | cut -f2 -d=) ; do
 		local tmp=${tp%.c}
-		eval "pkill -9 -f \$$(echo $tmp)" > /dev/null 2>&1
+		if [ "$tmp" ] ; then
+			pkill -9 -f $tmp > /dev/null 2>&1
+		fi
 	done
 }
 
