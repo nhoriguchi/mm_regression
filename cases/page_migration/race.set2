@@ -1,0 +1,69 @@
+#!1 BACKEND: hugetlb_anon thp
+#!1 MIGRATE_SRC: migratepages move_pages
+#!1 RACE_SRC: iterate_mapping gup mremap_stress iterate_fault_dontneed
+
+# TODO: race with madv_free
+
+. $TRDIR/lib/setup_page_migration.sh
+
+BACKEND=__STR_BACKEND
+MIGRATE_SRC=__STR_MIGRATE_SRC
+RACE_SRC=__STR_RACE_SRC
+
+NUMA_NODE=2
+
+if [[ "$BACKEND" =~ hugetlb ]] ; then
+	HUGETLB=300
+	HUGEPAGESIZE=2048 # kB
+elif  [[ "$BACKEND" =~ thp ]] ; then
+	THP=true
+fi
+
+EXPECTED_RETURN_CODE="START EXIT"
+
+ITERATE=10
+WAITSEC=3
+
+run_race_src() {
+	if [ "$RACE_SRC" == iterate_mapping ] ; then
+		lib/test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping > /dev/null 2>&1
+	elif [ "$RACE_SRC" == gup ] ; then
+		# how to wait allocation done?
+		lib/test_alloc_generic -B $BACKEND -N 100 -L 'start mmap access:wait_after madv_soft' > /dev/null 2>&1 &
+		local mypid=$!
+		sleep 2
+		kill -SIGUSR1 $mypid
+	elif [ "$RACE_SRC" == mremap_stress ] ; then
+		lib/test_alloc_generic -B $BACKEND -N 10 -L 'start mmap access mremap_stress' > /dev/null 2>&1
+	elif [ "$RACE_SRC" == iterate_fault_dontneed ] ; then
+		exec lib/test_alloc_generic -B $BACKEND -N 10 -L iterate_fault_dontneed > /dev/null 2>&1
+	fi
+}
+
+run_migrate_src() {
+	if [ "$MIGRATE_SRC" == migratepages ] ; then
+		for j in $(seq 100) ; do
+			migratepages $(pgrep -f lib/test_alloc_generic) 0 1 > /dev/null 2>&1
+			migratepages $(pgrep -f lib/test_alloc_generic) 1 0 > /dev/null 2>&1
+		done
+	elif [ "$MIGRATE_SRC" == move_pages ] ; then
+		lib/iterate_numa_move_pages 10 $(pgrep -f lib/test_alloc_generic) > /dev/null 2>&1
+	fi
+}
+
+_control() {
+	get_mm_stats 1
+	for i in $(seq $ITERATE) ; do
+		echo "==> iterate $i"
+		run_race_src &
+		# echo "run_migrate_src $pidhuge &"
+		run_migrate_src &
+		local pidmove=$!
+		sleep $WAITSEC
+		disown -a
+		pkill -SIGKILL -f lib/test_alloc_generic > /dev/null 2>&1
+		kill -SIGTERM $pidmove > /dev/null 2>&1
+	done
+	get_mm_stats 2
+	set_return_code EXIT
+}

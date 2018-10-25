@@ -1,4 +1,4 @@
-# RUNALL
+#
 
 # $run_class can be set from environment variable
 # $LOGLEVEL can be set from environment variable
@@ -11,7 +11,7 @@ while getopts r:l: OPT ; do
 done
 shift $[OPTIND-1]
 
-run_class=$1
+[ ! "$run_class" ] && run_class=$1
 
 rm test_alloc_generic 2> /dev/null
 export RUNNAME=$(uname -r)
@@ -24,7 +24,7 @@ if [ "$run_class" == mce-srao ] ; then
 	export RECIPEFILES="$(make allrecipes | grep mce-srao)"
 elif [ "$run_class" == kvm ] ; then
 	export RECIPEFILES="$(make allrecipes | grep kvm)"
-elif [ "$run_class" == kvm ] ; then
+elif [ "$run_class" == race ] ; then
 	export RECIPEFILES="$(make allrecipes | grep race)"
 elif [ "$run_class" == simple ] ; then
 	export RECIPEFILES="$(make allrecipes | grep -v -e mce-srao -e kvm -e race)"

@@ -1,0 +1,23 @@
+#!1 FLAVOR: simple
+
+. $TRDIR/lib/setup_page_migration.sh
+
+FLAVOR=__STR_FLAVOR
+
+NUMA_NODE=2
+THP=1
+CGROUP=cpu,cpuset,memory:test1
+MIGRATE_SRC=change_cpuset
+
+# TODO: other backend
+
+EXPECTED_RETURN_CODE="START CGCLASSIFY_PASS MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
+TEST_PROGRAM="lib/test_alloc_generic -B thp -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
+
+_prepare() {
+    prepare_hugepage_migration || return 1
+	cgset -r cpuset.memory_migrate=1 test1
+	# TODO: set cpus from NUMA setting (sometimes CPUs are split into 0,2 and 1,3)
+	cgset -r cpuset.cpus=0 test1
+	cgset -r cpuset.mems=0 test1
+}
