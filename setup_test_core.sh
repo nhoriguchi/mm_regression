@@ -142,9 +142,15 @@ set_return_code_start() {
 	sync
 }
 
+# Return false if AGAIN is true, so this testcase will run anyway. If AGAIN is
+# not true, then return true only when current testcase does not run yet.
 check_testcase_already_run() {
-	[ "$AGAIN" ] && return 1
-	grep -q -x START $TMPD/_return_code_seq 2> /dev/null
+	[ "$AGAIN" == true ] && return 1
+	if grep -q -x START $TMPD/_return_code_seq 2> /dev/null ; then
+		return 0
+	else
+		return 1
+	fi
 }
 
 prepare_system_default() {
