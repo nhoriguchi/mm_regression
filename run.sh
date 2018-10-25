@@ -24,7 +24,7 @@ if [ "$run_class" == mce-srao ] ; then
 	export RECIPEFILES="$(make allrecipes | grep mce-srao)"
 elif [ "$run_class" == kvm ] ; then
 	export RECIPEFILES="$(make allrecipes | grep kvm)"
-elif [ "$run_class" == kvm ] ; then
+elif [ "$run_class" == race ] ; then
 	export RECIPEFILES="$(make allrecipes | grep race)"
 elif [ "$run_class" == simple ] ; then
 	export RECIPEFILES="$(make allrecipes | grep -v -e mce-srao -e kvm -e race)"
