@@ -23,23 +23,23 @@ HUGEPAGESIZE=2048
 THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
 THP_ALLOCATED=$[THP*4/5]
 
-if [ __MARK_THP_TYPE == shared_thp ] ; then
-	FORK=fork:wait_after
-elif [ __MARK_THP_TYPE == double_mapping ] ; then
-	FORK=fork:wait_after
-	SPLIT_THP="split_thp:only_pmd access"
-elif [ __MARK_THP_TYPE == pmd_split ] ; then
-	SPLIT_THP="split_thp:only_pmd access"
-elif [ __MARK_THP_TYPE == thp_split ] ; then
-	SPLIT_THP="split_thp access"
-	HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
-	ACTION=hotremove:busyloop:pageflags=$(get_backend_pageflags thp_shmem_split)
-fi
+#if __MARK_THP_TYPE == __MARK_THP_TYPE_shared_thp
+FORK=fork:wait_after
+#elif __MARK_THP_TYPE == __MARK_THP_TYPE_double_mapping
+FORK=fork:wait_after
+SPLIT_THP="split_thp:only_pmd access"
+#elif __MARK_THP_TYPE == __MARK_THP_TYPE_pmd_split
+SPLIT_THP="split_thp:only_pmd access"
+#elif __MARK_THP_TYPE == __MARK_THP_TYPE_thp_split
+SPLIT_THP="split_thp access"
+HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
+ACTION=hotremove:busyloop:pageflags=$(get_backend_pageflags thp_shmem_split)
+#endif
 
 # TODO: low-priority known issue
-if [ "$OPERATION_SRC" == hwpoison ] ; then
-	SKIP_THIS_TEST=true
-fi
+#if __MARK_OPERATION_SRC == __MARK_OPERATION_SRC_hwpoison
+SKIP_THIS_TEST=true
+#endif
 
 TEST_PROGRAM="lib/test_alloc_generic -B pagecache -N $THP_ALLOCATED -w $SHMEM_DIR -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="START MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"

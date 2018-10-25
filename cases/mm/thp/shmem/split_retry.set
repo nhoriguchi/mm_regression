@@ -14,17 +14,17 @@ ACTION=mbind:flags=move_all
 SHMEM=true
 SHMEM_DIR=work/shmem
 
-if [ __MARK_THP_TYPE == shared_thp ] ; then
-	FORK=fork:wait_after
-elif [ __MARK_THP_TYPE == double_mapping ] ; then
-	FORK=fork:wait_after
-	SPLIT_THP="split_thp:only_pmd access"
-elif [ __MARK_THP_TYPE == pmd_split ] ; then
-	SPLIT_THP="split_thp:only_pmd access"
-elif [ __MARK_THP_TYPE == thp_split ] ; then
-	SPLIT_THP="split_thp access"
-	HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
-fi
+#if __MARK_THP_TYPE == __MARK_THP_TYPE_shared_thp
+FORK=fork:wait_after
+#elif __MARK_THP_TYPE == __MARK_THP_TYPE_double_mapping
+FORK=fork:wait_after
+SPLIT_THP="split_thp:only_pmd access"
+#elif __MARK_THP_TYPE == __MARK_THP_TYPE_pmd_split
+SPLIT_THP="split_thp:only_pmd access"
+#elif __MARK_THP_TYPE == __MARK_THP_TYPE_thp_split
+SPLIT_THP="split_thp access"
+HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
+#endif
 
 TARGET_SIZE=256 # in # of thps
 TARGET_SIZE=$[3*MEMFREE/4/512/10-10]

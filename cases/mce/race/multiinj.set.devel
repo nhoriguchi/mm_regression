@@ -6,13 +6,13 @@
 
 . $TRDIR/lib/setup_mce_test.sh
 
-TARGET_PAGEFLAG=$(get_backend_pageflags __MARK_BACKEND)
+TARGET_PAGEFLAG=$(get_backend_pageflags __STR_BACKEND)
 
 HUGETLB=300
 
 THP=true
 
-case "$BACKEND" in
+case __STR_BACKEND in
 	buddy|hugetlb_free)
 		EXPECTED_RETURN_CODE="START EXIT"
 		;;
@@ -27,8 +27,8 @@ DEFAULT_MONARCH_TIMEOUT=1000000
 MONARCH_TIMEOUT=20000000
 MULTIINJ_ITERATIONS=1
 INJECT_TYPE=__STR_INJECT_TYPE
-if [ __MARK_DIFFERENT_PFNS == diffpfn ] ; then
-	DIFFERENT_PFNS=true
-fi
+#if __MARK_DIFFERENT_PFNS == __MARK_DIFFERENT_PFNS_diffpfn
+DIFFERENT_PFNS=true
+#fi
 
 # PIPETIMEOUT=30

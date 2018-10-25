@@ -21,31 +21,30 @@ HOSTBACKEND=__STR_HOSTBACKEND
 # KSM=true
 
 # TODO: handling host backend
-if [ __MARK_HOSTBACKEND == hostanon ] ; then
-	unset THP
-elif [ __MARK_HOSTBACKEND == hostthp ] ; then
-	THP=always
-fi
+#if __MARK_HOSTBACKEND == __MARK_HOSTBACKEND_hostanon
+unset THP
+#elif __MARK_HOSTBACKEND == __MARK_HOSTBACKEND_hostthp
+THP=always
+#endif
 
-if [ "$BACKEND" == zero ] ; then
-	PRIORITY=15 # low priority
-fi
+#if __MARK_BACKEND == __MARK_BACKEND_zero
+PRIORITY=15 # low priority
 
 TARGET_PAGETYPES="$(get_backend_pageflags $BACKEND)"
-if [ "$BACKEND" == clean_pagecache ] ; then
+#if __MARK_BACKEND == __MARK_BACKEND_clean_pagecache
 	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
-elif [ "$BACKEND" == dirty_pagecache ] ; then
+#elif __MARK_BACKEND == __MARK_BACKEND_dirty_pagecache
 	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
-elif [ "$BACKEND" == anonymous ] ; then
+#elif __MARK_BACKEND == __MARK_BACKEND_anonymous
 	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
-elif [ "$BACKEND" == thp ] ; then
+#elif __MARK_BACKEND == __MARK_BACKEND_thp
 	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
-fi
+#endif
 
 _control() { control_mce_kvm; }
-if [ "$ERROR_TYPE" == soft-offline ] ; then
-	_check() { check_mce_kvm_soft_offline; }
-	EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
-else
-	_check() { check_mce_kvm; }
-fi
+#if __MARK_ERROR_TYPE == __MARK_ERROR_TYPE_soft-offline
+_check() { check_mce_kvm_soft_offline; }
+EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
+#else
+_check() { check_mce_kvm; }
+#endif
