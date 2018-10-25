@@ -1,4 +1,4 @@
-# RUNALL
+#
 
 # $run_class can be set from environment variable
 # $LOGLEVEL can be set from environment variable
@@ -11,7 +11,7 @@ while getopts r:l: OPT ; do
 done
 shift $[OPTIND-1]
 
-run_class=$1
+[ ! "$run_class" ] && run_class=$1
 
 rm test_alloc_generic 2> /dev/null
 export RUNNAME=$(uname -r)
