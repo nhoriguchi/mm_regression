@@ -1,7 +1,7 @@
 TESTCASE_FILTER=
 
 build:
-	make --no-print-directory -C lib build
+	@make --no-print-directory -C lib build
 
 all: get_test_core build
 
