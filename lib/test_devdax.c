@@ -16,6 +16,8 @@
 
 #define ADDR_INPUT 0x700000000000
 
+#define ALLOC_SIZE 0x200000
+
 int main(int argc, char **argv)
 {
 	int ret;
@@ -27,13 +29,8 @@ int main(int argc, char **argv)
 	char buf[256];
 	struct stat st;
 
-	i = stat("/mnt/pmem/ext4/data1", &st);
-	if (i == -1)
-		perror("stat");
-	printf("inode: %lx\n", st.st_ino);
-
-	fd = open("/mnt/pmem/ext4/date1", O_RDWR|O_CREAT, 0666);
-	/* fd = open("/mnt/pmem/ext4/data1", O_RDWR); */
+	fd = open("/dev/dax0.0", O_RDWR, 0666);
+	printf("fd: %d\n", fd);
 	memset(array, 'a', 4096);
 	pwrite(fd, array, 4096, 0);
 
@@ -47,22 +44,21 @@ int main(int argc, char **argv)
 		mmapflag |= MAP_SYNC;
 	}
 
-	addr = mmap((void *)ADDR_INPUT, 4096, PROT_READ|PROT_WRITE, mmapflag, fd, 0);
+	printf("calling mmap() ...\n");
+	addr = mmap((void *)ADDR_INPUT, ALLOC_SIZE, PROT_READ|PROT_WRITE, mmapflag, fd, 0);
+	printf("addr is %p\n", addr);
 	if (addr == (void *)MAP_FAILED) {
 		perror("mmap");
-		printf("Faield to mmap(), abort\n");
+		printf("Failed to mmap(), abort\n");
 		return 1;
 	}
-	printf("addr is %p\n", addr);
 
 	/* system("cat /proc/self/smaps"); */
 
-	for (i = 0; i < 4096; i++)
+	for (i = 0; i < ALLOC_SIZE; i++)
 		addr[i] = 'c';
 
 	sprintf(buf, "cat /proc/%d/numa_maps", getpid());
-	system(buf);
-	sprintf(buf, "/src/linux-dev/tools/vm/page-types -p %d -Nrl", getpid());
 	system(buf);
 	return 0;
 }
