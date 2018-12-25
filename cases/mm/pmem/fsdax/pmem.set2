@@ -1,0 +1,196 @@
+#!1 FLAVOR: noop pmd fio hwpoison_pte hwpoison_pmd
+
+# . $TCDIR/lib/mm.sh
+
+NR_THP=3
+PMEMDIR=/mnt/pmem
+PMEM_MODE=fsdax # sector, raw, memory, fsdax?
+
+EXPECTED_RETURN_CODE="START FSDAX_MAPPING_DONE EXIT"
+
+_prepare_pmem_fsdax() {
+	wipefs -a /dev/pmem0
+	parted -s -a optimal /dev/pmem0 mklabel gpt || return 1
+	parted -s -a optimal /dev/pmem0 -- mkpart primary ext4  1MiB 2GiB || return 1
+	parted -s -a optimal /dev/pmem0 -- mkpart primary xfs   2GiB 4GiB || return 1
+	parted -s -a optimal /dev/pmem0 -- mkpart primary btrfs 4GiB 6GiB || return 1
+	parted -s -a optimal /dev/pmem0 -- print
+	if [ ! -e "/dev/pmem0p1" ] ; then
+		echo "new partition /dev/pmem0p1 not created" >&2
+		return 1
+	fi
+
+	echo "formatting /dev/pmem0p1 for ext4"
+	mkfs.ext4 -q -b 4096 -E stride=512 -F /dev/pmem0p1 || return 1
+	mkdir -p $PMEMDIR/ext4
+	echo "mounting /dev/pmem0p1 to $PMEMDIR/ext4"
+	mount -o dax /dev/pmem0p1 $PMEMDIR/ext4 || return 1
+	fallocate --length 512M $PMEMDIR/ext4/data1 || return 1
+
+	echo "formatting /dev/pmem0p2 for xfs"
+	mkfs.xfs -q -f /dev/pmem0p2 || return 1
+	mkdir -p $PMEMDIR/xfs
+	echo "mounting /dev/pmem0p2 to $PMEMDIR/xfs"
+	mount -o dax /dev/pmem0p2 $PMEMDIR/xfs || return 1
+	fallocate --length 512M $PMEMDIR/xfs/data1 || return 1
+
+}
+
+_prepare_pmem_sector() {
+	echo "test"
+	# ndctl create-namespace -f -e namespace1.0 -m sector
+	mkfs -t xfs /dev/pmem1s
+	mount /dev/pmem1s /mnt/pmem
+	# Not implemented yet
+	return 1
+}
+
+_prepare_pmem_memory() {
+	echo "test $FUNCNAME"
+	$KERNEL_SRC/tools/vm/page-types
+	ndctl create-namespace -f -e namespace0.0 -m memory -M dev || return 1
+	$KERNEL_SRC/tools/vm/page-types
+	# ndctl create-namespace -f -e namespace0.0 -m memory -M mem || return 1
+	# mkfs -t xfs /dev/pmem0 > /dev/null || return 1
+	mkfs -t ext4 -b 4096 -E stride=512 -F /dev/pmem0 > /dev/null || return 1
+	$KERNEL_SRC/tools/vm/page-types
+	mount -o dax /dev/pmem0 $PMEMDIR || return 1
+	$KERNEL_SRC/tools/vm/page-types
+	fallocate --length 512M $PMEMDIR/data || return 1
+	echo "$FUNCNAME succeeded."
+}
+
+_prepare_pmem_raw() {
+	echo "mode 'raw' not supported?"
+	return 1
+}
+
+_prepare() {
+	# no code for device creation
+	if [ ! -e "/dev/pmem0" ] && [ ! -e "/dev/pmem0s" ] ; then
+		echo "no /dev/pmem* found. skip."
+		return 1
+	fi
+
+	if [ "$PMEM_MODE" = "fsdax" ] ; then
+		_prepare_pmem_fsdax || return 1
+	elif [ "$PMEM_MODE" = "sector" ] ; then
+		set_return_code FAIL
+		_prepare_pmem_sector || return 1
+	elif [ "$PMEM_MODE" = "memory" ] ; then
+		set_return_code FAIL
+		_prepare_pmem_memory || return 1
+	elif [ "$PMEM_MODE" = "raw" ] ; then
+		set_return_code FAIL
+		_prepare_pmem_raw || return 1
+	else
+		echo "No valid PMEM_MODE ($PMEM_MODE)" >&2
+		return 1
+	fi
+	return 0
+}
+
+_cleanup() {
+	umount $PMEMDIR/ext4
+	umount $PMEMDIR/xfs
+
+	parted -s -a optimal /dev/pmem0 rm 1
+	wipefs -a /dev/pmem0
+}
+
+#if __MARK_FLAVOR == __MARK_FLAVOR_noop
+_control() {
+	echo $KERNEL_SRC/tools/vm/page-types
+
+	dd if=/dev/zero of=/mnt/pmem/ext4/data1 bs=4096 count=10
+	sync
+	ls -ltri /mnt/pmem/ext4
+	if [ "$FTRACE" ] ; then
+		echo "trace-cmd record -p function_graph -g __do_page_fault lib/test_fsdax $MAP_SYNC"
+		trace-cmd record -p function_graph -g __do_page_fault lib/test_fsdax $MAP_SYNC
+	elif [ "$FTRACE_EVENT" ] ; then
+		echo "trace-cmd record -e fs_dax:* lib/test_fsdax $MAP_SYNC"
+		trace-cmd record -e fs_dax:* lib/test_fsdax $MAP_SYNC
+	else
+		echo "lib/test_fsdax $MAP_SYNC"
+		lib/test_fsdax $MAP_SYNC
+
+		if [ $? -eq 0 ] ; then
+			set_return_code FSDAX_MAPPING_DONE
+		fi
+	fi
+
+	set_return_code EXIT
+}
+#elif __MARK_FLAVOR == __MARK_FLAVOR_fio
+_control() {
+	cat <<EOF > $TMPD/fio.job.dax
+[randomwrite]
+ioengine=mmap
+rw=randrw
+refill_buffers=1
+log_avg_msec=1000
+size=256m
+bs=4k
+filename=$PMEMDIR/data
+EOF
+	cat <<EOF > $TMPD/fio.job.fs
+[randomwrite]
+ioengine=mmap
+rw=randrw
+refill_buffers=1
+log_avg_msec=1000
+size=256m
+bs=4k
+filename=$TMPD/data
+EOF
+	fdisk -l /dev/pmem0
+	fio $TMPD/fio.job.dax | tee $TMPD/fio.job.dax.out
+	fio $TMPD/fio.job.fs  | tee $TMPD/fio.job.fs.out
+}
+#elif __MARK_FLAVOR == __MARK_FLAVOR_pmd
+_control() {
+	echo 1 > /sys/kernel/debug/tracing/events/fs_dax/enable
+	lib/test_alloc_generic -B pagecache -N $NR_THP -w $PMEMDIR -f data -L 'mmap access munmap'
+	cat /sys/kernel/debug/tracing/trace
+	echo 0 > /sys/kernel/debug/tracing/events/fs_dax/enable
+}
+#elif __MARK_FLAVOR == __MARK_FLAVOR_hwpoison_pte
+_control() {
+	echo > /sys/kernel/debug/tracing/trace
+	echo 1 > /sys/kernel/debug/tracing/events/fs_dax/enable
+	lib/test_alloc_generic -B pagecache -n 1 -w $PMEMDIR -f data -L 'mmap access memory_error_injection:error_type=madv_hard munmap'
+	cat /sys/kernel/debug/tracing/trace | tee $TMPD/trace
+	echo 0 > /sys/kernel/debug/tracing/events/fs_dax/enable
+	set_return_code EXIT
+}
+#elif __MARK_FLAVOR == __MARK_FLAVOR_hwpoison_pmd
+_control() {
+	echo > /sys/kernel/debug/tracing/trace
+	echo 1 > /sys/kernel/debug/tracing/events/fs_dax/enable
+	lib/test_alloc_generic -B pagecache -N $NR_THP -w $PMEMDIR -f data -L 'mmap access memory_error_injection:error_type=madv_hard munmap'
+	cat /sys/kernel/debug/tracing/trace | tee $TMPD/trace
+	echo 0 > /sys/kernel/debug/tracing/events/fs_dax/enable
+	set_return_code EXIT
+}
+#endif
+
+_check() {
+	if [ -e "$TMPD/trace" ] ; then
+		count_testcount
+		if grep -q dax_pmd_fault_done $TMPD/trace ; then
+			count_success "dax_pmd_fault_done is called"
+		else
+			count_failure "dax_pmd_fault_done is not called"
+		fi
+
+		count_testcount
+		if grep -q NOPAGE $TMPD/trace ; then
+			count_success "dax_pmd_fault_done: return code NOPAGE"
+		elif grep -q FALLBACK $TMPD/trace ; then
+			count_failure "dax_pmd_fault_done: return code FALLBACK"
+		else
+			count_failure "dax_pmd_fault_done: unknown return code"
+		fi
+	fi
+}
