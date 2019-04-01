@@ -1,5 +1,7 @@
 #!1 FLAVOR: noop pmd fio hwpoison_pte hwpoison_pmd
 
+. $TCDIR/lib/mm.sh
+
 NR_THP=3
 PMEMDIR=/mnt/pmem
 PMEM_MODE=fsdax
@@ -35,8 +37,6 @@ _cleanup() {
 
 #if __MARK_FLAVOR == __MARK_FLAVOR_noop
 _control() {
-	echo $KERNEL_SRC/tools/vm/page-types
-
 	if [ "$FTRACE" ] ; then
 		echo "trace-cmd record -p function_graph -g __do_page_fault lib/test_fsdax $MAP_SYNC"
 		trace-cmd record -p function_graph -g __do_page_fault lib/test_fsdax $MAP_SYNC

@@ -1,11 +1,13 @@
+. $TCDIR/lib/mm.sh
+
 EXPECTED_RETURN_CODE="START EXIT"
 PMEMDIR=/mnt/pmem
 
 _prepare() {
 	ndctl destroy-namespace namespace0.0 --force
-	$KERNEL_SRC/tools/vm/page-types
+	$PAGETYPES
 	ndctl create-namespace -f -e namespace0.0 -m sector || return 1
-	$KERNEL_SRC/tools/vm/page-types
+	$PAGETYPES
 
 	ls -ltra /dev | grep pmem
 

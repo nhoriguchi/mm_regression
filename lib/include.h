@@ -391,7 +391,7 @@ static int check_memory(struct mem_chunk *mc) {
 	switch (mc->mem_type) {
 	case KSM:
 		printf("--- %d\n", getpid());
-		sprintf(buf, "/src/linux-dev/tools/vm/page-types -p %d -Nrl -a 0x700000000+0x1000000 | head", getpid());
+		sprintf(buf, "/usr/local/bin/page-types -p %d -Nrl -a 0x700000000+0x1000000 | head", getpid());
 		/* printf("--2\n"); */
 		system(buf);
 		/* printf("--\n"); */

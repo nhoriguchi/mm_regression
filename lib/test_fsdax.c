@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 
 	sprintf(buf, "cat /proc/%d/numa_maps", getpid());
 	system(buf);
-	sprintf(buf, "/src/linux-dev/tools/vm/page-types -p %d -Nrl", getpid());
+	sprintf(buf, "/usr/local/bin/page-types -p %d -Nrl", getpid());
 	system(buf);
 	return 0;
 }
