@@ -32,8 +32,12 @@ int main(int argc, char **argv)
 	fd = open("/dev/dax0.0", O_RDWR, 0666);
 	printf("fd: %d\n", fd);
 	memset(array, 'a', 4096);
-	pwrite(fd, array, 4096, 0);
-
+	i = pwrite(fd, array, 4096, 0);
+	if (i < 0) {
+		perror("pwrite");
+	} else
+		printf("written %d bytes\n", i);
+return 0;
 	i = fstat(fd, &st);
 	if (i == -1)
 		perror("fstat");
@@ -58,7 +62,8 @@ int main(int argc, char **argv)
 	for (i = 0; i < ALLOC_SIZE; i++)
 		addr[i] = 'c';
 
-	sprintf(buf, "cat /proc/%d/numa_maps", getpid());
+	// sprintf(buf, "cat /proc/%d/numa_maps", getpid());
+	sprintf(buf, "cat /proc/%d/smaps", getpid());
 	system(buf);
 	return 0;
 }

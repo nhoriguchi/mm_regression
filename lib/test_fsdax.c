@@ -37,6 +37,10 @@ int main(int argc, char **argv)
 	memset(array, 'a', 4096);
 	pwrite(fd, array, 4096, 0);
 
+sprintf(buf, "page-types -p %d -Nrl", getpid());
+system(buf);
+return 0;
+
 	i = fstat(fd, &st);
 	if (i == -1)
 		perror("fstat");
@@ -59,6 +63,7 @@ int main(int argc, char **argv)
 
 	for (i = 0; i < 4096; i++)
 		addr[i] = 'c';
+	fsync(fd);
 
 	sprintf(buf, "cat /proc/%d/numa_maps", getpid());
 	system(buf);

@@ -4,6 +4,9 @@
 
 NR_THP=2
 
+# <2019-03-01 Fri 13:53> temporary
+ERROR_OFFSET=1
+
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
 SPLIT_THP=

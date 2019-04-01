@@ -10,7 +10,7 @@ get_test_core:
 	@test -d "test_core" || git clone https://github.com/Naoya-Horiguchi/test_core
 	@true
 
-test: all update_recipes
+test:
 	@bash test_core/run-test.sh $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME)) $(addprefix -d ,$(RECIPEDIR))
 
 list: get_test_core
