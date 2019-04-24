@@ -10,7 +10,7 @@ _prepare() {
 
 	echo "vm_start_wait $VM"
 	vm_start_wait $VM
-	local vmip=$(sshvm -i $VM 2> /dev/null)
+	local vmip=$(vm_to_vmip $VM)
 	[ ! "$vmip" ] && echo_log "failed to get IP address of domain $VM" && return 1
 
 	send_helper_to_guest $vmip
@@ -28,7 +28,7 @@ _check() {
 
 _control() {
 	local pid=$(cat /var/run/libvirt/qemu/$VM.pid)
-	local vmip=$(sshvm -i $VM 2> /dev/null)
+	local vmip=$(vm_to_vmip $VM)
 
 	start_vm_console_monitor $TMPD/vmconsole $VM
 
