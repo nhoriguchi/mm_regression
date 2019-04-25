@@ -44,7 +44,7 @@ _control() {
 	fi
 
 	kill_all_subprograms
-	rm -f $tmp_hugetlb_mount/hugetlbfs/*
+	find $tmp_hugetlb_mount/hugetlbfs -type f | xargs rm -f
 	show_hugetlb_pool
 	if [ "$(get_hugepage_reserved)" -eq 5 ] ; then
 		set_return_code RESV_REVERTED
