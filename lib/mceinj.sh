@@ -128,6 +128,10 @@ fi
 
 if [ "$PID" ] ; then
     TARGET=0x$(ruby -e 'printf "%x\n", IO.read("/proc/'$PID'/pagemap", 0x8, '$PFN'*8).unpack("Q")[0] & 0xfffffffffff')
+	if [ "$TARGET" == 0x ] ; then
+		echo failed to get target pfn from pagemap
+		exit 1
+	fi
     [ ! "$QUIET" ] && echo "Injecting MCE ($ERRORTYPE) to local process (pid:$PID) at vfn:$PFN, pfn:$TARGET"
 else
     TARGET="$PFN"
