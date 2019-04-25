@@ -44,7 +44,7 @@ TARGET_PAGETYPES="$(get_backend_pageflags $BACKEND)"
 #endif
 
 _control() { control_mce_kvm; }
-#if __MARK_ERROR_TYPE == __MARK_ERROR_TYPE_soft-offline
+#if __MARK_ERROR_TYPE == __MARK_ERROR_TYPE_soft_offline
 _check() { check_mce_kvm_soft_offline; }
 EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
 #else
