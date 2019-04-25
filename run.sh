@@ -42,6 +42,5 @@ fi
 export LOGLEVEL=2
 [ ! "$HIGHEST_PRIORITY" ] && export HIGHEST_PRIORITY=10
 [ ! "$LOWEST_PRIORITY" ] && export LOWEST_PRIORITY=15
-[ ! "$TEST_DEVEL" ] && export TEST_DEVEL= # devel
 make test
 ruby test_core/lib/test_summary.rb -v -C work/$RUNNAME | grep -v -e PASS -e NONE -e SKIP

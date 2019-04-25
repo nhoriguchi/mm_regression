@@ -6,7 +6,7 @@
 
 . $TRDIR/lib/setup_page_migration.sh
 
-TEST_FLAGS=debug
+TEST_TYPE=debug
 
 MIGRATE_SRC=__STR_MIGRATE_SRC
 NUMA_NODE=2

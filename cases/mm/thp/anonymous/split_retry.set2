@@ -10,7 +10,7 @@ SPLIT_THP=
 HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
 # ACTION=migratepages
 ACTION=mbind:flags=move_all
-TEST_FLAGS=devel
+TEST_TYPE=devel
 
 #if __MARK_THP_TYPE == __MARK_THP_TYPE_shared_thp
 FORK=fork:wait_after
