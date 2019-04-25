@@ -327,11 +327,14 @@ check_testcase_filter() {
 }
 
 # If the current testcase is not stable (so we are sure that the test should
-# not pass on routine testing yet), we can set TEST_FLAGS in your recipe file.
+# not pass on routine testing yet), we can set TEST_TYPE (to devel or debug)
+# in your recipe file.
 # Then, the testcase is executed only when you set environment variable RUN_MODE=devel.
 # "return 1" means we run the current testcase. See also sample_test/sample.rc.
 check_test_flag() {
-	[ ! "$TEST_FLAGS" ] && return 1
+	if [ ! "$TEST_TYPE" ] || [ "$TEST_TYPE" == stable ] ; then
+		return 1
+	fi
 	[ "$RUN_MODE" == devel ] && return 1
 	# Didn't match, so we skip the current testcase
 	echo_log "Testcase $TEST_TITLE is skipped because it's not stable yet. If you"
