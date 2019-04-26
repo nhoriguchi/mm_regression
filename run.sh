@@ -14,9 +14,9 @@ shift $[OPTIND-1]
 rm test_alloc_generic 2> /dev/null
 export RUNNAME=$(uname -r)
 
-make all
-make prepare
-make update_recipes
+make all || exit 1
+make prepare || exit 1
+make update_recipes || exit 1
 
 [ ! "$UNPOISON" ] && UNPOISON=true
 
