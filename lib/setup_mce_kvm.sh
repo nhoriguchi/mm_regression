@@ -14,7 +14,7 @@ if [ "$memsize" -gt 2097152 ] ; then
 fi
 
 get_gpa_guest_memeater() {
-	local vmip=$(sshvm -i $VM)
+	local vmip=$(vm_to_vmip $VM)
 	local flagtype="$1"
 
 	ssh $vmip "for pid in $(cat $TMPD/_guest_memeater_pids.1) ; do $GUESTPAGETYPES -p \$pid -NrL -b $flagtype -a 0x700000000+0x10000000 ; done" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest_page_types
@@ -36,7 +36,7 @@ get_gpa_guest_memeater() {
 }
 
 get_hpa() {
-	local vmip=$(sshvm -i $VM)
+	local vmip=$(vm_to_vmip $VM)
 	local flagtype="$1"
 
 	get_gpa_guest_memeater "$flagtype" || return 1
@@ -45,7 +45,7 @@ get_hpa() {
 }
 
 guest_process_running() {
-	local vmip=$(sshvm -i $VM)
+	local vmip=$(vm_to_vmip $VM)
 
 	ssh $VM "pgrep -f $GUESTTESTALLOC" | tr '\n' ' ' > $TMPD/_guest_memeater_pids.2
 	diff -q $TMPD/_guest_memeater_pids.1 $TMPD/_guest_memeater_pids.2 > /dev/null
@@ -57,6 +57,7 @@ prepare_mce_kvm() {
 	TARGETHPA=""
 
 	echo "[temporarily] check_mce_capability is skipped due to test code bug"
+	echo TARGET_PAGETYPES: $TARGET_PAGETYPES
 	# check_mce_capability || return 1 # MCE SRAO not supported
 	prepare_mm_generic || return 1
 	# unconditionally restart vm because memory background might change
@@ -64,7 +65,7 @@ prepare_mce_kvm() {
 	vm_shutdown_wait $VM $VMIP
 	echo 3 > /proc/sys/vm/drop_caches ; sync
 	vm_start_wait $VM
-	local vmip=$(sshvm -i $VM)
+	local vmip=$(vm_to_vmip $VM)
 	start_vm_console_monitor $TMPD/vmconsole $VM
 	stop_guest_memeater $vmip
 	send_helper_to_guest $vmip
@@ -117,7 +118,7 @@ check_guest_state() {
 }
 
 access_error() {
-	local vmip=$(sshvm -i $VM)
+	local vmip=$(vm_to_vmip $VM)
 
 	ssh $VM "pkill -SIGUSR1 -f $GUESTTESTALLOC > /dev/null 2>&1 </dev/null"
 	sleep 0.2 # need short time for access operation to finish.
@@ -151,7 +152,7 @@ control_mce_kvm() {
 }
 
 control_mce_kvm_panic() {
-	local vmip=$(sshvm -i $VM)
+	local vmip=$(vm_to_vmip $VM)
 
 	echo_log "start $FUNCNAME / $BACKEND / $TARGET_PAGETYPES"
 	start_guest_memeater $VM $[512 * 4] || return 1
@@ -183,7 +184,7 @@ check_mce_kvm_panic() {
 check_mce_kvm_soft_offline() {
 	check_nr_hwcorrupted
 	check_kernel_message_nobug
-	check_guest_kernel_message -v "${TARGETGPA}"
+	# check_guest_kernel_message -v "${TARGETGPA}"
 	# TODO: move to return code
 	# check_page_migrated "$TARGETGPA" "$TARGETHPA"
 }

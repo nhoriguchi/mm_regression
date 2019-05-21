@@ -73,12 +73,16 @@ There're some other useful options/environment variables:
 
 - Test result are stored under `work/$RUNNAME`. The results of each testcase
   is saved under `work/$RUNNAME/$RECIPEID`.
-- A test summary script is available:
-
+- A test summary script is available like below:
+```
     [build1:~/upstream/mm_regression]$ make summary
     PASS 149, FAIL 12, WARN 1, SKIP 23, NONE 249
+```
 
 ## How to define new testcase?
 
+To Be Written...
+
 ## Contact
+
 - Naoya Horiguchi <n-horiguchi@ah.jp.nec.com> / <nao.horiguchi@gmail.com>

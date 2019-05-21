@@ -11,13 +11,13 @@ void sig_handle(int signo) { ; }
 
 void sigbus_action(int signo, siginfo_t *si, void *args)
 {
+#ifdef si_addr_lsb
 	printf("Signal received: pid:%d, signo:%d, si_code:%d, si_addr:%p, si_addr_lsb:%d\n",
 	       getpid(), signo, si->si_code, si->si_addr, si->si_addr_lsb);
-	if (si->si_code == BUS_MCEERR_AR) {
+	if (si->si_code == BUS_MCEERR_AR)
 		exit(135);
-	} else {
-		exit(1);
-	}
+#endif
+	exit(1);
 }
 
 struct sigaction sa = {
@@ -391,7 +391,7 @@ static int check_memory(struct mem_chunk *mc) {
 	switch (mc->mem_type) {
 	case KSM:
 		printf("--- %d\n", getpid());
-		sprintf(buf, "/src/linux-dev/tools/vm/page-types -p %d -Nrl -a 0x700000000+0x1000000 | head", getpid());
+		sprintf(buf, "/usr/local/bin/page-types -p %d -Nrl -a 0x700000000+0x1000000 | head", getpid());
 		/* printf("--2\n"); */
 		system(buf);
 		/* printf("--\n"); */

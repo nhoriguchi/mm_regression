@@ -3,11 +3,17 @@
 
 [ ! -x /usr/local/bin/sshvm ] && install $TCDIR/lib/sshvm /usr/local/bin/sshvm
 [ ! "$VM" ] && echo_log "You must give VM name in recipe file" && return 1
-guest
+
 SSH_OPT="-o ConnectTimeout=5"
 GPA2HPA=$(dirname $(readlink -f $BASH_SOURCE))/gpa2hpa.rb
 GUESTTESTALLOC=/usr/local/bin/test_alloc_generic
 GUESTPAGETYPES=/usr/local/bin/page-types
+
+# TODO: need to convert VM name to IP address, but currently assuming that
+# DNS is configured in virtual netowrk.
+vm_to_vmip() {
+	echo $VM
+}
 
 send_helper_to_guest() {
 	local vmip=$1
@@ -24,9 +30,9 @@ stop_guest_memeater() {
 
 start_guest_memeater() {
 	local vm=$1
-	local vmip=$(sshvm -i $vm 2> /dev/null)
+	local vmip=$(vm_to_vmip $VM)
 	local size=$2
-	
+
 	stop_guest_memeater $vmip
 
 	echo_log "start running test_alloc_generic on VM ($vm:$vmip)"
