@@ -142,9 +142,15 @@ set_return_code_start() {
 	sync
 }
 
+# Return false if AGAIN is true, so this testcase will run anyway. If AGAIN is
+# not true, then return true only when current testcase does not run yet.
 check_testcase_already_run() {
-	[ "$AGAIN" ] && return 1
-	grep -q -x START $TMPD/_return_code_seq 2> /dev/null
+	[ "$AGAIN" == true ] && return 1
+	if grep -q -x START $TMPD/_return_code_seq 2> /dev/null ; then
+		return 0
+	else
+		return 1
+	fi
 }
 
 prepare_system_default() {
@@ -321,15 +327,18 @@ check_testcase_filter() {
 }
 
 # If the current testcase is not stable (so we are sure that the test should
-# not pass on routine testing yet), we can set TEST_FLAGS in your recipe file.
-# Then, the testcase is executed only when you set environment variable TEST_DEVEL.
+# not pass on routine testing yet), we can set TEST_TYPE (to devel or debug)
+# in your recipe file.
+# Then, the testcase is executed only when you set environment variable RUN_MODE=devel.
 # "return 1" means we run the current testcase. See also sample_test/sample.rc.
 check_test_flag() {
-	[ ! "$TEST_FLAGS" ] && return 1
-	[ "$TEST_DEVEL" ] && return 1
+	if [ ! "$TEST_TYPE" ] || [ "$TEST_TYPE" == stable ] ; then
+		return 1
+	fi
+	[ "$RUN_MODE" == devel ] && return 1
 	# Didn't match, so we skip the current testcase
 	echo_log "Testcase $TEST_TITLE is skipped because it's not stable yet. If you"
-	echo_log "really want to run the testcase, please set environment variable TEST_DEVEL"
+	echo_log "really want to run the testcase, please set environment variable RUN_MODE=devel"
 	count_skipped
 	return 0
 }
@@ -337,9 +346,9 @@ check_test_flag() {
 check_inclusion_of_fixedby_patch() {
 	# no filter of inclusion of the FIXEDBY patch.
 	[ ! "$FIXEDBY_SUBJECT" ] && [ ! "$FIXEDBY_COMMITID" ] && [ ! "$FIXEDBY_AUTHOR" ] && return 1
-	# in TEST_DEVEL mode, caller should knows that this testcase could cause
+	# in 'devel' mode, caller should knows that this testcase could cause
 	# system unstability like kernel panic
-	[ "$TEST_DEVEL" ] && return 1
+	[ "$RUN_MODE" == devel ] && return 1
 	local cbranch=$(uname -r)
 	if [ ! -d "$KERNEL_SRC" ] ; then
 		echo_log "kernel source directory KERNEL_SRC $KERNEL_SRC not found"
@@ -465,7 +474,7 @@ do_test_try() {
 }
 
 warmup() {
-	$test_allocate_generic -B anonymous -N 1000 -L "mmap access" > /dev/null 2>&1
+	lib/test_allocate_generic -B anonymous -N 1000 -L "mmap access" > /dev/null 2>&1
 }
 
 # Returns fail if at least one of trails fails. So at least HARD_RETRY times

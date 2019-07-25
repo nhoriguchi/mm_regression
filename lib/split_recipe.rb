@@ -44,7 +44,7 @@ class SplitRecipe
     rule_sets.values.each do |rule_set|
       rule_set.each do |key, rule|
         rule.each do |r|
-          @rule_mark << "__MARK_#{key}_#{r}"
+          @rule_mark << "__MARK_#{key}_#{r.gsub('-', '_')}"
         end
       end
     end
@@ -71,23 +71,30 @@ class SplitRecipe
     tmp = marks + @text.dup
 
     require "tempfile"
-    Tempfile.create("split_recipe") do |tmpf|
-      File.write(tmpf.path, tmp)
+    # Can't use Tempfile due to incompatiblility b/w 2.0 and 2.1>
+    tmpfpath = "/tmp/.split_recipe.rb"
+    # Tempfile.create("split_recipe") do |tmpfpath|
+      File.write(tmpfpath, tmp)
       rules.each do |rule|
         id = rule.values.join("_")
         outfile = f.gsub(".set", "_#{id}.auto")
         cmd = "cpp -E"
         rule.each do |k, v|
-          cmd += " -D__STR_#{k}=#{v} -D__MARK_#{k}=__MARK_#{k}_#{v}"
+          cmd += " -D__STR_#{k}=#{v} -D__MARK_#{k}=__MARK_#{k}_#{v.gsub('-', '_')}"
         end
-        cmd += " #{tmpf.path} > #{outfile} 2> /dev/null"
+        cmd += " #{tmpfpath} > #{outfile} 2> /dev/null"
         system cmd
       end
-    end
+    # end
   end
 end
 
 if $0 == __FILE__
+  if ARGV.size > 0
+    SplitRecipe.new ARGV[0]
+    exit
+  end
+
   Dir.glob("#{Dir::pwd}/cases/**/*.set") do |f|
     SplitRecipe.new f
   end

@@ -2,5 +2,7 @@
 # **
 **/tmp*
 **/Trash*
+**/work*
+**/results*
 
 !.gitignore

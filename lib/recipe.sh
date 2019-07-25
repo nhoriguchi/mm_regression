@@ -35,7 +35,7 @@ parse_recipefile() {
                 echo "TEST_CLEANUP=\"$cleanup\""
                 echo "TEST_CONTROLLER=\"$control\""
                 echo "TEST_CHECKER=\"$check\""
-                echo "TEST_FLAGS=\"$flags\""
+                echo "TEST_TYPE=\"$flags\""
                 echo "TEST_RETRYABLE=\"$retry\""
                 echo "EXPECTED_RETURN_CODE=\"$retcode\""
                 echo "TEST_PROGRAM=\"$program\""

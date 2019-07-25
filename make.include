@@ -33,7 +33,7 @@ summary:
 	@true
 
 coverage:
-	@ruby test_core/lib/test_summary.rb -l -c
+	@ruby test_core/lib/test_summary.rb -lC
 	@true
 
 version:
