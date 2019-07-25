@@ -22,7 +22,7 @@ EXPECTED_RETURN_CODE="START NOLEAKED DISSOLVED REUSABLE_OK EXIT"
 _control() {
 	__control_inuse $@
 }
-#if __MARK_FLAVOR == __MARK_FLAVOR_overcommit
+#elif __MARK_FLAVOR == __MARK_FLAVOR_overcommit
 HUGETLB_ALLOCATE=2
 HUGETLB=0
 HUGETLB_OVERCOMMIT=100
@@ -30,14 +30,14 @@ EXPECTED_RETURN_CODE="SET_OVERCOMMIT START NOLEAKED REUSABLE_OK EXIT"
 _control() {
 	__control_inuse $@
 }
-#if __MARK_FLAVOR == __MARK_FLAVOR_free
+#elif __MARK_FLAVOR == __MARK_FLAVOR_free
 HUGETLB=2
 HUGETLB_OVERCOMMIT=
 EXPECTED_RETURN_CODE="START NOLEAKED DISSOLVED REUSABLE_OK EXIT"
 _control() {
 	__control_free $@
 }
-#if __MARK_FLAVOR == __MARK_FLAVOR_full_reserved
+#elif __MARK_FLAVOR == __MARK_FLAVOR_full_reserved
 HUGETLB=2
 HUGETLB_OVERCOMMIT=
 EXPECTED_RETURN_CODE="START NOLEAKED DISSOLVED REUSABLE_OK EXIT"
@@ -121,7 +121,6 @@ __control_inuse() {
 	# This find the corner case where 2 soft offline events can makes the
 	# 1st source hugetlb (freed to buddy after 1st event) leaked.
 	echo_log "soft offline pfn 0x${target2}"
-	kick_soft
 	kick_soft_offline 0x$target2
 	sleep 1.0
 	echo_log "--- check page status after soft_offline"
