@@ -4,7 +4,12 @@ MCEINJECT=$(dirname $(readlink -f $BASH_SOURCE))/mceinj.sh
 
 SYSFS_MCHECK=/sys/devices/system/machinecheck
 
-all_unpoison() { $PAGETYPES -b hwpoison -x -N; }
+# TODO: unpoison is always problematic operation.
+if [ ! "$UNPOISON" ] || [ "$UNPOISON" == true ] ; then
+	all_unpoison() { $PAGETYPES -b hwpoison -x -N; }
+else
+	all_unpoison() { true; }
+fi
 
 get_HWCorrupted() { grep "HardwareCorrupted" /proc/meminfo | tr -s ' ' | cut -f2 -d' '; }
 save_nr_corrupted_before() { get_HWCorrupted   > $TMPD/hwcorrupted1; }
@@ -67,11 +72,24 @@ __check_nr_hwcorrupted_consistent() {
     fi
 }
 
-check_nr_hwcorrupted() {
-	if [ -s "$TMPD/hwcorrupted2" ] ; then
-		__check_nr_hwcorrupted
+__check_nr_hwcorrupted_increased() {
+    count_testcount
+    if [ "$(show_nr_corrupted 1)" -lt "$(show_nr_corrupted 3)" ] ; then
+        count_success "accounting \"HardwareCorrupted\" increased."
 	else
-		__check_nr_hwcorrupted_consistent
+        count_failure "accounting \"HardwareCorrupted\" not increased."
+	fi
+}
+
+check_nr_hwcorrupted() {
+	if [ ! "$UNPOISON" ] || [ "$UNPOISON" == true ] ; then
+		if [ -s "$TMPD/hwcorrupted2" ] ; then
+			__check_nr_hwcorrupted
+		else
+			__check_nr_hwcorrupted_consistent
+		fi
+	else
+		__check_nr_hwcorrupted_increased
 	fi
 }
 
