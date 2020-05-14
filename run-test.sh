@@ -134,7 +134,7 @@ for recipe in $RECIPEFILES ; do
 		fi
 
 		echo_log "======> Recipe: $recipe_relpath start"
-		date +%s > $TMPD/start_time
+		date +%s%3N > $TMPD/start_time
 
 		# TODO: put general system information under $TMPD
 
@@ -161,7 +161,7 @@ for recipe in $RECIPEFILES ; do
 			do_soft_try
 		fi
 
-		date +%s > $TMPD/end_time
+		date +%s%3N > $TMPD/end_time
 		echo_log "<====== Recipe: $recipe_relpath done"
 	) &
 	testcase_pid=$!
