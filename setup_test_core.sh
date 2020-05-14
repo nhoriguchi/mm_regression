@@ -99,7 +99,7 @@ check_console_output() {
 }
 
 init_return_code() {
-	rm -f $GTMPD/_return_code* $TMPD/_return_code*
+	rm -f $TMPD/_return_code*
 
 	# Even if current testcase is skipped, we need an empty _return_code_seq
 	# file because test_summary.rb script want it to be able to tell that the
@@ -116,11 +116,7 @@ get_return_code_seq() {
 }
 
 set_return_code() {
-	echo "$@" > $GTMPD/_return_code
-	echo "$@" >> $GTMPD/_return_code_seq
-	if [ "$GTMPD" != "$TMPD" ] ; then
-		echo "$@" >> $TMPD/_return_code_seq
-	fi
+	echo "$@" >> $TMPD/_return_code_seq
 }
 
 check_return_code() {
