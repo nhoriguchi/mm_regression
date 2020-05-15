@@ -33,7 +33,7 @@ summary:
 	@true
 
 coverage:
-	@ruby test_core/lib/test_summary.rb -lC
+	@ruby test_core/lib/test_summary.rb -lP
 	@true
 
 version:
@@ -51,9 +51,9 @@ recipe_priority:
 
 # You need give RUNNAME
 waiting_recipes:
-	@make update_recipes RUNNAME=$(RUNNAME)
-	@ruby test_core/lib/test_summary.rb -c work/${RUNNAME} | grep "\-\-\-\-" | cut -f2 -d ' ' | sed -e 's/^/cases\//' 2> /dev/null
+	@make --no-print-directory update_recipes RUNNAME=$(RUNNAME)
+	@ruby test_core/lib/test_summary.rb -p work/${RUNNAME} | grep "\-\-\-\-" | cut -f2 -d ' ' | sed -e 's/^/cases\//' 2> /dev/null
 
 prepare:
-	@make update_recipes
-	@make prepare_result_directory RUNNAME=$(RUNNAME)
+	@make --no-print-directory update_recipes
+	@make --no-print-directory prepare_result_directory RUNNAME=$(RUNNAME)

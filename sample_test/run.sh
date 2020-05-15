@@ -5,4 +5,4 @@ make all
 make prepare
 [ ! "$RECIPEFILES" ] && export RECIPEFILES="$(make allrecipes)"
 make test
-ruby test_core/lib/test_summary.rb -v -C work/$RUNNAME
+ruby test_core/lib/test_summary.rb -v -P work/$RUNNAME

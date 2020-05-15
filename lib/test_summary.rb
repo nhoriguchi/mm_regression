@@ -129,10 +129,10 @@ class TestSummary
   def do_work
     if @options[:finishcheck]
       do_finishcheck
-    elsif @options[:coverage]
-      show_coverage
-    elsif @options[:progresscoverage]
-      show_progress_coverage
+    elsif @options[:progress]
+      show_progress
+    elsif @options[:progressverbose]
+      show_progress_verbose
     elsif @options[:timesummary]
       show_timesummary
     elsif @options[:recipes]
@@ -178,47 +178,47 @@ class TestSummary
     end
   end
 
-  def show_coverage
-    covered = 0
-    uncovered = 0
+  def show_progress
+    done = 0
+    undone = 0
     @full_recipe_list.each do |recipe|
       if @test_summary_hash[recipe].started?
         puts "#{@test_summary_hash[recipe].testcase_result} #{recipe}"
-        covered += 1
+        done += 1
       else
         puts "NONE #{recipe}"
-        uncovered += 1
+        undone += 1
       end
     end
 
-    if covered + uncovered == 0
-      coverage = 0
+    if done + undone == 0
+      progress = 0
     else
-      coverage = 100*covered/(covered+uncovered)
+      progress = 100*done/(done+undone)
     end
-    puts "Coverage: #{covered} / #{covered + uncovered} (#{coverage}%)"
+    puts "Progress: #{done} / #{done + undone} (#{progress}%)"
   end
 
-  def show_progress_coverage
-    covered = 0
-    uncovered = 0
+  def show_progress_verbose
+    done = 0
+    undone = 0
     @full_recipe_list.each do |recipe|
       if @test_summary_hash[recipe].started?
         # pp @test_summary_hash[recipe]
         puts "#{@test_summary_hash[recipe].testcase_result} #{@test_summary_hash[recipe].date.strftime("%Y%m%d/%H%M%S")} [%02d] cases/#{recipe}" % [@test_summary_hash[recipe].priority]
-        covered += 1
+        done += 1
       else
         puts "#{@test_summary_hash[recipe].testcase_result} --------/------ [%02d] cases/#{recipe}" % [@test_summary_hash[recipe].priority]
-        uncovered += 1
+        undone += 1
       end
     end
 
-    if covered + uncovered == 0
-      coverage = 0
+    if done + undone == 0
+      progress = 0
     else
-      coverage = 100*covered/(covered+uncovered)
+      progress = 100*done/(done+undone)
     end
-    puts "Coverage: #{covered} / #{covered + uncovered} (#{coverage}%)"
+    puts "Progress: #{done} / #{done + undone} (#{progress}%)"
     puts "Target: #{@targets.join(", ")}"
   end
 
@@ -281,11 +281,14 @@ class TestSummary
       opts.on("-v", "--verbose") do
         @options[:verbose] = true
       end
-      opts.on("-c", "--coverage") do
-        @options[:coverage] = true
+      opts.on("-p", "--progress") do
+        @options[:progress] = true
       end
-      opts.on("-C", "--progress-coverage") do
-        @options[:progresscoverage] = true
+      opts.on("-P", "--progress-verbose") do
+        @options[:progressverbose] = true
+      end
+      opts.on("-C", "--progress-verbose") do # left for compatibility
+        @options[:progressverbose] = true
       end
       opts.on("-F", "--finishcheck") do
         @options[:finishcheck] = true
