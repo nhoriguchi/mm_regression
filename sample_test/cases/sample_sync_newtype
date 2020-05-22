@@ -8,7 +8,7 @@ _control() {
 	echo_log "$line"
 	case "$line" in
 		"busy loop to check pageflags")
-		    cat /proc/${pid}/numa_maps | tee -a ${OFILE}
+		    cat /proc/${pid}/numa_maps
 			set_return_code CHECK1
 		    kill -SIGUSR1 ${pid}
 		    ;;
@@ -21,8 +21,4 @@ _control() {
 		    ;;
 	esac
 	return 1
-}
-
-_check() {
-	check_system_default
 }

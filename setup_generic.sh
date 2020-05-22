@@ -47,12 +47,9 @@ commit_counts() {
 
 FALSENEGATIVE=false
 
-# print test output with copying into result file. Using tee command
-# for example with "do_test | tee $OFILE" doesn't work because do_test
-# runs in sub-process, and testcase/success/failure counts are broken.
 echo_log() {
     if [ "$LOGLEVEL" -ge 1 ] ; then
-		echo "$@" | tee -a $OFILE
+		echo "$@"
 	fi
 }
 
@@ -164,7 +161,7 @@ show_fail_summary() {
         fi
     done < $GTMPD/sum
     if [ -f $GTMPD/sum2 ] ; then
-        cat $GTMPD/sum2 | tee -a ${OFILE}
+        cat $GTMPD/sum2
     fi
 }
 

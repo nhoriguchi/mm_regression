@@ -20,10 +20,10 @@ control_sample() {
     local pid="$1"
     local line="$2"
 
-    echo "$line" | tee -a ${OFILE}
+    echo "$line"
     case "$line" in
         "busy loop to check pageflags")
-            cat /proc/${pid}/numa_maps | tee -a ${OFILE}
+            cat /proc/${pid}/numa_maps
             kill -SIGUSR1 ${pid}
             ;;
         "$test_sample exit")
@@ -111,10 +111,10 @@ control_use_simple_tp_both_for_sync_and_async_mode() {
     local line="$2"
 
     if [ "$pid" ] ; then # sync mode
-        echo "-- $line" | tee -a ${OFILE}
+        echo "-- $line"
         case "$line" in
             "checkpoint_1")
-                cat /proc/$pid/numa_maps | tee -a ${OFILE}
+                cat /proc/$pid/numa_maps
                 kill -SIGUSR1 $pid
                 ;;
             "checkpoint_2")
@@ -139,7 +139,7 @@ control_use_simple_tp_both_for_sync_and_async_mode() {
         # for checkpoint_1
         echo "pkill -SIGUSR1 -f lib/test_sample_for_both_mode"
         pkill -SIGUSR1 -f lib/test_sample_for_both_mode
-        cat /proc/$pid/numa_maps | tee -a ${OFILE}
+        cat /proc/$pid/numa_maps
         # for checkpoint_2
         echo "pkill -SIGUSR1 -f lib/test_sample_for_both_mode"
         pkill -SIGUSR1 -f lib/test_sample_for_both_mode

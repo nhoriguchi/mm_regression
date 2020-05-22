@@ -29,16 +29,18 @@ dmesg_filter() {
 }
 
 get_kernel_message_diff() {
-	echo "####### DMESG #######"
 	diff $TMPD/_dmesg_before $TMPD/_dmesg_after 2> /dev/null | grep -v '^< ' | \
 		dmesg_filter > $TMPD/_dmesg_diff
 	# expecting environment format DMESG_DIFF_LIMIT is like "head -n10" or "tail -20"
-	if [ "$DMESG_DIFF_LIMIT" ] ; then
-		$DMESG_DIFF_LIMIT $TMPD/_dmesg_diff
-	else
-		cat $TMPD/_dmesg_diff
+	if [ -s $TMPD/_dmesg_diff ] ; then
+		echo "####### DMESG #######"
+		if [ "$DMESG_DIFF_LIMIT" ] ; then
+			$DMESG_DIFF_LIMIT $TMPD/_dmesg_diff
+		else
+			cat $TMPD/_dmesg_diff
+		fi
+		echo "####### DMESG END #######"
 	fi
-	echo "####### DMESG END #######"
 	rm $TMPD/_dmesg_before $TMPD/_dmesg_after 2> /dev/null
 }
 
@@ -198,7 +200,7 @@ EOF
 
 cleanup_system_default() {
 	get_kernel_message_after
-	get_kernel_message_diff | tee -a $OFILE
+	get_kernel_message_diff
 	cleanup_unimportant_temporal_files
 }
 
@@ -383,17 +385,19 @@ __do_test() {
 	local cmd="$1"
 	local line=
 
-	init_return_code
-
+	if [ ! "$REBOOT" ] ; then # dirty hack
+		init_return_code
+	fi
 	prepare
 	if [ $? -ne 0 ] ; then
 		cleanup
 		return 1
 	fi
+	# TODO: check impact of removing this line on existing testcases.
 	set_return_code_start
 	echo_log "$cmd"
 
-	exec 2> >( tee -a ${OFILE} )
+	# exec 2> >( tee -a ${OFILE} )
 	# Keep pipe open to hold the data on buffer after the writer program
 	# is terminated.
 	exec 11<>${PIPE}
@@ -421,7 +425,7 @@ __do_test() {
 	done
 	# TODO: review carefully
 	[[ "$(jobs -p)" ]] && kill -9 $(jobs -p) 2> /dev/null
-	pkill -9 -f "$cmd" | tee -a ${OFILE}
+	pkill -9 -f "$cmd"
 	exec 11<&-
 	exec 11>&-
 
@@ -448,7 +452,6 @@ do_test_try() {
 	local ret=0
 	local failure_before="$(cat $TMPD/_failure)"
 
-	echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
 	check_test_flag && return 1
 	# check_inclusion_of_fixedby_patch && break
 
@@ -465,7 +468,6 @@ do_test_try() {
 	else
 		ret=0
 	fi
-	echo_log "<=== testcase '$TEST_TITLE' end" | tee /dev/kmsg
 	return $ret
 }
 
@@ -509,7 +511,7 @@ do_hard_try() {
 # Returns fail if all of trails fails.
 do_soft_try() {
 	local ret=0
-	if [ ! "$SOFT_RETRY" ] ; then
+	if [ ! "$SOFT_RETRY" ] || [ "$SOFT_RETRY" -eq 1 ] ; then
 		do_hard_try
 		ret=$?
 	else

@@ -133,7 +133,6 @@ for recipe in $RECIPEFILES ; do
 			mkdir -p $TMPD > /dev/null 2>&1
 		fi
 
-		echo_log "======> Recipe: $recipe_relpath start"
 		date +%s%3N > $TMPD/start_time
 
 		# TODO: put general system information under $TMPD
@@ -146,23 +145,25 @@ for recipe in $RECIPEFILES ; do
 		PRIORITY=10 # TODO: better place?
 
 		mv .tmp.recipe $TMPD/_recipe
-		. $TMPD/_recipe
-		ret=$?
-		if [ "$SKIP_THIS_TEST" ] ; then
-			echo_log "This testcase is marked to be skipped by developer."
-			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
-		elif [ "$ret" -ne 0 ] ; then
-			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
-		elif [ "$PRIORITY" ] && [ "$HIGHEST_PRIORITY" -gt "$PRIORITY" ] ; then
-			skip_testcase_out_priority
-		elif [ "$PRIORITY" ] && [ "$LOWEST_PRIORITY" -lt "$PRIORITY" ] ; then
-			skip_testcase_out_priority
-		else
-			do_soft_try
-		fi
-
+		echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
+		(
+			. $TMPD/_recipe
+			ret=$?
+			if [ "$SKIP_THIS_TEST" ] ; then
+				echo_log "This testcase is marked to be skipped by developer."
+				echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+			elif [ "$ret" -ne 0 ] ; then
+				echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+			elif [ "$PRIORITY" ] && [ "$HIGHEST_PRIORITY" -gt "$PRIORITY" ] ; then
+				skip_testcase_out_priority
+			elif [ "$PRIORITY" ] && [ "$LOWEST_PRIORITY" -lt "$PRIORITY" ] ; then
+				skip_testcase_out_priority
+			else
+				do_soft_try
+			fi
+		) 2>&1 | tee -a $OFILE
 		date +%s%3N > $TMPD/end_time
-		echo_log "<====== Recipe: $recipe_relpath done"
+		echo_log "<=== testcase '$TEST_TITLE' end" | tee /dev/kmsg
 	) &
 	testcase_pid=$!
 
