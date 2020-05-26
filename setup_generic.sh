@@ -48,16 +48,14 @@ commit_counts() {
 FALSENEGATIVE=false
 
 echo_log() {
-    if [ "$LOGLEVEL" -ge 1 ] ; then
+    if [ "$LOGLEVEL" ] && [ "$LOGLEVEL" -ge 1 ] ; then
 		echo "$@"
 	fi
 }
 
 echo_verbose() {
-    if [ "$LOGLEVEL" -ge 2 ] ; then
+    if [ "$LOGLEVEL" ] && [ "$LOGLEVEL" -ge 2 ] ; then
         echo "$@"
-    else
-        echo "$@" > /dev/null
     fi
 }
 
