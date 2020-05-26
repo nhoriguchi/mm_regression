@@ -481,7 +481,7 @@ do_hard_try() {
 	local ret=0
 	local soft_try=$1
 
-	if [ ! "$HARD_RETRY" ] ; then
+	if [ ! "$HARD_RETRY" ] || [ "$HARD_RETRY" -eq 1 ] ; then
 		do_test_try
 		return $?
 	fi
