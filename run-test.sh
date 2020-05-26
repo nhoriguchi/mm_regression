@@ -93,81 +93,124 @@ skip_testcase_out_priority() {
 	echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
 }
 
-for recipe in $RECIPEFILES ; do
-	if [ ! -f "$recipe" ] ; then
-		"Recipe $recipe must be a regular file." >&2
-		continue
+run_recipe() {
+	local recipe="$1"
+	local recipe_relpath=$(echo $recipe | sed 's/.*cases\///')
+	export TEST_TITLE=$recipe_relpath
+	export TMPD=$GTMPD/$recipe_relpath
+	export TMPF=$TMPD
+	export OFILE=$TMPD/result
+
+	if check_testcase_already_run ; then
+		echo_log "### You already have workfiles for recipe $recipe_relpath with TESTNAME: $TESTNAME, so skipped. If you really want to run with removing old work directory, please give environment variable AGAIN=true."
+		return
 	fi
 
-	# recipe_relpath=${recipe##$PWD/cases/}
-	recipe_relpath=$(echo $recipe | sed 's/.*cases\///')
-	# recipe_id=${recipe_relpath//\//_}
-
-	check_remove_suffix $recipe || continue
-
-	if [ "$TESTCASE_FILTER" ] ; then
-		filtered=$(echo "$recipe_relpath" | grep $(_a="" ; for f in $TESTCASE_FILTER ; do _a="$_a -e $f" ; done ; echo $_a))
-	fi
-
-	if [ "$TESTCASE_FILTER" ] && [ ! "$filtered" ] ; then
-		echo_verbose "======= SKIPPED: Recipe: $recipe_relpath"
-		continue
-	fi
+	check_remove_suffix $recipe || return
 
 	parse_recipefile $recipe .tmp.recipe
 
+	if [ -d $TMPD ] ; then
+		rm -rf $TMPD/* > /dev/null 2>&1
+	else
+		mkdir -p $TMPD > /dev/null 2>&1
+	fi
+
+	date +%s%3N > $TMPD/start_time
+	# TODO: put general system information under $TMPD
+	# prepare empty testcount file at first because it's used to check
+	# testcase result from summary script.
+	reset_per_testcase_counters
+	init_return_code
+
+	PRIORITY=10 # TODO: better place?
+
+	mv .tmp.recipe $TMPD/_recipe
+	echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
 	(
-		export TEST_TITLE=$recipe_relpath
-		export TMPD=$GTMPD/$recipe_relpath
-		export TMPF=$TMPD
-		export OFILE=$TMPD/result
-
-		if check_testcase_already_run ; then
-			echo_log "### You already have workfiles for recipe $recipe_relpath with TESTNAME: $TESTNAME, so skipped. If you really want to run with removing old work directory, please give environment variable AGAIN=true."
-			continue
-		fi
-
-		if [ -d $TMPD ] ; then
-			rm -rf $TMPD/* > /dev/null 2>&1
+		. $TMPD/_recipe
+		ret=$?
+		if [ "$SKIP_THIS_TEST" ] ; then
+			echo_log "This testcase is marked to be skipped by developer."
+			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		elif [ "$ret" -ne 0 ] ; then
+			echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		elif [ "$PRIORITY" ] && [ "$HIGHEST_PRIORITY" -gt "$PRIORITY" ] ; then
+			skip_testcase_out_priority
+		elif [ "$PRIORITY" ] && [ "$LOWEST_PRIORITY" -lt "$PRIORITY" ] ; then
+			skip_testcase_out_priority
 		else
-			mkdir -p $TMPD > /dev/null 2>&1
+			do_soft_try
 		fi
+	) 2>&1 | tee -a $OFILE
+	date +%s%3N > $TMPD/end_time
+	echo_log "<=== testcase '$TEST_TITLE' end" | tee /dev/kmsg
+}
 
-		date +%s%3N > $TMPD/start_time
+run_recipe_tree() {
+	local dir="$1"
 
-		# TODO: put general system information under $TMPD
+	if [ -f "$dir/config" ] ; then
+		echo_log "sourcing $dir/config"
+		. "$dir/config"
+	fi
 
-		# prepare empty testcount file at first because it's used to check
-		# testcase result from summary script.
-		reset_per_testcase_counters
-		init_return_code
-
-		PRIORITY=10 # TODO: better place?
-
-		mv .tmp.recipe $TMPD/_recipe
-		echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
+	for f in $(ls -1 $dir) ; do
 		(
-			. $TMPD/_recipe
-			ret=$?
-			if [ "$SKIP_THIS_TEST" ] ; then
-				echo_log "This testcase is marked to be skipped by developer."
-				echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
-			elif [ "$ret" -ne 0 ] ; then
-				echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
-			elif [ "$PRIORITY" ] && [ "$HIGHEST_PRIORITY" -gt "$PRIORITY" ] ; then
-				skip_testcase_out_priority
-			elif [ "$PRIORITY" ] && [ "$LOWEST_PRIORITY" -lt "$PRIORITY" ] ; then
-				skip_testcase_out_priority
-			else
-				do_soft_try
+			if [ "$f" == config ] ; then
+				true
+			elif [ -f "$dir/$f" ] ; then
+				echo "$BASHPID f $dir/$f VAL=$VAL"
+				run_recipe "$dir/$f"
+			elif [ -d "$dir/$f" ] ; then
+				run_recipe_tree "$dir/$f"
 			fi
-		) 2>&1 | tee -a $OFILE
-		date +%s%3N > $TMPD/end_time
-		echo_log "<=== testcase '$TEST_TITLE' end" | tee /dev/kmsg
-	) &
-	testcase_pid=$!
+		) &
+		wait $!
+	done
+}
 
-	wait $testcase_pid
-done
+get_next_level() {
+	local dir="$1"
+	local list="$2"
 
-echo_log "<========= end testing $(basename $TRDIR):$TESTNAME"
+	grep ^$dir/ $list | sed -e "s|^$dir/||" | cut -f1 -d / | uniq
+}
+
+run_recipe_list() {
+	local dir="$1"
+	local list="$2"
+
+	if [ -f "$dir/config" ] ; then
+		echo_log "sourcing $dir/config"
+		. "$dir/config"
+	fi
+
+	for f in $(get_next_level $dir $list) ; do
+		(
+			if [ "$f" == config ] ; then
+				true
+			elif [ -f "$dir/$f" ] ; then
+				echo "$BASHPID f $dir/$f VAL=$VAL"
+				run_recipe "$dir/$f"
+			elif [ -d "$dir/$f" ] ; then
+				run_recipe_list "$dir/$f" "$list"
+			fi
+		) &
+		wait $!
+	done
+}
+
+run_recipes() {
+	local dir=$1
+	local list=$2
+
+	if [ -f "$list" ] ; then
+		run_recipe_list $dir $list
+	else
+		run_recipe_tree $dir
+	fi
+}
+
+echo run_recipes $TRDIR/cases
+run_recipes $TRDIR/cases
