@@ -13,6 +13,9 @@ full_recipe=work/$RUNNAME/full_recipe_list
 mkdir -p work/$RUNNAME
 make --no-print-directory allrecipes | grep ^cases > work/$RUNNAME/full_recipe_list
 
+# disable recipe modification for a while
+exit
+
 for existing in $(find work/$RUNNAME -name '_recipe') ; do
 	existing_tc=$(dirname $existing | cut -f3- -d/)
 	if ! grep -qx cases/$existing_tc $full_recipe ; then
