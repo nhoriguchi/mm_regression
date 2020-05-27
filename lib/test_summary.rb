@@ -144,7 +144,7 @@ class TestSummary
     elsif @options[:recipes]
       show_recipe_status
     else
-      puts sum_str
+      show_default_sum
     end
   end
 
@@ -195,24 +195,19 @@ class TestSummary
         undone += 1
       end
     end
-    return done, undone
-  end
-
-  def show_progress
-    @full_recipe_list.each do |recipe|
-      if @test_summary_hash[recipe].started?
-        puts "#{@test_summary_hash[recipe].testcase_result} #{recipe}"
-      else
-        puts "NONE #{recipe}"
-      end
-    end
-    done, undone = calc_progress_percentile
     if done + undone == 0
       progress = 0
     else
       progress = 100*done/(done+undone)
     end
     puts "Progress: #{done} / #{done + undone} (#{progress}%)"
+  end
+
+  def show_progress
+    @full_recipe_list.each do |recipe|
+      puts "#{@test_summary_hash[recipe].testcase_result} #{recipe}"
+    end
+    calc_progress_percentile
   end
 
   def show_progress_verbose
@@ -223,13 +218,7 @@ class TestSummary
         puts "#{@test_summary_hash[recipe].testcase_result} --------/------ [%02d] cases/#{recipe}" % [@test_summary_hash[recipe].priority]
       end
     end
-    done, undone = calc_progress_percentile
-    if done + undone == 0
-      progress = 0
-    else
-      progress = 100*done/(done+undone)
-    end
-    puts "Progress: #{done} / #{done + undone} (#{progress}%)"
+    calc_progress_percentile
     puts "Target: #{@targets.join(", ")}"
   end
 
@@ -252,7 +241,7 @@ class TestSummary
     end
   end
 
-  def sum_str
+  def show_default_sum
     sum = {
       "PASS" => 0,
       "FAIL" => 0,
@@ -263,7 +252,8 @@ class TestSummary
     @test_summary_hash.each do |id, tc|
       sum[tc.testcase_result] += 1
     end
-    "PASS #{sum["PASS"]}, FAIL #{sum["FAIL"]}, WARN #{sum["WARN"]}, SKIP #{sum["SKIP"]}, NONE #{sum["NONE"]}"
+    calc_progress_percentile
+    puts "PASS #{sum["PASS"]}, FAIL #{sum["FAIL"]}, WARN #{sum["WARN"]}, SKIP #{sum["SKIP"]}, NONE #{sum["NONE"]}"
   end
 
   def parse_args args
