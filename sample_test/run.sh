@@ -1,5 +1,5 @@
 export RUNNAME=debug
-export AGAIN=true
+# export AGAIN=true
 
 export SOFT_RETRY=1
 export HARD_RETRY=1
