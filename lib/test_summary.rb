@@ -11,6 +11,10 @@ class TestCaseSummary
     @testcaseid = "#{tc_dir.gsub(run_dir + '/', '')}"
     @date = File.mtime(@tc_dir)
     @priority = 10 # default
+    @run_status = "NONE"
+    if File.exist?(@tc_dir + "/run_status")
+      @run_status = File.read(@tc_dir + "/run_status").strip
+    end
     File.read(@tc_dir + '/_recipe').split("\n").select do |line|
       @priority = $1.to_i if line =~ /^PRIORITY=(\d+)/
     end
@@ -40,7 +44,9 @@ class TestCaseSummary
 
   def testcase_result
     tmp = nil
-    return "NONE" if ! File.exist? @tc_dir + "/result"
+    return "NONE" if @run_status == "NONE"
+    return "SKIP" if @run_status == "SKIPPED"
+
     File.read(@tc_dir + "/result").split("\n").each do |line|
       if line =~ /^TESTCASE_RESULT: (.+)?: (\w+)$/
         tmp = $2
@@ -51,7 +57,7 @@ class TestCaseSummary
   end
 
   def started?
-    @return_code_seq =~ /\bSTART\b/
+    @run_status == "FINISHED" || @run_status == "RUNNING"
   end
 
   def start_time
@@ -178,19 +184,29 @@ class TestSummary
     end
   end
 
-  def show_progress
+  def calc_progress_percentile
     done = 0
     undone = 0
-    @full_recipe_list.each do |recipe|
-      if @test_summary_hash[recipe].started?
-        puts "#{@test_summary_hash[recipe].testcase_result} #{recipe}"
+    @full_recipe_list.select do |recipe|
+      case @test_summary_hash[recipe].testcase_result
+      when "PASS", "FAIL", "SKIP", "WARN"
         done += 1
-      else
-        puts "NONE #{recipe}"
+      when "RUNN", "NONE"
         undone += 1
       end
     end
+    return done, undone
+  end
 
+  def show_progress
+    @full_recipe_list.each do |recipe|
+      if @test_summary_hash[recipe].started?
+        puts "#{@test_summary_hash[recipe].testcase_result} #{recipe}"
+      else
+        puts "NONE #{recipe}"
+      end
+    end
+    done, undone = calc_progress_percentile
     if done + undone == 0
       progress = 0
     else
@@ -200,19 +216,14 @@ class TestSummary
   end
 
   def show_progress_verbose
-    done = 0
-    undone = 0
     @full_recipe_list.each do |recipe|
       if @test_summary_hash[recipe].started?
-        # pp @test_summary_hash[recipe]
         puts "#{@test_summary_hash[recipe].testcase_result} #{@test_summary_hash[recipe].date.strftime("%Y%m%d/%H%M%S")} [%02d] cases/#{recipe}" % [@test_summary_hash[recipe].priority]
-        done += 1
       else
         puts "#{@test_summary_hash[recipe].testcase_result} --------/------ [%02d] cases/#{recipe}" % [@test_summary_hash[recipe].priority]
-        undone += 1
       end
     end
-
+    done, undone = calc_progress_percentile
     if done + undone == 0
       progress = 0
     else
