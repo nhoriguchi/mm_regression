@@ -144,11 +144,11 @@ set_return_code_start() {
 # not true, then return true only when current testcase does not run yet.
 check_testcase_already_run() {
 	[ "$AGAIN" == true ] && return 1
-	if grep -q -x START $TMPD/_return_code_seq 2> /dev/null ; then
-		return 0
-	else
-		return 1
-	fi
+	[ ! -s "$TMPD/run_status" ] && return 1
+
+	[ "$(cat $TMPD/run_status)" == SKIPPED ] && return 0
+	[ "$(cat $TMPD/run_status)" == FINISHED ] && return 0
+	return 1
 }
 
 prepare_system_default() {

@@ -73,42 +73,45 @@ run_recipe() {
 	export TMPF=$TMPD
 	export OFILE=$TMPD/result
 
-	parse_recipefile $recipe .tmp.recipe
-
 	if [ -d $TMPD ] && [ "$AGAIN" == true ] ; then
 		rm -rf $TMPD/* > /dev/null 2>&1
 	fi
 	mkdir -p $TMPD > /dev/null 2>&1
 
-	mv .tmp.recipe $TMPD/_recipe
+	# recipe run status check
+	check_testcase_already_run && return
+	check_remove_suffix $recipe || return
+
+	parse_recipefile $recipe $TMPD/_recipe
 	PRIORITY=10 # TODO: better place?
 	. $TMPD/_recipe
 	ret=$?
 	echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
 
-	if check_testcase_already_run ; then
-		echo_log "### You already have workfiles for recipe $recipe_relpath with TESTNAME: $TESTNAME, so skipped. If you really want to run with removing old work directory, please give environment variable AGAIN=true."
-	elif ! check_remove_suffix $recipe ; then
-		return
-	elif [ "$SKIP_THIS_TEST" ] ; then
+	if [ "$SKIP_THIS_TEST" ] ; then
 		echo_log "This testcase is marked to be skipped by developer."
 		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		echo SKIPPED > $TMPD/run_status
 	elif [ "$ret" -ne 0 ] ; then
 		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		echo SKIPPED > $TMPD/run_status
 	elif [ "$PRIORITY" ] && [ "$HIGHEST_PRIORITY" -gt "$PRIORITY" ] ; then
 		skip_testcase_out_priority
+		echo SKIPPED > $TMPD/run_status
 	elif [ "$PRIORITY" ] && [ "$LOWEST_PRIORITY" -lt "$PRIORITY" ] ; then
 		skip_testcase_out_priority
+		echo SKIPPED > $TMPD/run_status
 	else
+		echo RUNNING > $TMPD/run_status
 		date +%s%3N > $TMPD/start_time
 		# TODO: put general system information under $TMPD
 		# prepare empty testcount file at first because it's used to check
 		# testcase result from summary script.
 		reset_per_testcase_counters
 		init_return_code
-
-		( do_soft_try ) 2>&1 | tee -a $OFILE
+		do_soft_try > >(tee -a $OFILE) 2>&1
 		date +%s%3N > $TMPD/end_time
+		echo FINISHED > $TMPD/run_status
 	fi
 	echo_log "<=== testcase '$TEST_TITLE' end" | tee /dev/kmsg
 }
@@ -177,7 +180,11 @@ run_recipes() {
 if [ -f "$RECIPELIST" ] ; then
 	cp $RECIPELIST $GTMPD/recipelist
 elif [ ! -f "$GTMPD/recipelist" ] ; then
-	make --no-print-directory allrecipes | grep ^cases > $GTMPD/recipelist
+	if [ -f "$GTMPD/full_recipe_list" ] ; then
+		cp $GTMPD/full_recipe_list $GTMPD/recipelist
+	else
+		make --no-print-directory allrecipes | grep ^cases > $GTMPD/recipelist
+	fi
 fi
 # make --no-print-directory RUNNAME=$RUNNAME waiting_recipes | grep ^cases > $GTMPD/waiting_recipe_list
 
