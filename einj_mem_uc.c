@@ -532,12 +532,18 @@ int main(int argc, char **argv)
 			}
 			if (a_cmci == b_cmci) {
 				printf("Expected CMCI, but none seen\n");
+				printf("Test failed\n");
+				return 1;
 			} else if (a_cmci < b_cmci + lcpus_persocket) {
 				printf("Unusual number of CMCIs seen: %ld\n", a_cmci - b_cmci);
+				printf("Test failed\n");
+				return 1;
 			}
 		} else {
 			if (a_cmci != b_cmci) {
 				printf("Saw %ld unexpected CMCIs (%ld per socket)\n", a_cmci - b_cmci, (a_cmci - b_cmci) / lcpus_persocket);
+				printf("Test failed\n");
+				return 1;
 			}
 		}
 
@@ -549,5 +555,6 @@ int main(int argc, char **argv)
 		}
 	}
 
+	printf("Test passed\n");
 	return 0;
 }
