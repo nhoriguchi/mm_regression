@@ -1,0 +1,54 @@
+EXPECTED_RETURN_CODE="START EXIT"
+
+_preapre() {
+	sysctl vm.panic_on_oom=1
+	sysctl kernel.panic_on_warn=1
+	sysctl kernel.panic_on_oops=1
+}
+
+_clearup() {
+	sysctl vm.panic_on_oom=0
+	sysctl kernel.panic_on_warn=0
+	sysctl kernel.panic_on_oops=0
+}
+
+soft_offline() {
+	local addr=$1
+
+	echo $addr > /sys/devices/system/memory/soft_offline_page
+}
+
+iteration1() {
+	local base=0x$(tail -n1 $TMPD/ppp | cut -f1)
+	for i in $(seq 10) ; do
+		soft_offline $[$[$base + $[RANDOM % 0x400]] * 4096]
+	done
+	# page-types -b hwpoison -x -Nl
+}
+
+iteration2() {
+	local base=0x$(tail -n1 $TMPD/ppp | cut -f1)
+	for i in $(seq 10) ; do
+		soft_offline $[$[$base + $[RANDOM % 0x400]] * 4096]
+		# page-types -b hwpoison -x -Nl
+	done
+}
+
+_control() {
+	echo "page-types -b buddy -Nl | grep -P \"^10000\t\""
+	page-types -b buddy -Nl | grep -P ^10000 | tee $TMPD/ppp
+
+	if [ ! -s $TMPD/ppp ] ; then
+		echo 'injection point not found'
+		exit 1
+	fi
+
+	for i in $(seq 10) ; do
+		iteration1
+	done
+	for i in $(seq 10) ; do
+		iteration2
+	done
+
+	set_return_code EXIT
+}
