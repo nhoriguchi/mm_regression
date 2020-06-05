@@ -1,12 +1,17 @@
 CC=gcc
 OPT=-DDEBUG
-LIBOPT=-lnuma -lpthread # -lcgroup
+LIBOPT=-lnuma -lpthread # -lcgroup -lpmem
 CFLAGS=-g # -Wall -Wextra
 
-src=test_mincore.c mark_idle_all.c iterate_numa_move_pages.c test_alloc_generic.c test_hugetlb_pmd_share.c numa_move_pages.c test_fsdax.c test_devdax.c
-exe=$(src:.c=)
+SRC = $(shell find . -maxdepth 1 -type f -name "*.c")
+DST = $(patsubst %.c,%,$(SRC))
 
-build: $(exe)
+build: $(DST)
+
+all: $(DST)
 
 %: %.c
-	C_INCLUDE_PATH=.. $(CC) $(CFLAGS) -o $@ $^ $(OPT) $(LIBOPT)
+	C_INCLUDE_PATH=.. $(CC) $(CFLAGS) -o $@ $< $(OPT) $(LIBOPT)
+
+clean:
+	rm $(DST)
