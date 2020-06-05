@@ -1,0 +1,80 @@
+_cleanup() {
+	sysctl vm.memory_failure_early_kill=0
+	pkill -9 -f test_alloc_generic
+}
+
+check_killed_early() {
+	local pid=$1
+
+	if kill -0 $pid 2> /dev/null ; then
+		echo "process $pid still exists"
+		set_return_code NOSIGBUS
+	else
+		echo "process $pid is killed"
+		set_return_code SIGBUS
+	fi
+	kill -9 $pid > /dev/null 2>&1
+}
+
+EXPECTED_RETURN_CODE="START NOSIGBUS SIGBUS NOSIGBUS SIGBUS SIGBUS NOSIGBUS EXIT"
+
+_control() {
+	local pid
+
+	# set_return_code START
+
+	sysctl vm.memory_failure_early_kill=0
+
+	sysctl vm.memory_failure_early_kill
+	echo "prctl() with PR_MCE_KILL_DEFAULT"
+	lib/test_alloc_generic -B anonymous -N 1 -L "mmap access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 0.1
+	check_killed_early $pid
+
+	echo "prctl() with PR_MCE_KILL_EARLY"
+	lib/test_alloc_generic -B anonymous -N 1 -L "mmap prctl:early_kill access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 0.1
+	check_killed_early $pid
+
+	echo "prctl() with PR_MCE_KILL_LATE"
+	lib/test_alloc_generic -B anonymous -N 1 -L "mmap prctl:late_kill access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 0.1
+	check_killed_early $pid
+
+	sysctl vm.memory_failure_early_kill=1
+
+	echo "prctl() with PR_MCE_KILL_DEFAULT"
+	lib/test_alloc_generic -B anonymous -N 1 -L "mmap access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 0.1
+	check_killed_early $pid
+
+	echo "prctl() with PR_MCE_KILL_EARLY"
+	lib/test_alloc_generic -B anonymous -N 1 -L "mmap prctl:early_kill access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 0.1
+	check_killed_early $pid
+
+	echo "prctl() with PR_MCE_KILL_LATE"
+	lib/test_alloc_generic -B anonymous -N 1 -L "mmap prctl:late_kill access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 0.1
+	check_killed_early $pid
+
+	set_return_code EXIT
+}

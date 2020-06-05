@@ -1,0 +1,54 @@
+
+_cleanup() {
+	pkill -9 -f test_early_kill_pthread
+	sysctl vm.memory_failure_early_kill=0
+}
+
+check_killed_early() {
+	local pid=$1
+
+	if kill -0 $pid 2> /dev/null ; then
+		echo "process $pid still exists"
+		set_return_code NOSIGBUS
+	else
+		echo "process $pid is killed"
+		set_return_code SIGBUS
+	fi
+	kill -9 $pid > /dev/null 2>&1
+}
+
+EXPECTED_RETURN_CODE="START SIGNAL EXIT"
+
+_control() {
+	local pid
+
+	# set_return_code START
+	sysctl vm.memory_failure_early_kill=0
+
+	lib/test_early_kill_pthread &
+	pid=$!
+	sleep 0.1
+
+	ps H -o 'pid tid cmd' | grep "$pid " | grep test_early_kill_pthread > $TMPD/ps
+	local tid="$(tail -1 $TMPD/ps | awk '{print $2}')"
+	if [ ! "$tid" ] ; then
+		return 1
+	fi
+	sleep 0.1
+
+	page-types -p $tid -Nr -a 0x700000000 -X
+	sleep 0.5
+
+	. $TCDIR/lib/wait.sh
+	wait_timeout 3 $pid
+	if [ "$ret" -eq 0 ] ; then
+		# subthread is successfully terminated.
+		set_return_code SIGNAL
+	else
+		# timed out
+		set_return_code NOSIGNAL
+
+	fi
+
+	set_return_code EXIT
+}
