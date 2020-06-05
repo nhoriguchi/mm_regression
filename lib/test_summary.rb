@@ -77,7 +77,7 @@ class RunSummary
   def initialize test_summary, dir
     @test_summary = test_summary
     # Items in this list has 'cases/' prefix
-    @recipelist = File.readlines("#{dir}/full_recipe_list").map do |r|
+    @recipelist = File.readlines("#{dir}/recipelist").map do |r|
       r.chomp.gsub(/^cases\//, '')
     end
 
