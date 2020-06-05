@@ -1,7 +1,5 @@
 #!/bin/bash
 
-DEBUGFSDIR=$(mount | grep debugfs | head -n1 | cut -f3 -d' ')
-[ ! "${DEBUGFSDIR}" ] && echo "no debugfs" && exit 1
 FTRACEDIR=${DEBUGFSDIR}/tracing
 [ ! "${FTRACEDIR}" ] && echo "no debugfs:tracing" && exit 1
 

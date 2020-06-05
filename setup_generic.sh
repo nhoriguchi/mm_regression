@@ -10,6 +10,9 @@ export OFILE=$ODIR/result
 export WDIR=$TRDIR/work
 [ ! -d "$WDIR" ] && mkdir -p $WDIR
 
+DEBUGFSDIR=$(mount | grep debugfs | head -n1 | cut -f3 -d' ')
+[ ! "${DEBUGFSDIR}" ] && echo "no debugfs" && exit 1
+
 export GTMPD=$WDIR/$TESTNAME
 [ ! -d "$GTMPD" ] && mkdir -p $GTMPD
 
