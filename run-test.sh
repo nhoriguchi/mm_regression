@@ -189,3 +189,4 @@ fi
 # make --no-print-directory RUNNAME=$RUNNAME waiting_recipes | grep ^cases > $GTMPD/waiting_recipe_list
 
 run_recipes $TRDIR $GTMPD/recipelist
+echo "All testcases in project $RUNNAME finished."
