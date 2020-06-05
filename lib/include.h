@@ -1,6 +1,7 @@
 #include <sys/uio.h>
 #include <sys/time.h>
 #include <stdlib.h>
+#include <sys/prctl.h>
 #include "test_core/lib/include.h"
 #include "test_core/lib/hugepage.h"
 #include "test_core/lib/pfn.h"
@@ -1280,6 +1281,21 @@ static void do_vm86(struct op_control *opc) {
 	return;
 }
 
+static void do_prctl(struct op_control *opc) {
+	unsigned long flag = 0;
+
+	if (opc_defined(opc, "early_kill")) {
+		flag = PR_MCE_KILL_EARLY;
+	} else if (opc_defined(opc, "late_kill")) {
+		flag = PR_MCE_KILL_LATE;
+	}
+
+	if (prctl(PR_MCE_KILL, PR_MCE_KILL_SET, flag, 0, 0, 0) < 0) {
+		perror("prctl");
+	}
+	return;
+}
+
 enum {
 	NR_start,
 	NR_noop,
@@ -1315,6 +1331,7 @@ enum {
 	NR_split_thp,
 	NR_madvise,
 	NR_vm86,
+	NR_prctl,
 	NR_OPERATIONS,
 };
 
@@ -1353,6 +1370,7 @@ static const char *operation_name[] = {
 	[NR_split_thp]			= "split_thp",
 	[NR_madvise]			= "madvise",
 	[NR_vm86]			= "vm86",
+	[NR_prctl]			= "prctl",
 };
 
 /*
@@ -1394,6 +1412,7 @@ static const char *op_supported_args[][10] = {
 	[NR_split_thp]			= {"only_pmd"},
 	[NR_madvise]			= {"advice", "size", "hp_partial", "offset", "length", "step"},
 	[NR_vm86]			= {},
+	[NR_prctl]			= {"early_kill", "late_kill"},
 };
 
 static int get_op_index(struct op_control *opc) {
@@ -1596,6 +1615,8 @@ static void do_operation_loop(void) {
 			do_madvise(&opc);
 		} else if (!strcmp(opc.name, "vm86")) {
 			do_vm86(&opc);
+		} else if (!strcmp(opc.name, "prctl")) {
+			do_prctl(&opc);
 		} else
 			errmsg("unsupported op_string: %s\n", opc.name);
 
