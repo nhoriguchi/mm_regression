@@ -1,0 +1,9 @@
+#! {"key1" => "v1-1", "key2" => "v21"}
+#! {"key1" => "v1-1", "key2" => "v22"}
+#! {"key1" => "v12", "key2" => "v21"}
+#! {"key1" => "v12", "key2" => "v22"}
+<% if param["key1"] == "v1-1" %>
+    path A: <%= param %>
+<% else %>
+    path B: <%= param %>
+<% end  %>
