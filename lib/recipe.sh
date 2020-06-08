@@ -73,12 +73,7 @@ check_remove_suffix() {
 		[ "$DEVEL_MODE" != true ] && return 1
 	fi
 
-	if [[ "$recipe" =~ \.set$ ]] ; then
-		echo "$recipe: recipeset recipe. This recipe is *not* intended to be run directly, so let's skip this. To run split recipe, call make split_recipes first."
-		return 1
-	fi
-
-	if [[ "$recipe" =~ \.set2$ ]] ; then
+	if [[ "$recipe" =~ \.set$ ]] || [[ "$recipe" =~ \.set2$ ]] || [[ "$recipe" =~ \.set3$ ]] ; then
 		echo "$recipe: recipeset recipe. This recipe is *not* intended to be run directly, so let's skip this. To run split recipe, call make split_recipes first."
 		return 1
 	fi
