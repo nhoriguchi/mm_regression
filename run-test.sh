@@ -66,8 +66,8 @@ skip_testcase_out_priority() {
 }
 
 run_recipe() {
-	local recipe="$1"
-	local recipe_relpath=$(echo $recipe | sed 's/.*cases\///')
+	export RECIPE_FILE="$1"
+	local recipe_relpath=$(echo $RECIPE_FILE | sed 's/.*cases\///')
 	export TEST_TITLE=$recipe_relpath
 	export TMPD=$GTMPD/$recipe_relpath
 	export TMPF=$TMPD
@@ -80,11 +80,14 @@ run_recipe() {
 
 	# recipe run status check
 	check_testcase_already_run && return
-	check_remove_suffix $recipe || return
+	check_remove_suffix $RECIPE_FILE || return
 
-	parse_recipefile $recipe $TMPD/_recipe
+	# just for saving, not functional requirement.
+	cp $RECIPE_FILE $TMPD/_recipe
+	# parse_recipefile $RECIPE_FILE $TMPD/_recipe
 	PRIORITY=10 # TODO: better place?
-	. $TMPD/_recipe
+	# . $TMPD/_recipe
+	. $RECIPE_FILE
 	ret=$?
 	echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
 
@@ -102,8 +105,17 @@ run_recipe() {
 		skip_testcase_out_priority
 		echo SKIPPED > $TMPD/run_status
 	else
+		# reminder for restart after reboot. If we find this file when starting,
+		# that means the reboot was triggerred during running the testcase.
+		if [ -f $GTMPD/current_testcase ] && [ "$RECIPE_FILE" = $(cat $GTMPD/current_testcase) ] ; then
+			# restarting from reboot
+			RESTART=true
+		else
+			echo $RECIPE_FILE > $GTMPD/current_testcase
+		fi
 		echo RUNNING > $TMPD/run_status
 		date +%s%3N > $TMPD/start_time
+		sync
 		# TODO: put general system information under $TMPD
 		# prepare empty testcount file at first because it's used to check
 		# testcase result from summary script.
@@ -112,6 +124,8 @@ run_recipe() {
 		do_soft_try > >(tee -a $OFILE) 2>&1
 		date +%s%3N > $TMPD/end_time
 		echo FINISHED > $TMPD/run_status
+		rm -f $GTMPD/current_testcase
+		sync
 	fi
 	echo_log "<=== testcase '$TEST_TITLE' end" | tee /dev/kmsg
 }
@@ -188,5 +202,7 @@ elif [ ! -f "$GTMPD/recipelist" ] ; then
 fi
 # make --no-print-directory RUNNAME=$RUNNAME waiting_recipes | grep ^cases > $GTMPD/waiting_recipe_list
 
+set_rc_local
 run_recipes $TRDIR $GTMPD/recipelist
+revert_rc_local
 echo "All testcases in project $RUNNAME finished."

@@ -546,6 +546,32 @@ do_soft_try() {
 	return $ret
 }
 
+set_rc_local() {
+	cat <<EOF > /etc/rc.d/rc.local
+#!/bin/bash
+
+echo "##### test project $RUNNAME continues to run after reboot #####"
+cd $TRDIR
+export RUNNAME=$RUNNAME
+bash run.sh
+
+# need buffer for rescue from infinite loop
+sleep 15
+
+mv /etc/rc.d/rc.local.tmp /etc/rc.d/rc.local
+EOF
+	chmod +x /etc/rc.d/rc.local
+}
+
+revert_rc_local() {
+	cat <<EOF > /etc/rc.d/rc.local
+#!/bin/bash
+
+touch /var/lock/subsys/local
+EOF
+	chmod +x /etc/rc.d/rc.local
+}
+
 for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do
 	export -f $func
 done
