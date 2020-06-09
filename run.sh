@@ -1,3 +1,24 @@
+[ ! "$RUNNAME" ] && RUNNAME=debug
+export RUNNAME
+# export AGAIN=true
+
+export SOFT_RETRY=1
+export HARD_RETRY=1
+
+recipelist=$1
+
+if [ "$recipelist" ] ; then
+	export RECIPELIST=$recipelist
+fi
+
+# make --no-print-directory prepare
+make --no-print-directory test
+ruby test_core/lib/test_summary.rb work/$RUNNAME
+
+exit
+
+# keep older code just for unfinished work ...
+
 # $run_class can be set from environment variable
 # $LOGLEVEL can be set from environment variable
 # $RECIPEFILES can be set from environment variable
@@ -18,7 +39,7 @@ make all || exit 1
 make prepare || exit 1
 make update_recipes || exit 1
 
-[ ! "$UNPOISON" ] && UNPOISON=true
+[ ! "$UNPOISON" ] && export UNPOISON=true
 
 if [ "$run_class" == mce-srao ] ; then
 	export RECIPEFILES="$(make allrecipes | grep mce-srao)"
