@@ -9,9 +9,14 @@ class TestCaseSummary
     @runname = run_dir
     @tc_dir = run_dir + '/' + tc_dir
     @testcaseid = "#{tc_dir.gsub(run_dir + '/', '')}"
-    @date = File.mtime(@tc_dir)
     @priority = 10 # default
     @run_status = "NONE"
+    @testcount = 0
+    @success = 0
+    @failure = 0
+    @later = 0
+    return if ! Dir.exist?(@tc_dir)
+    @date = File.mtime(@tc_dir)
     if File.exist?(@tc_dir + "/run_status")
       @run_status = File.read(@tc_dir + "/run_status").strip
     end
