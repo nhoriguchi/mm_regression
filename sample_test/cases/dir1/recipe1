@@ -1,16 +1,16 @@
 _control() {
-		true;
+	echo "TEST_GROUP: $TEST_GROUP"
 }
 
 _prepare() {
-		true;
+	true;
 }
 
 _cleanup() {
-		true;
+	true;
 }
 
 _check() {
-		count_testcount "testcase $(basename $BASH_SOURCE)"
-		count_success pass
+	count_testcount "testcase $(basename $BASH_SOURCE)"
+	count_success pass
 }

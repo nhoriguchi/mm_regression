@@ -135,6 +135,10 @@ run_recipe_tree() {
 
 	if [ -f "$dir/config" ] ; then
 		. "$dir/config"
+		if [ "$?" -ne 0 ] ; then
+			echo "skip this directory due to the failure in $dir/config" >&2
+			return 1
+		fi
 	fi
 
 	for f in $(ls -1 $dir) ; do
@@ -149,6 +153,8 @@ run_recipe_tree() {
 		) &
 		wait $!
 	done
+
+	dir_cleanup
 }
 
 get_next_level() {
@@ -164,6 +170,10 @@ run_recipe_list() {
 
 	if [ -f "$dir/config" ] ; then
 		. "$dir/config"
+		if [ "$?" -ne 0 ] ; then
+			echo "skip this directory due to the failure in $dir/config" >&2
+			return 1
+		fi
 	fi
 
 	for f in $(get_next_level $dir $list) ; do
@@ -178,17 +188,22 @@ run_recipe_list() {
 		) &
 		wait $!
 	done
+
+	dir_cleanup
 }
 
 run_recipes() {
 	local dir=$1
 	local list=$2
 
-	if [ -f "$list" ] ; then
-		run_recipe_list $dir $list
-	else
-		run_recipe_tree $dir
-	fi
+	(
+		if [ -f "$list" ] ; then
+			run_recipe_list $dir $list
+		else
+			run_recipe_tree $dir
+		fi
+	) &
+	wait $!
 }
 
 if [ -f "$RECIPELIST" ] ; then
@@ -197,7 +212,7 @@ elif [ ! -f "$GTMPD/recipelist" ] ; then
 	if [ -f "$GTMPD/full_recipe_list" ] ; then
 		cp $GTMPD/full_recipe_list $GTMPD/recipelist
 	else
-		make --no-print-directory allrecipes | grep ^cases > $GTMPD/recipelist
+		make --no-print-directory allrecipes | grep ^cases | sort > $GTMPD/recipelist
 	fi
 fi
 # make --no-print-directory RUNNAME=$RUNNAME waiting_recipes | grep ^cases > $GTMPD/waiting_recipe_list

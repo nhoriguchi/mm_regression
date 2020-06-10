@@ -572,6 +572,12 @@ EOF
 	chmod +x /etc/rc.d/rc.local
 }
 
+dir_cleanup() {
+	if [ "$(type -t _dir_cleanup)" = "function" ] ; then
+		_dir_cleanup
+	fi
+}
+
 for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do
 	export -f $func
 done
