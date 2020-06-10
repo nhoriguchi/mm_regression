@@ -2,6 +2,7 @@
 
 split_recipes:
 	@ruby test_core/lib/split_recipe.rb > /dev/null
+	@ruby test_core/lib/recipe_template.rb > /dev/null
 	@true
 
 cleanup_recipes:
