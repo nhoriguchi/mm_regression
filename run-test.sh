@@ -125,6 +125,7 @@ run_recipe() {
 		date +%s%3N > $TMPD/end_time
 		echo FINISHED > $TMPD/run_status
 		rm -f $GTMPD/current_testcase
+		echo -n cases/$recipe_relpath > $GTMPD/finished_testcase
 		sync
 	fi
 	echo_log "<=== testcase '$TEST_TITLE' end" | tee /dev/kmsg
@@ -198,6 +199,14 @@ run_recipes() {
 
 	(
 		if [ -f "$list" ] ; then
+			if [ "$AGAIN" == true ] ; then
+				rm -f $GTMPD/finished_testcase 2> /dev/null
+			fi
+			if [ -f "$GTMPD/finished_testcase" ] ; then
+				local nr_point="$(grep -x -n $(cat $GTMPD/finished_testcase) $list | cut -f1 -d:)"
+				sed -n $[nr_point + 1]',$p' $GTMPD/recipelist > $GTMPD/current_recipelist
+				list=$GTMPD/current_recipelist
+			fi
 			run_recipe_list $dir $list
 		else
 			run_recipe_tree $dir
