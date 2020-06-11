@@ -10,8 +10,8 @@
 #include <stdint.h>
 #include <limits.h>
 #include "test_core/lib/include.h"
-#include "test_core/lib/pfn.h"
-#include "test_core/lib/hugepage.h"
+#include "lib/pfn.h"
+#include "lib/hugepage.h"
 
 /*
  * on x86_64

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $TCDIR/lib/mm.sh
+. $TRDIR/lib/mm.sh
 
 NUMA_NODE=2
 

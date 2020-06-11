@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $TCDIR/lib/mm.sh
+. $TRDIR/lib/mm.sh
 
 get_vma_protection() { grep -A 2 700000000000 /proc/$pid/maps; }
 

@@ -1,7 +1,7 @@
 PRIORITY=16
 TEST_TYPE=devel
 
-. $TCDIR/lib/mm.sh
+. $TRDIR/lib/mm.sh
 
 soft_offline() {
 	local addr=$1

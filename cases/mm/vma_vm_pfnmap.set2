@@ -1,6 +1,6 @@
 #!1 FLAVOR: simple process
 
-. $TCDIR/lib/mm.sh
+. $TRDIR/lib/mm.sh
 
 FLAVOR=__STR_FLAVOR
 

@@ -1,6 +1,6 @@
 # https://lore.kernel.org/linux-mm/20200529021224.GA345@hori.linux.bs1.fc.nec.co.jp/T/#t
 
-. $TCDIR/lib/mm.sh
+. $TRDIR/lib/mm.sh
 
 soft_offline() {
 	local addr=$1

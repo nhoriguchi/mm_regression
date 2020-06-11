@@ -1,4 +1,4 @@
-. $TCDIR/lib/mm.sh
+. $TRDIR/lib/mm.sh
 
 EXPECTED_RETURN_CODE="START EXIT"
 PMEMDIR=/mnt/pmem

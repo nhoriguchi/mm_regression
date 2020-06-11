@@ -1,5 +1,5 @@
-. $TCDIR/lib/mm.sh
-. $TCDIR/lib/kvm.sh
+. $TRDIR/lib/mm.sh
+. $TRDIR/lib/kvm.sh
 
 [ ! -x /usr/local/bin/sshvm ] && install $TCDIR/lib/sshvm /usr/local/bin/sshvm
 [ ! "$VM" ] && echo_log "You must give VM name in recipe file" && return 1

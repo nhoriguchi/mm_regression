@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <sys/prctl.h>
 #include "test_core/lib/include.h"
-#include "test_core/lib/hugepage.h"
-#include "test_core/lib/pfn.h"
+#include "lib/hugepage.h"
+#include "lib/pfn.h"
 
 int flag = 1;
 

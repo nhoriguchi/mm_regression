@@ -1,7 +1,7 @@
 ##!1 MOUNT_OPTION: min_size min_max_size
 
 # . $TRDIR/lib/setup_mmgeneric.sh
-. $TCDIR/lib/mm.sh
+. $TRDIR/lib/mm.sh
 
 THP=true
 
