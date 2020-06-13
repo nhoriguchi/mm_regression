@@ -5,6 +5,19 @@ export RUNNAME
 export SOFT_RETRY=1
 export HARD_RETRY=1
 
+if [[ "$1" =~ cases/ ]] ; then
+	export RUNNAME=single
+	make prepare
+	grep $1 work/single/full_recipe_list > work/single/recipelist
+	if [ ! -s work/single/recipelist ] ; then
+		echo "no recipe matched to $1" >&2
+		exit 1
+	fi
+	make --no-print-directory test
+	ruby test_core/lib/test_summary.rb work/$RUNNAME
+	exit 0
+fi
+
 recipelist=$1
 
 if [ "$recipelist" ] ; then
