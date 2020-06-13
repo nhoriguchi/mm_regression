@@ -1,0 +1,28 @@
+#! {"backend" => "anonymous", "migtype" => "migratepages"}
+#! {"backend" => "anonymous", "migtype" => "mbind"}
+#! {"backend" => "anonymous", "migtype" => "move_pages"}
+#! {"backend" => "anonymous", "migtype" => "madv_soft"}
+#! {"backend" => "thp", "migtype" => "migratepages"}
+#! {"backend" => "thp", "migtype" => "mbind"}
+#! {"backend" => "thp", "migtype" => "move_pages"}
+#! {"backend" => "thp", "migtype" => "madv_soft"}
+
+# TODO: need to move this test set into other test set
+
+. $TRDIR/lib/setup_page_migration.sh
+
+BACKEND=<%= param["backend"] %>
+MIGRATE_SRC=<%= param["migtype"] %>
+
+NUMA_NODE=2
+
+PIPETIMEOUT=20
+
+<% if param["backend"] =~ /thp/ %>
+THP=true
+EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
+<% elsif param["backend"] =~ /anonymous/ %>
+EXPECTED_RETURN_CODE="START MIGRATION_PASSED EXIT"
+<% end %>
+
+TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N 10 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 mlock access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"

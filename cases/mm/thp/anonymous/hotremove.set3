@@ -1,0 +1,54 @@
+#! {"thp" => "base", "op" => "noop"}
+#! {"thp" => "base", "op" => "busy"}
+#! {"thp" => "shared_thp", "op" => "noop"}
+#! {"thp" => "shared_thp", "op" => "busy"}
+#! {"thp" => "double_mapping", "op" => "noop"}
+#! {"thp" => "double_mapping", "op" => "busy"}
+#! {"thp" => "pmd_split", "op" => "noop"}
+#! {"thp" => "pmd_split", "op" => "busy"}
+#! {"thp" => "thp_split", "op" => "noop"}
+#! {"thp" => "thp_split", "op" => "busy"}
+
+. $TRDIR/lib/setup_thp_migration.sh
+
+MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
+FORK=
+SPLIT_THP=
+HUGEPAGE_CHECKCODE=
+ACTION=hotremove:pageflags=$(get_backend_pageflags thp)
+
+PIPETIMEOUT=60
+
+HUGEPAGESIZE=2048
+THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
+THP_ALLOCATED=$[THP*4/5]
+
+<% if param["op"] == "busy" %>
+ACTION="$ACTION:busyloop"
+<% end %>
+
+<% if param["thp"] == "base" %>
+HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+<% elsif param["thp"] == "shared_thp" %>
+FORK=fork:wait_after
+HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+<% elsif param["thp"] == "double_mapping" %>
+FORK=fork:wait_after
+SPLIT_THP=split_thp:only_pmd
+HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+<% elsif param["thp"] == "pmd_split" %>
+SPLIT_THP=split_thp:only_pmd
+HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+<% elsif param["thp"] == "thp_split" %>
+SPLIT_THP=split_thp
+HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
+ACTION=hotremove:pageflags=$(get_backend_pageflags anonymous)
+<% end %>
+
+# TODO: low-priority known issue
+<% if param["op"] == "hwpoison" %>
+SKIP_THIS_TEST=true
+<% end %>
+
+TEST_PROGRAM="lib/test_alloc_generic -B thp -N $THP_ALLOCATED -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+EXPECTED_RETURN_CODE="START MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"

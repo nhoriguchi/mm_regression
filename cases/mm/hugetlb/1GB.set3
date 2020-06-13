@@ -1,0 +1,46 @@
+#! {}
+
+# TODO:
+
+PRIORITY=20
+
+. $TRDIR/lib/setup_mmgeneric.sh
+
+# TEST_PROGRAM="lib/test_alloc_generic -L 'start:wait_after memory_compaction exit:wait_before'"
+EXPECTED_RETURN_CODE="START EXIT"
+PIPETIMEOUT=30
+HUGEPAGESIZE=1048576
+THP=true
+
+_prepare() {
+	prepare_mm_generic || return 1
+	prepare_system_default
+
+	if [ "$(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)" -eq 0 ] ; then
+		echo "no 1GB hugetlb allocated. abort."
+		return 1
+	fi
+
+	[ ! -d work/hugetlbfs ] && mkdir -p work/hugetlbfs
+	ls /sys/kernel/mm/hugepages/hugepages-1048576kB
+	mount -t hugetlbfs -o pagesize=1G,size=1G none work/hugetlbfs
+}
+
+_cleanup() {
+	cleanup_mm_generic
+	cleanup_system_default
+
+	umount work/hugetlbfs
+}
+
+_control() {
+	./hugetlb_1gb double
+	ls -l work/hugetlbfs/
+	cat /proc/mounts | grep hugetlb
+	mount | grep hugetlb
+	true
+}
+
+_check() {
+	true
+}

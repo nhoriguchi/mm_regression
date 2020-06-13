@@ -1,0 +1,172 @@
+# This testcase is written for debugging.
+# when overcommit is on, free_huge_page leaks the target hugepage somewhere, so
+# no PageBuddy flag is set.
+
+#! {"flavor" => "none"}
+#! {"flavor" => "overcommit"}
+#! {"flavor" => "free"}
+#! {"flavor" => "full_reserved"}
+
+. $TRDIR/lib/setup_page_migration.sh
+
+TEST_TYPE=debug
+
+MIGRATE_SRC=__STR_MIGRATE_SRC
+NUMA_NODE=2
+HUGEPAGESIZE=2048 # kB
+
+PIPETIMEOUT=20
+
+<% if param["flavor"] == "none" %>
+HUGETLB_ALLOCATE=2
+HUGETLB=100
+HUGETLB_OVERCOMMIT=
+EXPECTED_RETURN_CODE="START NOLEAKED DISSOLVED REUSABLE_OK EXIT"
+_control() {
+	__control_inuse $@
+}
+<% elsif param["flavor"] == "overcommit" %>
+HUGETLB_ALLOCATE=2
+HUGETLB=0
+HUGETLB_OVERCOMMIT=100
+EXPECTED_RETURN_CODE="SET_OVERCOMMIT START NOLEAKED REUSABLE_OK EXIT"
+_control() {
+	__control_inuse $@
+}
+<% elsif param["flavor"] == "free" %>
+HUGETLB=2
+HUGETLB_OVERCOMMIT=
+EXPECTED_RETURN_CODE="START NOLEAKED DISSOLVED REUSABLE_OK EXIT"
+_control() {
+	__control_free $@
+}
+<% elsif param["flavor"] == "full_reserved" %>
+HUGETLB=2
+HUGETLB_OVERCOMMIT=
+EXPECTED_RETURN_CODE="START NOLEAKED DISSOLVED REUSABLE_OK EXIT"
+_control() {
+	__control_free $@
+}
+<% end %>
+
+kick_soft_offline() {
+	local pfn=$1
+	echo $[pfn * 4096] > /sys/devices/system/memory/soft_offline_page
+}
+
+check_leak() {
+	echo_log "--- $FUNCNAME"
+	local pfn=$1
+	$PAGETYPES -a $pfn -b =0x0 | tee $TMPD/check_leak
+	local match=$(cat $TMPD/check_leak | grep total | awk '{print $2}')
+	local res=NOLEAKED
+
+	if [ "$match" -eq 1 ] ; then
+		res=LEAKED
+	fi
+	echo_log "--- $FUNCNAME: $res"
+	set_return_code $res
+}
+
+check_dissolve() {
+	echo_log "--- $FUNCNAME"
+	local pfn=$1
+	$PAGETYPES -a $pfn -b buddy | tee $TMPD/check_dissolve
+	local match=$(cat $TMPD/check_dissolve | grep total | awk '{print $2}')
+	local res=DISSOLVED_FAIL
+
+	if [ "$match" -eq 1 ] ; then
+		res=DISSOLVED
+	fi
+	echo_log "--- $FUNCNAME: $res"
+	set_return_code $res
+}
+
+check_reusable() {
+	echo_log "--- $FUNCNAME"
+	local pfn=$1
+	local available_pages=$(echo $[$(grep MemAvailable /proc/meminfo | awk '{print $2}') / 4])
+	lib/test_alloc_generic -B anonymous -n $available_pages -L 'mmap access:wait_after' &
+	local backpid=$!
+	echo_log "running background process ($backpid) ..."
+	sleep 3.0
+	head -n4 /proc/meminfo
+	echo_log "$PAGETYPES -a $pfn"
+	$PAGETYPES -a $pfn -b anonymous | tee $TMPD/check_reusable
+	local match=$(cat $TMPD/check_reusable | grep total | awk '{print $2}')
+	local res=REUSABLE_NG
+
+	if [ "$match" -eq 1 ] ; then
+		res=REUSABLE_OK
+	fi
+	echo_log "--- $FUNCNAME: $res"
+	set_return_code $res
+
+	kill -9 $backpid
+}
+
+__control_inuse() {
+	lib/test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATE -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft:wait_after' &
+	sleep 1.0
+	if ! pgrep -f test_alloc_generic ; then
+		ps axfw
+		exit
+	fi
+	echo_log "--- check initial page status"
+	$PAGETYPES -p $(pgrep -f test_alloc_generic) -Nrl -b compound_head | grep ^7000 | tee $TMPD/1 >&2
+	target1=$(sed -ne 1p $TMPD/1 | cut -f2)
+	target2=$(sed -ne 2p $TMPD/1 | cut -f2)
+	pkill -SIGUSR1 -f test_alloc_generic
+	sleep 1.0
+	echo_log "--- check page status after madv_soft"
+	$PAGETYPES -p $(pgrep -f test_alloc_generic) -Nrl -b compound_head | grep ^7000 | tee $TMPD/2 >&2
+	# Another soft offlining via sysfs interface for better coverage.
+	# This find the corner case where 2 soft offline events can makes the
+	# 1st source hugetlb (freed to buddy after 1st event) leaked.
+	echo_log "soft offline pfn 0x${target2}"
+	kick_soft_offline 0x$target2
+	sleep 1.0
+	echo_log "--- check page status after soft_offline"
+	$PAGETYPES -a $[0x$target1]+0x200 -a $[0x$target2]+0x200 -Nrl | tee $TMPD/3 >&2
+	all_unpoison
+	sleep 1.0
+	echo_log "--- check page status after unpoison"
+	$PAGETYPES -a $[0x$target1]+0x200 -a $[0x$target2]+0x200 -Nrl | tee $TMPD/4 >&2
+
+	check_leak 0x$target1
+	<% if param["flavor"] == "none" %>
+	check_dissolve 0x$target1
+	<% end %>
+	check_reusable 0x$target1
+
+	set_return_code EXIT
+}
+
+__control_free() {
+	<% if param["flavor"] == "full_reserved" %>
+	lib/test_alloc_generic -B hugetlb_anon -N $HUGETLB -L 'mmap:wait_after' &
+	<% end %>
+	echo_log "--- check initial page status"
+	$PAGETYPES -Nrl -b huge | grep -v offset | tee $TMPD/1 >&2
+	target1=$(sed -ne 1p $TMPD/1 | cut -f1)
+	echo_log "target1 $target1"
+	kick_soft_offline 0x$target1
+	echo_log "--- check page status after soft_offline"
+	$PAGETYPES -a 0x$target1+0x200 -Nrl | tee $TMPD/2 >&2
+	<% if param["flavor"] == "full_reserved" %>
+	pkill -f -9 test_alloc_generic
+	echo_log "--- check page status after kill test_alloc_generic"
+	$PAGETYPES -a 0x$target1+0x200 -Nrl | tee $TMPD/5 >&2
+	<% end %>
+	all_unpoison
+	echo_log "--- check page status after unpoison"
+	$PAGETYPES -a 0x$target1+0x200 -Nrl | tee $TMPD/3 >&2
+	set_and_check_hugetlb_pool 0
+	echo_log "--- check page status after shrink pool"
+	$PAGETYPES -a 0x$target1+0x200 -Nrl | tee $TMPD/4 >&2
+
+	check_leak 0x$target1
+	check_dissolve 0x$target1
+	check_reusable 0x$target1
+	set_return_code EXIT
+}

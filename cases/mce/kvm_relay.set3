@@ -1,0 +1,73 @@
+##!1 BACKEND: anonymous pagecache ksm zero
+##!1 ERROR_TYPE: mce-srao hard-offline soft-offline madv_hard madv_soft
+
+#! {"backend" => "clean_pagecache", "error" => "mce-srao", "hostbackend" => "hostanon"}
+#! {"backend" => "clean_pagecache", "error" => "mce-srao", "hostbackend" => "hostthp"}
+#! {"backend" => "clean_pagecache", "error" => "hard-offline", "hostbackend" => "hostanon"}
+#! {"backend" => "clean_pagecache", "error" => "hard-offline", "hostbackend" => "hostthp"}
+#! {"backend" => "clean_pagecache", "error" => "soft-offline", "hostbackend" => "hostanon"}
+#! {"backend" => "clean_pagecache", "error" => "soft-offline", "hostbackend" => "hostthp"}
+#! {"backend" => "dirty_pagecache", "error" => "mce-srao", "hostbackend" => "hostanon"}
+#! {"backend" => "dirty_pagecache", "error" => "mce-srao", "hostbackend" => "hostthp"}
+#! {"backend" => "dirty_pagecache", "error" => "hard-offline", "hostbackend" => "hostanon"}
+#! {"backend" => "dirty_pagecache", "error" => "hard-offline", "hostbackend" => "hostthp"}
+#! {"backend" => "dirty_pagecache", "error" => "soft-offline", "hostbackend" => "hostanon"}
+#! {"backend" => "dirty_pagecache", "error" => "soft-offline", "hostbackend" => "hostthp"}
+#! {"backend" => "anonymous", "error" => "mce-srao", "hostbackend" => "hostanon"}
+#! {"backend" => "anonymous", "error" => "mce-srao", "hostbackend" => "hostthp"}
+#! {"backend" => "anonymous", "error" => "hard-offline", "hostbackend" => "hostanon"}
+#! {"backend" => "anonymous", "error" => "hard-offline", "hostbackend" => "hostthp"}
+#! {"backend" => "anonymous", "error" => "soft-offline", "hostbackend" => "hostanon"}
+#! {"backend" => "anonymous", "error" => "soft-offline", "hostbackend" => "hostthp"}
+#! {"backend" => "thp", "error" => "mce-srao", "hostbackend" => "hostanon"}
+#! {"backend" => "thp", "error" => "mce-srao", "hostbackend" => "hostthp"}
+#! {"backend" => "thp", "error" => "hard-offline", "hostbackend" => "hostanon"}
+#! {"backend" => "thp", "error" => "hard-offline", "hostbackend" => "hostthp"}
+#! {"backend" => "thp", "error" => "soft-offline", "hostbackend" => "hostanon"}
+#! {"backend" => "thp", "error" => "soft-offline", "hostbackend" => "hostthp"}
+
+# environment variable VM should be given via environment variable
+# VM=f21a
+
+# # TODO: assuming that sshvm is installed (via deploy_vm_image)
+#<2019-04-01 Mon 11:56> VMIP=$(sshvm -i -n default $VM 2> /dev/null)
+
+. $TRDIR/lib/mm.sh || return 1
+. $TRDIR/lib/setup_mce_kvm.sh || return 1
+
+ERROR_TYPE=<%= param["error"] %>
+BACKEND=<%= param["backend"] %>
+HOSTBACKEND=<%= param["hostbackend"] %>
+
+# TODO: host ksm affects the result
+# KSM=true
+
+# TODO: handling host backend
+<% if param["hostbackend"] == "hostanon" %>
+unset THP
+<% elsif param["hostbackend"] == "hostthp" %>
+THP=always
+<% end %>
+
+<% if param["backend"] == "zero" %>
+PRIORITY=15 # low priority
+<% end %>
+
+TARGET_PAGETYPES="$(get_backend_pageflags $BACKEND)"
+<% if param["backend"] == "clean_pagecache" %>
+EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
+<% elsif param["backend"] == "dirty_pagecache" %>
+EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
+<% elsif param["backend"] == "anonymous" %>
+EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
+<% elsif param["backend"] == "thp" %>
+EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
+<% end %>
+
+_control() { control_mce_kvm; }
+<% if param["error"] == "soft-offline" %>
+_check() { check_mce_kvm_soft_offline; }
+EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
+<% else %>
+_check() { check_mce_kvm; }
+<% end %>
