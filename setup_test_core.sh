@@ -1,11 +1,5 @@
 #!/bin/bash
 
-export PIPE=$GTMPD/pipe
-mkfifo ${PIPE} 2> /dev/null
-[ ! -p ${PIPE} ] && echo_log "Fail to create pipe." >&2 && exit 1
-chmod a+x ${PIPE}
-export PIPETIMEOUT=5
-
 get_kernel_message_before() { dmesg > $TMPD/_dmesg_before; }
 get_kernel_message_after() { dmesg > $TMPD/_dmesg_after; }
 
@@ -215,8 +209,6 @@ prepare() {
 	local prepfunc
 	local ret=0
 
-	kill_all_subprograms
-
 	while true ; do # mocking goto
 		if [ "$TEST_PREPARE" ] ; then
 			prepfunc=$TEST_PREPARE
@@ -263,7 +255,6 @@ cleanup() {
 	# TODO: unneccessary?
 	local cleanfunc
 
-	kill_all_subprograms
 	if [ "$TEST_CLEANUP" ] ; then
 		cleanfunc=$TEST_CLEANUP
 		$TEST_CLEANUP
@@ -423,9 +414,7 @@ __do_test() {
 			fi
 		fi
 	done
-	# TODO: review carefully
-	[[ "$(jobs -p)" ]] && kill -9 $(jobs -p) 2> /dev/null
-	pkill -9 -f "$cmd"
+	kill_all_subprograms
 	exec 11<&-
 	exec 11>&-
 
@@ -448,6 +437,14 @@ __do_test_async() {
 	return 0
 }
 
+export PIPETIMEOUT=5
+generate_testcase_pipe() {
+	export PIPE=$TMPD/.pipe
+	mkfifo ${PIPE} 2> /dev/null
+	[ ! -p ${PIPE} ] && echo_log "Fail to create pipe." >&2 && return 1
+	chmod a+x ${PIPE}
+}
+
 do_test_try() {
 	local ret=0
 	local failure_before="$(cat $TMPD/_failure)"
@@ -456,6 +453,7 @@ do_test_try() {
 	# check_inclusion_of_fixedby_patch && break
 
 	if [ "$TEST_PROGRAM" ] ; then
+		generate_testcase_pipe
 		__do_test "$TEST_PROGRAM -p $PIPE"
 	else
 		__do_test_async
@@ -550,15 +548,17 @@ set_rc_local() {
 	cat <<EOF > /etc/rc.d/rc.local
 #!/bin/bash
 
-echo "##### test project $RUNNAME continues to run after reboot #####"
-cd $TRDIR
-export RUNNAME=$RUNNAME
-bash run.sh
-
 # need buffer for rescue from infinite loop
 sleep 15
 
+echo "##### test project $RUNNAME continues to run after reboot #####"
+cd $TRDIR
+export RUNNAME=$RUNNAME
+nohup bash run.sh &
+disown
+
 mv /etc/rc.d/rc.local.tmp /etc/rc.d/rc.local
+exit 0
 EOF
 	chmod +x /etc/rc.d/rc.local
 }

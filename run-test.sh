@@ -197,22 +197,19 @@ run_recipes() {
 	local dir=$1
 	local list=$2
 
-	(
-		if [ -f "$list" ] ; then
-			if [ "$AGAIN" == true ] ; then
-				rm -f $GTMPD/finished_testcase 2> /dev/null
-			fi
-			if [ -f "$GTMPD/finished_testcase" ] ; then
-				local nr_point="$(grep -x -n $(cat $GTMPD/finished_testcase) $list | cut -f1 -d:)"
-				sed -n $[nr_point + 1]',$p' $GTMPD/recipelist > $GTMPD/current_recipelist
-				list=$GTMPD/current_recipelist
-			fi
-			run_recipe_list $dir $list
-		else
-			run_recipe_tree $dir
+	if [ -f "$list" ] ; then
+		if [ "$AGAIN" == true ] ; then
+			rm -f $GTMPD/finished_testcase 2> /dev/null
 		fi
-	) &
-	wait $!
+		if [ -f "$GTMPD/finished_testcase" ] ; then
+			local nr_point="$(grep -x -n $(cat $GTMPD/finished_testcase) $list | cut -f1 -d:)"
+			sed -n $[nr_point + 1]',$p' $GTMPD/recipelist > $GTMPD/current_recipelist
+			list=$GTMPD/current_recipelist
+		fi
+		run_recipe_list $dir $list
+	else
+		run_recipe_tree $dir
+	fi
 }
 
 if [ -f "$RECIPELIST" ] ; then

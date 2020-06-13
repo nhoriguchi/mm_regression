@@ -22,13 +22,24 @@ check_install_package() {
     fi
 }
 
-kill_all_subprograms() {
-	for tp in $(grep ^src= $TRDIR/lib/Makefile | cut -f2 -d=) ; do
-		local tmp=${tp%.c}
-		if [ "$tmp" ] ; then
-			pkill -9 -f $tmp > /dev/null 2>&1
-		fi
+collect_subprocesses() {
+	[ "$#" -eq 0 ] && return
+	local tmp=""
+
+	for t in $@ ; do
+		tmp="$tmp $(ps -o pid= --ppid $t | tr '\n' ' ')"
 	done
+	echo -n "$tmp "
+	collect_subprocesses $tmp
+}
+
+collect_orphan_processes() {
+	ps --ppid=1 -o pgid=,pid= | grep "\b$$\b" | awk '{print $2}' | tr '\n' ' '
+}
+
+kill_all_subprograms() {
+	kill -9 $(collect_subprocesses $BASHPID) 2> /dev/null
+	kill -9 $(collect_orphan_processes) 2> /dev/null
 }
 
 check_process_status() {
