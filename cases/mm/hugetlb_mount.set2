@@ -8,7 +8,7 @@ HUGETLB=100
 EXPECTED_RETURN_CODE="START RESERVED RESV_CONSUMED RESV_USEDUP RESV_REVERTED EXIT"
 MOUNT_OPTION="min_size=10M"
 #elif __MARK_MOUNT_OPTION == __MARK_MOUNT_OPTION_min_max_size
-EXPECTED_RETURN_CODE="START RESERVED RESV_CONSUMED RESV_REVERTED EXIT"
+EXPECTED_RETURN_CODE="START RESERVED RESV_CONSUMED RESV_NOT_USEDUP RESV_REVERTED EXIT"
 MOUNT_OPTION="min_size=10M,size=20M"
 #endif
 
@@ -27,23 +27,36 @@ _control() {
 	show_hugetlb_pool
 	if [ "$(get_hugepage_reserved)" -eq 5 ] ; then
 		set_return_code RESERVED
+	else
+		set_return_code NOT_RESERVED
+		return
 	fi
 
 	lib/test_alloc_generic -B hugetlb_file -N 2 -w $tmp_hugetlb_mount -f base1 -L "mmap access:wait_after" &
+	local pid=$!
 	sleep 0.1
 	show_hugetlb_pool
 	if [ "$(get_hugepage_reserved)" -eq 3 ] ; then
+		echo "allocated 2 hugepages"
 		set_return_code RESV_CONSUMED
+	else
+		set_return_code RESV_NOT_CONSUMED
+		return
 	fi
 
 	lib/test_alloc_generic -B hugetlb_file -N 10 -w $tmp_hugetlb_mount -f base2 -L "mmap access:wait_after" &
+	pid="$pid $!"
 	sleep 0.1
 	show_hugetlb_pool
 	if [ "$(get_hugepage_reserved)" -eq 0 ] ; then
+		echo "allocated another 10 hugepages"
 		set_return_code RESV_USEDUP
+	else
+		echo "failed to allocate another 10 hugepages"
+		set_return_code RESV_NOT_USEDUP
 	fi
 
-	kill_all_subprograms
+	kill -9 $pid
 	find $tmp_hugetlb_mount/hugetlbfs -type f | xargs rm -f
 	show_hugetlb_pool
 	if [ "$(get_hugepage_reserved)" -eq 5 ] ; then
@@ -55,7 +68,11 @@ _control() {
 
 _cleanup() {
 	mount | grep hugetlbfs | grep min_size | awk '{print $3}' | while read line ; do
+		echo umount -f $line
 		umount -f $line
+		if [ "$?" -ne 0 ] ; then
+			echo "Failed to unmount hugetlbfs $line" >&2
+		fi
 	done
 	cleanup_mmgeneric
 }
