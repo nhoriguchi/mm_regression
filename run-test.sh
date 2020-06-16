@@ -104,6 +104,8 @@ run_recipe() {
 		skip_testcase_out_priority
 		echo SKIPPED > $TMPD/run_status
 	else
+		save_environment_variables
+
 		# reminder for restart after reboot. If we find this file when starting,
 		# that means the reboot was triggerred during running the testcase.
 		if [ -f $GTMPD/current_testcase ] && [ "$RECIPE_FILE" = $(cat $GTMPD/current_testcase) ] ; then
@@ -230,6 +232,8 @@ elif [ ! -f "$GTMPD/recipelist" ] ; then
 	fi
 fi
 # make --no-print-directory RUNNAME=$RUNNAME waiting_recipes | grep ^cases > $GTMPD/waiting_recipe_list
+
+. $TCDIR/lib/environment.sh
 
 set_rc_local
 run_recipes $TRDIR $GTMPD/recipelist
