@@ -6,8 +6,7 @@ export SOFT_RETRY=1
 export HARD_RETRY=1
 
 if [[ "$1" =~ cases/ ]] ; then
-	if [ ! "$RUNNAME" ] ; then
-		export RUNNAME=single
+	if [ "$RUNNAME" == debug ] ; then
 		make prepare
 		grep $1 work/$RUNNAME/full_recipe_list > work/$RUNNAME/recipelist
 	else
