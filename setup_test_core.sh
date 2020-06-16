@@ -392,15 +392,19 @@ __do_test() {
 	# Keep pipe open to hold the data on buffer after the writer program
 	# is terminated.
 	exec 11<>${PIPE}
+	# Need to use eval to show "$cmd" to starndard error output if the process get signal.
+	# eval "$cmd &"
 	eval "( $cmd ) &"
 	local pid=$!
+	echo_verbose "PID for test program: $$/$BASHPID -> $pid"
 	while true ; do
 		if ! check_process_status $pid ; then
 			set_return_code "KILLED"
 			break
 		elif read -t${PIPETIMEOUT} line <> ${PIPE} ; then
 			run_controller $pid "$line"
-			if [ $? -eq 0 ] ; then
+			local ret=$?
+			if [ "$ret" -eq 0 ] ; then
 				break
 			fi
 		else
@@ -414,7 +418,7 @@ __do_test() {
 			fi
 		fi
 	done
-	kill_all_subprograms
+	kill_all_subprograms $pid self
 	exec 11<&-
 	exec 11>&-
 

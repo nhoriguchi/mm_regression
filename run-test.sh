@@ -27,6 +27,8 @@ done
 
 shift $[OPTIND-1]
 
+export LANG=en_us_88591
+
 export TCDIR=$(dirname $(readlink -f $BASH_SOURCE))
 # Assuming that current directory is the root directory of the current test.
 export TRDIR=$PWD
@@ -48,9 +50,7 @@ fi
 . $TCDIR/lib/common.sh
 
 stop_test_running() {
-	ps x -o  "%p %r %y %x %c" | grep $$
-	kill -9 -$(ps --no-header -o "%r" $$)
-	kill_all_subprograms
+	kill_all_subprograms $$
 	exit
 }
 
@@ -86,7 +86,6 @@ run_recipe() {
 	cp $RECIPE_FILE $TMPD/_recipe
 	# parse_recipefile $RECIPE_FILE $TMPD/_recipe
 	PRIORITY=10 # TODO: better place?
-	# . $TMPD/_recipe
 	. $RECIPE_FILE
 	ret=$?
 	echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
@@ -121,6 +120,7 @@ run_recipe() {
 		# testcase result from summary script.
 		reset_per_testcase_counters
 		init_return_code
+		echo_verbose "PID calling do_soft_try $BASHPID"
 		do_soft_try > >(tee -a $OFILE) 2>&1
 		date +%s%3N > $TMPD/end_time
 		echo FINISHED > $TMPD/run_status
@@ -152,7 +152,9 @@ run_recipe_tree() {
 				run_recipe_tree "$dir/$f"
 			fi
 		) &
-		wait $!
+		local pid=$!
+		echo_verbose "run_recipe_tree: $$/$BASHPID -> $pid"
+		wait $pid
 	done
 
 	dir_cleanup
@@ -187,7 +189,9 @@ run_recipe_list() {
 				run_recipe_list "$dir/$f" "$list"
 			fi
 		) &
-		wait $!
+		local pid=$!
+		echo_verbose "run_recipe_list: $$/$BASHPID -> $pid"
+		wait $pid
 	done
 
 	dir_cleanup
@@ -203,8 +207,12 @@ run_recipes() {
 		fi
 		if [ -f "$GTMPD/finished_testcase" ] ; then
 			local nr_point="$(grep -x -n $(cat $GTMPD/finished_testcase) $list | cut -f1 -d:)"
-			sed -n $[nr_point + 1]',$p' $GTMPD/recipelist > $GTMPD/current_recipelist
-			list=$GTMPD/current_recipelist
+			sed -n $[nr_point + 1]',$p' $list > /tmp/current_recipelist
+			list=/tmp/current_recipelist
+		fi
+		if [ "$FILTER" ] ; then
+			grep "$FILTER" $list > /tmp/current_recipelist2
+			list=/tmp/current_recipelist2
 		fi
 		run_recipe_list $dir $list
 	else
