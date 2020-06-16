@@ -6,6 +6,9 @@
 
 # NEED: khugepaged focused setting
 
+# TODO: unmatured testcase
+PRIORITY=18
+
 . $TRDIR/lib/setup_mmgeneric.sh
 
 BACKEND=<%= param["backend"] %>
