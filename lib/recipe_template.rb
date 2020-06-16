@@ -19,9 +19,17 @@ class RecipeTemplate
     end
 
     template = ERB.new(tmp.join("\n"))
-    
+
+    if params.empty?
+      params << {}
+    end
+
     params.each do |param|  
-      outbase = basename + '_' + get_id(param) + '.auto3'
+      if param.empty?
+        outbase = basename + '.auto3'
+      else
+        outbase = basename + '_' + get_id(param) + '.auto3'
+      end
       File.write(dirname + "/" + outbase, template.result(binding))
     end
   end
