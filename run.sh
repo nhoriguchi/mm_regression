@@ -6,10 +6,15 @@ export SOFT_RETRY=1
 export HARD_RETRY=1
 
 if [[ "$1" =~ cases/ ]] ; then
-	export RUNNAME=single
-	make prepare
-	grep $1 work/single/full_recipe_list > work/single/recipelist
-	if [ ! -s work/single/recipelist ] ; then
+	if [ ! "$RUNNAME" ] ; then
+		export RUNNAME=single
+		make prepare
+		grep $1 work/$RUNNAME/full_recipe_list > work/$RUNNAME/recipelist
+	else
+		make prepare
+		export FILTER="$1"
+	fi
+	if [ ! -s work/$RUNNAME/recipelist ] ; then
 		echo "no recipe matched to $1" >&2
 		exit 1
 	fi
