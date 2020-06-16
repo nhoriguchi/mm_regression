@@ -1,0 +1,5 @@
+<% if param["key1"] %>
+echo path A: "<%= param %>"
+<% else %>
+echo empty: "<%= param %>"
+<% end  %>
