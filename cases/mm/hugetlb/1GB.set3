@@ -4,6 +4,8 @@
 
 PRIORITY=20
 
+HUGETLBFSDIR=tmp/hugetlbfs
+
 . $TRDIR/lib/setup_mmgeneric.sh
 
 # TEST_PROGRAM="lib/test_alloc_generic -L 'start:wait_after memory_compaction exit:wait_before'"
@@ -16,26 +18,31 @@ _prepare() {
 	prepare_mm_generic || return 1
 	prepare_system_default
 
-	if [ "$(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)" -eq 0 ] ; then
-		echo "no 1GB hugetlb allocated. abort."
+	if [ ! -f "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages" ] ; then
+		echo "no 1GB hugetlb directory. abort." >&2
 		return 1
 	fi
 
-	[ ! -d work/hugetlbfs ] && mkdir -p work/hugetlbfs
+	if [ "$(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)" -eq 0 ] ; then
+		echo "no 1GB hugetlb allocated. abort." >&2
+		return 1
+	fi
+
+	[ ! -d "$HUGETLBFSDIR" ] && mkdir -p "$HUGETLBFSDIR"
 	ls /sys/kernel/mm/hugepages/hugepages-1048576kB
-	mount -t hugetlbfs -o pagesize=1G,size=1G none work/hugetlbfs
+	mount -t hugetlbfs -o pagesize=1G,size=1G none "$HUGETLBFSDIR"
 }
 
 _cleanup() {
 	cleanup_mm_generic
 	cleanup_system_default
 
-	umount work/hugetlbfs
+	umount "$HUGETLBFSDIR"
 }
 
 _control() {
 	./hugetlb_1gb double
-	ls -l work/hugetlbfs/
+	ls -l "$HUGETLBFSDIR"
 	cat /proc/mounts | grep hugetlb
 	mount | grep hugetlb
 	true
