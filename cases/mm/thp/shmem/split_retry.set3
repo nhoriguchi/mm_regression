@@ -5,8 +5,7 @@
 #! {"thp" => "thp_split"}
 
 # TODO: might fail at the first trial after reboot.
-
-. $TRDIR/lib/setup_thp_migration.sh
+# TODO: this testcase is still under development.
 
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
@@ -14,9 +13,6 @@ SPLIT_THP=
 HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
 # ACTION=migratepages
 ACTION=mbind:flags=move_all
-
-SHMEM=true
-SHMEM_DIR=work/shmem
 
 <% if param["thp"] == "shared_thp" %>
 FORK=fork:wait_after

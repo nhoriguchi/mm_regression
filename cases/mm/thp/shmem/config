@@ -1,0 +1,7 @@
+. $TRDIR/lib/setup_thp_migration.sh
+
+SHMEM=true
+SHMEM_DIR=tmp/shmem
+NUMA_NODE=2
+
+mkdir -p $SHMEM_DIR
