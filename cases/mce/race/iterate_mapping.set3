@@ -64,7 +64,7 @@ _control() {
 		done
 		<% end %>
 
-		kill_all_subprograms
+		kill_all_subprograms $BASHPID
 	done
 	echo 0 > /sys/kernel/debug/mce/fake_panic
 	echo "7 4 1 7" > /proc/sys/kernel/printk

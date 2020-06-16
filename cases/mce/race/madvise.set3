@@ -39,7 +39,7 @@ _control() {
 	sleep 3
 
 	# TODO: still fail with remaining surplus
-	kill_all_subprograms
+	kill_all_subprograms $BASHPID
 	all_unpoison
 	cleanup_hugetlb_config
 

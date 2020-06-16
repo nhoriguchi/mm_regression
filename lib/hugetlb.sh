@@ -140,7 +140,7 @@ cleanup_hugetlb_config() {
 		umount -f $WDIR/hugetlbfs 2>&1 > /dev/null
 	fi
 	sysctl -q vm.nr_hugepages=0
-	kill_all_subprograms
+	kill_all_subprograms $BASHPID
 	all_unpoison
 	ipcrm --all > /dev/null 2>&1
 	show_hugetlb_pool
