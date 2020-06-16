@@ -727,7 +727,7 @@ static int memblock_check(void) {
 					matched++;
 			}
 		}
-		printf("memblock:%d, readret:%d matched:%d (%d%), 1:%lx, 2:%lx\n",
+		pprintf("memblock:%d, readret:%d matched:%d (%d%), 1:%lx, 2:%lx\n",
 		       i, ret, matched, matched*100/_memblk_size,
 		       pageflags[0], pageflags[1]);
 		if (max_matched_pages < matched) {
@@ -757,6 +757,7 @@ static void do_hotremove(struct op_control *opc) {
 		err("set_mempolicy(MPOL_PREFERRED) to 1");
 
 	pmemblk = memblock_check();
+	usleep(100); // TODO: remove this hack for pipe waiting loop
 	pprintf_wait_func(opc_defined(opc, "busyloop") ? do_access : NULL, opc,
 			  "waiting for memory_hotremove: %d\n", pmemblk);
 }

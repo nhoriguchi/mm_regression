@@ -42,7 +42,7 @@ void show_mincore_map(char *tag, size_t length, unsigned char *vec) {
 		p[idx+i] = vec[i] ? '1' : '0';
 	p[idx+i] = '\n';
 	p[idx+i+1] = '\0';
-	pprintf(p);
+	printf(p);
 }
 
 int main(int argc, char *argv[]) {
