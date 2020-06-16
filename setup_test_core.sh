@@ -418,9 +418,9 @@ __do_test() {
 			fi
 		fi
 	done
+	# exec 11<&-
+	# exec 11>&-
 	kill_all_subprograms $pid self
-	exec 11<&-
-	exec 11>&-
 
 	cleanup
 	check
