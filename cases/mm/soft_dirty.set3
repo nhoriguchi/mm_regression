@@ -22,7 +22,7 @@ HUGETLB=100
 <% end %>
 
 TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N 1 -L 'start mmap access:tag=1 access:tag=2:wait_before:wait_after munmap exit:wait_before'"
-EXPECTED_RETURN_CODE="START SOFTDIRTY NO_SOFTDIRTY SOFTDIRTY EXIT"
+EXPECTED_RETURN_CODE="SOFTDIRTY NO_SOFTDIRTY SOFTDIRTY EXIT"
 
 _prepare() {
 	prepare_mm_generic || return 1

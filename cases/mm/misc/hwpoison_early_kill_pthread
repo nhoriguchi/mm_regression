@@ -17,12 +17,11 @@ check_killed_early() {
 	kill -9 $pid > /dev/null 2>&1
 }
 
-EXPECTED_RETURN_CODE="START SIGNAL EXIT"
+EXPECTED_RETURN_CODE="SIGNAL EXIT"
 
 _control() {
 	local pid
 
-	# set_return_code START
 	sysctl vm.memory_failure_early_kill=0
 
 	lib/test_early_kill_pthread &

@@ -1,7 +1,7 @@
 . $TRDIR/lib/setup_mmgeneric.sh
 
 TEST_PROGRAM="lib/test_alloc_generic -v -B anonymous -n 0x3800 -L 'start:wait_after mmap access:wait_after madvise:advice=willneed munmap:wait_before exit:wait_before'"
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 
 __prepare_memcg() {
     cgdelete cpu,memory:test1 2> /dev/null

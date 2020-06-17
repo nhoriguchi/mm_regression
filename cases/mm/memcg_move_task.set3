@@ -2,7 +2,7 @@
 
 . $TRDIR/lib/setup_mmgeneric.sh
 
-EXPECTED_RETURN_CODE="START MOVE_PASS EXIT"
+EXPECTED_RETURN_CODE="MOVE_PASS EXIT"
 
 __prepare_memcg() {
     cgdelete cpu,memory:test1 2> /dev/null

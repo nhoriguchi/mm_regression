@@ -24,12 +24,12 @@ THP=10
 BACKEND=thp
 
 <% if param["race"] == "gup" %>
-	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_SPLIT EXIT"
+	EXPECTED_RETURN_CODE="MIGRATION_PASSED HUGEPAGE_MIGRATED THP_SPLIT EXIT"
 	# madv_soft calls get_user_pages()
 	TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft munmap:wait_before exit:wait_before'"
 	# BUG_ON in mm/vmscan.c:1430
 <% elsif param["race"] == "procpid" %>
-	EXPECTED_RETURN_CODE="START EXIT"
+	EXPECTED_RETURN_CODE="EXIT"
 	TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N $THP -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access madv_soft:wait_before:wait_after'"
 	_control() {
 		local pid="$1"
@@ -61,7 +61,7 @@ BACKEND=thp
 	}
 <% elsif param["race"] == "process_vm_access" %>
 	# TODO: really need busyloop flag?
-	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
+	EXPECTED_RETURN_CODE="MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
 	TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after process_vm_access:busyloop munmap:wait_before exit:wait_before'"
 <% elsif param["race"] == "map_fault_unmap" %>
 elif [ "$RACE_SRC" == race_with_map_fault_unmap ] ; then
@@ -83,7 +83,7 @@ elif [ "$RACE_SRC" == race_with_map_fault_unmap ] ; then
 		done
 		set_return_code EXIT
 	}
-	EXPECTED_RETURN_CODE="START EXIT"
+	EXPECTED_RETURN_CODE="EXIT"
 <% elsif param["race"] == "fork" %>
 	# BUG_ON in cow path
 	_control() {
@@ -102,11 +102,11 @@ elif [ "$RACE_SRC" == race_with_map_fault_unmap ] ; then
 		done
 		set_return_code EXIT
 	}
-	EXPECTED_RETURN_CODE="START EXIT"
+	EXPECTED_RETURN_CODE="EXIT"
 <% elsif param["race"] == "mremap" %>
 	true
 <% else %>
 	# no race mbind/partial case
-	EXPECTED_RETURN_CODE="START MIGRATION_PASSED HUGEPAGE_MIGRATED PMD_SPLIT EXIT"
+	EXPECTED_RETURN_CODE="MIGRATION_PASSED HUGEPAGE_MIGRATED PMD_SPLIT EXIT"
 	TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N $THP -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after mbind:hp_partial munmap:wait_before exit:wait_before'"
 <% end %>

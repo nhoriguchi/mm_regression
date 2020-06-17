@@ -14,7 +14,7 @@ TEST_TYPE=devel
 . $TRDIR/lib/mm.sh
 . $TRDIR/lib/mce.sh
 
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 
 page_offline() {
 	local pfn=$1

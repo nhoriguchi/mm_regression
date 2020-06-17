@@ -15,15 +15,15 @@ BACKEND=<%= param["backend"] %>
 TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N 1 -L 'mmap access mlock2:wait_after exit:wait_before'"
 
 <% if param["backend"] =~ /zero/ %>
-EXPECTED_RETURN_CODE="START MLOCK_FAILED EXIT"
+EXPECTED_RETURN_CODE="MLOCK_FAILED EXIT"
 PRIORITY=15 # low priority
 <% else %>
-EXPECTED_RETURN_CODE="START MLOCKED EXIT"
+EXPECTED_RETURN_CODE="MLOCKED EXIT"
 <% end %>
 
 <% if param["backend"] =~ /hugetlb/ %>
 HUGETLB=100
-EXPECTED_RETURN_CODE="START MLOCK_FAILED EXIT"
+EXPECTED_RETURN_CODE="MLOCK_FAILED EXIT"
 <% elsif param["backend"] =~ /thp/ %>
 THP=true
 <% end %>

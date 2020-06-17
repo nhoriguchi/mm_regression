@@ -38,7 +38,7 @@ PRIORITY=15
 
 . $TRDIR/lib/setup_mce_test.sh
 
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 
 BACKEND=<%= param["backend"] %>
 ERROR_TYPE=<%= param["error"] %>

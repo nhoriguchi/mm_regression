@@ -7,10 +7,10 @@ HUGETLB=200
 
 <% if param["flavor"] == "simple" %>
 TEST_PROGRAM="lib/test_mincore -f $GTMPD/holefile -t 0xffff"
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 <% elsif param["flavor"] == "hole" %>
 TEST_PROGRAM="lib/test_mincore -f $GTMPD/holefile -t 0x010"
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 <% end %>
 
 _prepare() {

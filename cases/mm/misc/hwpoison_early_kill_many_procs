@@ -8,7 +8,7 @@ soft_offline() {
 	echo $addr > /sys/devices/system/memory/soft_offline_page
 }
 
-EXPECTED_RETURN_CODE="START KILLED EXIT"
+EXPECTED_RETURN_CODE="KILLED EXIT"
 
 _prepare() {
 	sysctl vm.memory_failure_early_kill=1
@@ -21,8 +21,6 @@ _cleanup() {
 _control() {
 	local pid1
 	local pid2
-
-	# set_return_code START
 
 	for i in $(seq 100) ; do
 		lib/test_alloc_generic -B pagecache -N 1 -w work -L "mmap busyloop" &

@@ -2,7 +2,7 @@
 
 PRIORITY=17 # only devel level
 ERROR_TYPE=hard-offline
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 POISON_ITERATION=3
 TARGET_PAGEFLAG="thp,compound_head=thp,compound_head"
 THP=512

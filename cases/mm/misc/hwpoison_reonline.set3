@@ -87,5 +87,5 @@ _control() {
     return 1
 }
 
-EXPECTED_RETURN_CODE="START OFFLINED REONLINED EXIT"
+EXPECTED_RETURN_CODE="OFFLINED REONLINED EXIT"
 TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N $MEMSIZE -L '$MAPTYPE access:wait_after noop:wait_after $ACTION munmap:wait_before exit:wait_before'"

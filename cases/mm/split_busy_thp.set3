@@ -2,7 +2,7 @@
 
 THP=true
 
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 
 _prepare() {
 	if [ -e /sys/kernel/debug/split_huge_pages ] ; then

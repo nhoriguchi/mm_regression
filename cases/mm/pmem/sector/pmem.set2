@@ -1,6 +1,6 @@
 . $TRDIR/lib/mm.sh
 
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 PMEMDIR=/mnt/pmem
 
 _prepare() {

@@ -1,4 +1,4 @@
-#! {"optype" => "mlock", "flavor" => "full", "fork" => "nofork"}
+#y! {"optype" => "mlock", "flavor" => "full", "fork" => "nofork"}
 #! {"optype" => "mlock", "flavor" => "full", "fork" => "fork"}
 #! {"optype" => "mlock", "flavor" => "partial", "fork" => "nofork"}
 #! {"optype" => "mlock", "flavor" => "partial", "fork" => "fork"}
@@ -16,9 +16,9 @@ THP=10
 PRIORITY=15
 
 <% if param["optype"] == "mlock" %>
-EXPECTED_RETURN_CODE="START MLOCKED"
+EXPECTED_RETURN_CODE="MLOCKED"
 <% elsif param["optype"] == "mprotect" %>
-EXPECTED_RETURN_CODE="START"
+EXPECTED_RETURN_CODE=""
 <% end %>
 
 <% if param["flavor"] == "partial" %>

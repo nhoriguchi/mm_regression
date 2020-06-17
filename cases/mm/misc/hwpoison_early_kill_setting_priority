@@ -16,12 +16,10 @@ check_killed_early() {
 	kill -9 $pid > /dev/null 2>&1
 }
 
-EXPECTED_RETURN_CODE="START NOSIGBUS SIGBUS NOSIGBUS SIGBUS SIGBUS NOSIGBUS EXIT"
+EXPECTED_RETURN_CODE="NOSIGBUS SIGBUS NOSIGBUS SIGBUS SIGBUS NOSIGBUS EXIT"
 
 _control() {
 	local pid
-
-	# set_return_code START
 
 	sysctl vm.memory_failure_early_kill=0
 

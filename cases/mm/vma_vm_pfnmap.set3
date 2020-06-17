@@ -131,7 +131,7 @@ check_numa_maps() {
 
 <% if param["flavor"] == "simple" %>
 TEST_PROGRAM="lib/test_alloc_generic -B devmem -n 1 -L 'mmap access:wait_after exit:wait_before'"
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 _control() { control_vma_vm_pfnmap "$1" "$2"; }
 _check() { check_vma_vm_pfnmap; }
 <% elsif param["flavor"] == "process" %>

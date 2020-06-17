@@ -3,7 +3,7 @@
 NUMA_NODE=2
 THP=always
 
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 
 _prepare() {
 	prepare_mm_generic || return 1

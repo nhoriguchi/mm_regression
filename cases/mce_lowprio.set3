@@ -31,14 +31,14 @@ FALSENEGATIVE=true
 
 <% if param["error"] =~ /(mce-srao|hard-offline|madv_hard)/ %>
     <% if param["access"] == "later" %>
-    EXPECTED_RETURN_CODE="START INJECT ACCESS KILLED_IN_ACCESS"
+    EXPECTED_RETURN_CODE="INJECT ACCESS KILLED_IN_ACCESS"
     <% else %>
-    EXPECTED_RETURN_CODE="START INJECT EXIT"
+    EXPECTED_RETURN_CODE="INJECT EXIT"
     <% end %>
 <% else %>
     <% if param["access"] == "later" %>
-    EXPECTED_RETURN_CODE="START INJECT ACCESS ACCESS_SUCCEEDED EXIT"
+    EXPECTED_RETURN_CODE="INJECT ACCESS ACCESS_SUCCEEDED EXIT"
     <% else %>
-    EXPECTED_RETURN_CODE="START INJECT EXIT"
+    EXPECTED_RETURN_CODE="INJECT EXIT"
     <% end %>
 <% end %>

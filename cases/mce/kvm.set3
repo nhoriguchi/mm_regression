@@ -10,19 +10,19 @@
 PRIORITY=15
 
 <% if param["flavor"] == "panic" %>
-EXPECTED_RETURN_CODE="START GOT_HPA GUEST_PANICKED"
+EXPECTED_RETURN_CODE="GOT_HPA GUEST_PANICKED"
 BACKEND=anonymous
 TARGET_PAGETYPES="lru,mmap,anonymous=lru,mmap,anonymous"
 ERROR_TYPE=mce-srao
 _control() { control_mce_kvm_panic; }
 _check() { check_mce_kvm_panic; }
 <% elsif param["flavor"] == "mce-srar" %>
-EXPECTED_RETURN_CODE="START GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS TEST"
+EXPECTED_RETURN_CODE="GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS TEST"
 TARGET_PAGETYPES="lru,mmap,anonymous=lru,mmap,anonymous"
 _control() { control_mce_kvm_action_required; }
 # _check() { check_mce_kvm_action_required; }
 <% elsif param["flavor"] == "mce_on_qemu" %>
-EXPECTED_RETURN_CODE="START GOT_TARGET_PFN EXIT"
+EXPECTED_RETURN_CODE="GOT_TARGET_PFN EXIT"
 ERROR_TYPE=mce-srao
 _control() { control_mce_kvm_inject_mce_on_qemu_page; }
 _check() { check_mce_kvm_inject_mce_on_qemu_page; }
