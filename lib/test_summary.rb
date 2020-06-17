@@ -52,7 +52,7 @@ class TestCaseSummary
     return "NONE" if @run_status == "NONE"
     return "SKIP" if @run_status == "SKIPPED"
 
-    File.read(@tc_dir + "/result").split("\n").each do |line|
+    File.read(@tc_dir + "/result", :encoding => 'UTF-8').split("\n").each do |line|
       if line =~ /^TESTCASE_RESULT: (.+)?: (\w+)$/
         tmp = $2
         break
