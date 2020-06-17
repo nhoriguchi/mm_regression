@@ -126,14 +126,6 @@ check_return_code() {
 	fi
 }
 
-set_return_code_start() {
-	set_return_code START
-	# making sure return code START is written on the disk because if current
-	# testcase causes kernel panic or power reset, the return code is used to
-	# skip the same testcode in the next run after reboot.
-	sync
-}
-
 # Return false if AGAIN is true, so this testcase will run anyway. If AGAIN is
 # not true, then return true only when current testcase does not run yet.
 check_testcase_already_run() {
@@ -384,8 +376,7 @@ __do_test() {
 		cleanup
 		return 1
 	fi
-	# TODO: check impact of removing this line on existing testcases.
-	set_return_code_start
+
 	echo_log "$cmd"
 
 	# exec 2> >( tee -a ${OFILE} )
@@ -434,7 +425,6 @@ __do_test_async() {
 		cleanup
 		return 1
 	fi
-	set_return_code_start
 	run_controller
 	cleanup
 	check
@@ -581,7 +571,3 @@ dir_cleanup() {
 		_dir_cleanup
 	fi
 }
-
-for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do
-	export -f $func
-done
