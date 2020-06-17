@@ -169,6 +169,30 @@ static void *data_alloc(void)
 	return p + pagesize / 4;
 }
 
+static FILE *pcfile;
+
+static void *page_cache_alloc(void)
+{
+	FILE *pcfile = tmpfile();
+	char c, *p;
+	int i;
+
+	for (i = 0; i < pagesize; i++) {
+		c = random();
+		fputc(c, pcfile);
+	}
+	fflush(pcfile);
+
+	p = mmap(NULL, pagesize, PROT_READ|PROT_WRITE, MAP_SHARED, fileno(pcfile), 0);
+	if (p == NULL) {
+		fprintf(stderr, "%s: cannot mmap tmpfile\n", progname);
+		exit(1);
+	}
+	*p = random();
+
+	return p + pagesize / 4;
+}
+
 static void *mlock_data_alloc(void)
 {
 	char	*p = mmap(NULL, pagesize, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANON, -1, 0);
@@ -289,6 +313,21 @@ int trigger_copyin(char *addr)
 	return 0;
 }
 
+int trigger_copyout(char *addr)
+{
+	char *buf = malloc(pagesize);
+	int ret;
+
+	if (buf == NULL) {
+		fprintf(stderr, "%s: couldn't allocate memory\n", progname);
+		return -1;
+	}
+	ret = read(fileno(pcfile), buf, pagesize);
+	fprintf(stderr, "%s: read returned %d\n", progname);
+
+	return 0;
+}
+
 int trigger_patrol(char *addr)
 {
 	sleep(1);
@@ -363,6 +402,10 @@ struct test {
 	{
 		"copyin", "Kernel copies data from user. Probably fatal",
 		data_alloc, inject_uc, 1, trigger_copyin, F_MCE|F_CMCI|F_SIGBUS|F_FATAL,
+	},
+	{
+		"copyout", "Kernel copies data to user. Probably fatal",
+		page_cache_alloc, inject_uc, 1, trigger_copyout, F_MCE|F_CMCI|F_SIGBUS|F_FATAL,
 	},
 	{
 		"mlock", "mlock target page then inject/read to generates SRAR machine check",
