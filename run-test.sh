@@ -27,7 +27,8 @@ done
 
 shift $[OPTIND-1]
 
-export LANG=en_us_88591
+export LANG=C
+export LC_ALL=C
 
 export TCDIR=$(dirname $(readlink -f $BASH_SOURCE))
 # Assuming that current directory is the root directory of the current test.
