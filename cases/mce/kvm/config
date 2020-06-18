@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $TRDIR/lib/setup_kvm.sh || return 1
+. $TRDIR/lib/kvm.sh || return 1
 
 TARGETGVA=""
 TARGETGPA=""
@@ -8,10 +8,10 @@ TARGETHPA=""
 
 # check VM RAM size is not greater than 2GB
 memsize=$(virsh dominfo $VM | grep "Used memory:" | tr -s ' ' | cut -f3 -d' ')
-if [ "$memsize" -gt 2097152 ] ; then
-	echo_log "Too much VM RAM size. (> 2GB)"
-	return 1
-fi
+# if [ "$memsize" -gt 2097152 ] ; then
+# 	echo_log "Too much VM RAM size. (> 2GB)"
+# 	return 1
+# fi
 
 get_gpa_guest_memeater() {
 	local vmip=$(vm_to_vmip $VM)
@@ -56,24 +56,32 @@ prepare_mce_kvm() {
 	TARGETGPA=""
 	TARGETHPA=""
 
+	if ! which expect > /dev/null ; then
+		return 1
+	fi
+
 	echo "[temporarily] check_mce_capability is skipped due to test code bug"
 	echo TARGET_PAGETYPES: $TARGET_PAGETYPES
 	# check_mce_capability || return 1 # MCE SRAO not supported
 	prepare_mm_generic || return 1
+	# TODO: reduce VM restarts
 	# unconditionally restart vm because memory background might change
 	# (thp <=> anon)
 	vm_shutdown_wait $VM $VMIP
 	echo 3 > /proc/sys/vm/drop_caches ; sync
-	vm_start_wait $VM
+	vm_start_wait $VM || return 1
 	local vmip=$(vm_to_vmip $VM)
 	start_vm_console_monitor $TMPD/vmconsole $VM
 	stop_guest_memeater $vmip
-	send_helper_to_guest $vmip
+	send_helper_to_guest $vmip || return 1
 	save_nr_corrupted_before
+	ssh $vmip "echo 1 > $DEBUGFSDIR/mce/fake_panic"
+	echo 1 > $DEBUGFSDIR/mce/fake_panic
 	return 0
 }
 
 cleanup_mce_kvm() {
+	echo 0 > $DEBUGFSDIR/mce/fake_panic
 	save_nr_corrupted_inject
 	all_unpoison
 	[ "$_VM_CONSOLE" ] && pkill -9 -f $_VM_CONSOLE

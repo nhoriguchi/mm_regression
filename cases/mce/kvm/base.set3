@@ -6,7 +6,6 @@
 # VM=f21a
 
 # # TODO: assuming that sshvm is installed (via deploy_vm_image)
-. $TRDIR/lib/setup_mce_kvm.sh || return 1
 PRIORITY=15
 
 <% if param["flavor"] == "panic" %>

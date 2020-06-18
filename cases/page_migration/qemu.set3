@@ -1,4 +1,5 @@
-. $TRDIR/lib/setup_kvm.sh || return 1
+. $TRDIR/lib/mm.sh || return 1
+. $TRDIR/lib/kvm.sh || return 1
 
 NUMA_NODE=2
 THP=always
