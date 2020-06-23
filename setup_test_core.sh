@@ -538,32 +538,34 @@ do_soft_try() {
 	return $ret
 }
 
-set_rc_local() {
-	cat <<EOF > /etc/rc.d/rc.local
-#!/bin/bash
+setup_systemd_service() {
+	cat <<EOF > /etc/systemd/system/test.service
+[Unit]
+Description=MM regression test
+After=network.target
+After=systemd-user-sessions.service
+After=network-online.target
 
-# need buffer for rescue from infinite loop
-sleep 15
+[Service]
+User=root
+Type=oneshot
+WorkingDirectory=$TRDIR
+ExecStart=$TRDIR/run.sh
+Environment=RUNNAME=$RUNNAME
+Environment=VM=$VM
+Environment=LOWEST_PRIORITY=$LOWEST_PRIORITY
+Environment=HIGHEST_PRIORITY=$HIGHEST_PRIORITY
+TimeoutSec=infinity
+Restart=no
 
-echo "##### test project $RUNNAME continues to run after reboot #####"
-cd $TRDIR
-export RUNNAME=$RUNNAME
-nohup bash run.sh &
-disown
-
-mv /etc/rc.d/rc.local.tmp /etc/rc.d/rc.local
-exit 0
+[Install]
+WantedBy=multi-user.target
 EOF
-	chmod +x /etc/rc.d/rc.local
+	systemctl enable test.service
 }
 
-revert_rc_local() {
-	cat <<EOF > /etc/rc.d/rc.local
-#!/bin/bash
-
-touch /var/lock/subsys/local
-EOF
-	chmod +x /etc/rc.d/rc.local
+cancel_systemd_service() {
+	systemctl disable test.service
 }
 
 dir_cleanup() {

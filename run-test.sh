@@ -236,7 +236,7 @@ fi
 
 . $TCDIR/lib/environment.sh
 
-set_rc_local
+setup_systemd_service
 run_recipes $TRDIR $GTMPD/recipelist
-revert_rc_local
+cancel_systemd_service
 echo "All testcases in project $RUNNAME finished."
