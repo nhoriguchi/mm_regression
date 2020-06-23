@@ -1,7 +1,7 @@
 #!/bin/bash
 
-get_kernel_message_before() { dmesg > $TMPD/_dmesg_before; }
-get_kernel_message_after() { dmesg > $TMPD/_dmesg_after; }
+get_kernel_message_before() { dmesg > $TMPD/.dmesg_before; }
+get_kernel_message_after() { dmesg > $TMPD/.dmesg_after; }
 
 __dmesg_filter1() {
 	grep -v "\(MCE\|Unpoison\): Page was already unpoisoned"
@@ -23,19 +23,19 @@ dmesg_filter() {
 }
 
 get_kernel_message_diff() {
-	diff $TMPD/_dmesg_before $TMPD/_dmesg_after 2> /dev/null | grep -v '^< ' | \
-		dmesg_filter > $TMPD/_dmesg_diff
+	diff $TMPD/.dmesg_before $TMPD/.dmesg_after 2> /dev/null | grep -v '^< ' | \
+		dmesg_filter > $TMPD/dmesg_diff
 	# expecting environment format DMESG_DIFF_LIMIT is like "head -n10" or "tail -20"
-	if [ -s $TMPD/_dmesg_diff ] ; then
+	if [ -s $TMPD/dmesg_diff ] ; then
 		echo "####### DMESG #######"
 		if [ "$DMESG_DIFF_LIMIT" ] ; then
-			$DMESG_DIFF_LIMIT $TMPD/_dmesg_diff
+			$DMESG_DIFF_LIMIT $TMPD/dmesg_diff
 		else
-			cat $TMPD/_dmesg_diff
+			cat $TMPD/dmesg_diff
 		fi
 		echo "####### DMESG END #######"
 	fi
-	rm $TMPD/_dmesg_before $TMPD/_dmesg_after 2> /dev/null
+	rm $TMPD/.dmesg_before $TMPD/.dmesg_after 2> /dev/null
 }
 
 # Confirm that kernel message does contain the specified words
@@ -45,7 +45,7 @@ check_kernel_message() {
 	local word="$1"
 	if [ "$word" ] ; then
 		count_testcount
-		grep "$word" $TMPD/_dmesg_diff > /dev/null 2>&1
+		grep "$word" $TMPD/dmesg_diff > /dev/null 2>&1
 		if [ $? -eq 0 ] ; then
 			if [ "$inverse" ] ; then
 				count_failure "kernel message shows unexpected word '$word'."
@@ -64,7 +64,7 @@ check_kernel_message() {
 
 check_kernel_message_nobug() {
 	count_testcount
-	grep -e "BUG:" -e "WARNING:" $TMPD/_dmesg_diff > /dev/null 2>&1
+	grep -e "BUG:" -e "WARNING:" $TMPD/dmesg_diff > /dev/null 2>&1
 	if [ $? -eq 0 ] ; then
 		count_failure "Kernel 'BUG:'/'WARNING:' message"
 	else
