@@ -10,7 +10,7 @@ _cleanup() {
 
 _check() {
 	count_testcount
-	if grep -q "Fake kernel panic" "$TMPD/_dmesg_diff" ; then
+	if grep -q "Fake kernel panic" "$TMPD/dmesg_diff" ; then
 		count_success "fake kernel panic"
 	else
 		count_failure "no fake kernel panic"
