@@ -35,4 +35,4 @@ save_environment_variables() {
 }
 
 check_environment
-collect_environment_info
+collect_environment_info 2> /dev/null
