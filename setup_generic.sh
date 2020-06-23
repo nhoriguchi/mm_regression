@@ -175,7 +175,3 @@ show_summary() {
         cat $GTMPD/__skipped_testcases | sed 's/^/ - /'
     fi
 }
-
-for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do
-    export -f $func
-done

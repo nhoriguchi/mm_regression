@@ -58,14 +58,3 @@ check_process_status() {
 
 	kill -0 $pid 2> /dev/null
 }
-
-# Getting all C program into variables, which is convenient to calling
-# pkill to kill all subprobrams before/after some testcase.
-for tp in $(grep ^src= $TRDIR/Makefile 2> /dev/null | cut -f2 -d=) ; do
-	echo "check_and_define_tp ${tp%.c}"
-	check_and_define_tp ${tp%.c}
-done
-
-for func in $(grep '^\w*()' $BASH_SOURCE | sed 's/^\(.*\)().*/\1/g') ; do
-    export -f $func
-done
