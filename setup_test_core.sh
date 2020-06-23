@@ -425,7 +425,10 @@ __do_test_async() {
 		cleanup
 		return 1
 	fi
-	run_controller
+	run_controller &
+	local pid=$!
+	wait $pid
+	kill_all_subprograms $pid self
 	cleanup
 	check
 	return 0
@@ -446,8 +449,8 @@ do_test_try() {
 	check_test_flag && return 1
 	# check_inclusion_of_fixedby_patch && break
 
+	generate_testcase_pipe
 	if [ "$TEST_PROGRAM" ] ; then
-		generate_testcase_pipe
 		__do_test "$TEST_PROGRAM -p $PIPE"
 	else
 		__do_test_async
