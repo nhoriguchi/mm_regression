@@ -31,6 +31,7 @@ fi
 
 # make --no-print-directory prepare
 make build
+make prepare
 make --no-print-directory test
 ruby test_core/lib/test_summary.rb work/$RUNNAME
 
