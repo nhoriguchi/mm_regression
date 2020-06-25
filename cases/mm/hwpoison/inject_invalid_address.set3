@@ -1,0 +1,12 @@
+EXPECTED_RETURN_CODE="INJECTION_FAILED"
+
+_control() {
+	local invalid_phys_addr=0x10000000000000
+
+	echo $invalid_phys_addr > /sys/devices/system/memory/soft_offline_page
+	if [ $? -eq 0 ] ; then
+		set_return_code INJECTION_SUCCEEDED
+	else
+		set_return_code INJECTION_FAILED
+	fi
+}
