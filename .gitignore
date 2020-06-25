@@ -4,6 +4,7 @@
 **/Trash*
 **/*.auto
 **/*.auto2
+**/*.auto3
 
 # Exclude specific types of files (you should git-add manually if you want)
 **/*.doc
