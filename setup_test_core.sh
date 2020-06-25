@@ -553,7 +553,7 @@ After=network-online.target
 User=root
 Type=oneshot
 WorkingDirectory=$TRDIR
-ExecStart=$TRDIR/run.sh
+ExecStart=/bin/bash $TRDIR/run.sh
 Environment=RUNNAME=$RUNNAME
 Environment=VM=$VM
 Environment=LOWEST_PRIORITY=$LOWEST_PRIORITY
