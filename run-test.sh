@@ -51,6 +51,7 @@ fi
 . $TCDIR/lib/common.sh
 
 stop_test_running() {
+	echo "kill_all_subprograms $$"
 	kill_all_subprograms $$
 	exit
 }
