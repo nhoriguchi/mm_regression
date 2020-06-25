@@ -25,6 +25,11 @@ class RecipeTemplate
       params << {}
     end
 
+    backward_keyword = []
+    backward_keyword = ENV['BACKWARD_KEYWORD'].split(',') if ENV['BACKWARD_KEYWORD']
+    forward_keyword = []
+    forward_keyword = ENV['FORWARD_KEYWORD'].split(',') if ENV['FORWARD_KEYWORD']
+
     params.each do |param|  
       if param.empty?
         outbase = basename + '.auto3'
