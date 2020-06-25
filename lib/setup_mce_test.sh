@@ -24,10 +24,14 @@ prepare_mce_test() {
 	# background memory accessor
 	lib/test_allocate_generic -B anonymous -N 1000 -L "mmap access busyloop" > /dev/null 2>&1 &
 
-    save_nr_corrupted_before
+	save_nr_corrupted_before
+
+	echo 1 > $DEBUGFSDIR/mce/fake_panic
 }
 
 cleanup_mce_test() {
+	echo 0 > $DEBUGFSDIR/mce/fake_panic
+
 	# This chech is only meaningful only if test programs are run in sync mode.
 	if [ "$TEST_PROGRAM" ] ; then
 		save_nr_corrupted_inject
