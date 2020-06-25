@@ -4,6 +4,8 @@
 **/Trash*
 **/work*
 **/results*
-**/*.auto*
+**/*.auto
+**/*.auto2
+**/*.auto3
 
 !.gitignore
