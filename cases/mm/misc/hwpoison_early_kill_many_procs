@@ -1,7 +1,5 @@
 # https://lore.kernel.org/linux-mm/20200529021224.GA345@hori.linux.bs1.fc.nec.co.jp/T/#t
 
-. $TRDIR/lib/mm.sh
-
 soft_offline() {
 	local addr=$1
 
@@ -16,6 +14,7 @@ _prepare() {
 
 _cleanup() {
 	sysctl vm.memory_failure_early_kill=0
+	rm -f tmp/testfile
 }
 
 _control() {
@@ -23,21 +22,25 @@ _control() {
 	local pid2
 
 	for i in $(seq 100) ; do
-		lib/test_alloc_generic -B pagecache -N 1 -w work -L "mmap busyloop" &
+		lib/test_alloc_generic -B pagecache -N 1 -w tmp -L "mmap busyloop" &
 		pid1="$pid1 $!"
-		lib/test_alloc_generic -B pagecache -N 1 -w work -L "mmap access:wait_after" &
+		lib/test_alloc_generic -B pagecache -N 1 -w tmp -L "mmap access:wait_after" &
 		pid2="$pid2 $!"
 	done
 
 	sleep 0.1
-	local pid=$pid1
+	local pid=$(echo $pid1 | awk '{print $1}')
 
-	echo "$PAGETYPES -p $pid -N -a 0x700000000 -X"
-	$PAGETYPES -p $pid -N -a 0x700000000 -X
+	echo "test_core/lib/page-types -p $pid -N -a 0x700000000 -X"
+	test_core/lib/page-types.v5.8-rc1 -p $pid -N -a 0x700000000 -X
 	
-	sleep 0.5
+	# TODO: better way to confirm all processes are kill by SIGBUS
+	sleep 3
 	if ! pgrep -f test_alloc_generic ; then
 		set_return_code KILLED
+	else
+		echo "Some subprocesses are still alive"
+		ps fj
 	fi
 
 	set_return_code EXIT

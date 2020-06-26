@@ -1,4 +1,5 @@
 HUGETLBDIR=`grep hugetlbfs /proc/mounts | head -n1 | cut -f2 -d' '`
+TMPHUGETLBDIR=tmp/hugetlbfs
 
 hugetlb_support_check() {
 	if [ ! -d /sys/kernel/mm/hugepages ] ; then
@@ -135,9 +136,9 @@ set_hugetlb_overcommit() {
 }
 
 cleanup_hugetlb_config() {
-	if [ "$WDIR/hugetlbfs" ] ; then
-		rm -rf $WDIR/hugetlbfs/* 2>&1 > /dev/null
-		umount -f $WDIR/hugetlbfs 2>&1 > /dev/null
+	if [ "$TMPHUGETLBDIR" ] ; then
+		rm -rf $TMPHUGETLBDIR/* 2>&1 > /dev/null
+		umount -f $TMPHUGETLBDIR 2>&1 > /dev/null
 	fi
 	sysctl -q vm.nr_hugepages=0
 	all_unpoison
