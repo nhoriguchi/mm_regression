@@ -86,7 +86,9 @@ run_recipe() {
 
 	# just for saving, not functional requirement.
 	cp $RECIPE_FILE $TMPD/_recipe
-	# parse_recipefile $RECIPE_FILE $TMPD/_recipe
+
+	( set -o posix; set ) > $TMPD/.var1
+
 	PRIORITY=10 # TODO: better place?
 	. $RECIPE_FILE
 	ret=$?

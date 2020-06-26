@@ -28,9 +28,11 @@ check_environment() {
 	fi
 }
 
+# TODO: more elegant way?
 save_environment_variables() {
 	if [ -d "$TMPD" ] ; then
-		env | grep = | grep -v "^ " > $TMPD/environment
+		( set -o posix; set ) > $TMPD/.var2
+		diff -u $TMPD/.var1 $TMPD/.var2 | grep ^+ | grep -v '^++ ' | cut -c2- > $TMPD/variables
 	fi
 }
 
