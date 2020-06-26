@@ -15,10 +15,10 @@ HUGETLB=1030 # need at least 512 * 2 hps
 EXPECTED_RETURN_CODE="MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
 
 _control() {
-	lib/test_hugetlb_pmd_share $MIGRATE_SRC &
+	test_hugetlb_pmd_share $MIGRATE_SRC &
 	local pid1=$!
 	disown
-	lib/test_hugetlb_pmd_share &
+	test_hugetlb_pmd_share &
 	local pid2=$!
 	disown
 

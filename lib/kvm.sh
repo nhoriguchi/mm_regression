@@ -242,8 +242,8 @@ vm_to_vmip() {
 send_helper_to_guest() {
 	local vmip=$1
 
-	scp lib/test_alloc_generic $vmip:$GUESTTESTALLOC > /dev/null || return 1
-	scp $PAGETYPES $vmip:$GUESTPAGETYPES > /dev/null || return 1
+	scp build/test_alloc_generic $vmip:$GUESTTESTALLOC > /dev/null || return 1
+	scp build/page-types $vmip:$GUESTPAGETYPES > /dev/null || return 1
 }
 
 stop_guest_memeater() {

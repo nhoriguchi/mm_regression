@@ -24,7 +24,7 @@ _control() {
 
 	sysctl vm.memory_failure_early_kill=0
 
-	lib/test_early_kill_pthread &
+	test_early_kill_pthread &
 	pid=$!
 	sleep 0.1
 

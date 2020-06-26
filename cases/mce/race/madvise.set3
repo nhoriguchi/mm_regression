@@ -28,12 +28,12 @@ _control() {
 
 	for i in $(seq $ITERATION) ; do
 		<% if param["offline"] =~ /hard/ %>
-		lib/test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_HARD1" > /dev/null 2>&1 &
-		lib/test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_HARD2" > /dev/null 2>&1 &
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_HARD1" > /dev/null 2>&1 &
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_HARD2" > /dev/null 2>&1 &
 		<% end %>
 		<% if param["offline"] =~ /soft/ %>
-		lib/test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_SOFT1" > /dev/null 2>&1 &
-		lib/test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_SOFT2" > /dev/null 2>&1 &
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_SOFT1" > /dev/null 2>&1 &
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_SOFT2" > /dev/null 2>&1 &
 		<% end %>
 	done
 	sleep 3

@@ -76,9 +76,9 @@ random_unpoison() {
 _control() {
 	local pid=
 
-	lib/test_alloc_generic -B $BACKEND -N 32 -L 'mmap access'
-	echo_log "lib/test_alloc_generic -B $BACKEND -N 32 -L 'mmap access busyloop' &"
-	lib/test_alloc_generic -B $BACKEND -N 32 -L 'mmap access busyloop' &
+	test_alloc_generic -B $BACKEND -N 32 -L 'mmap access'
+	echo_log "test_alloc_generic -B $BACKEND -N 32 -L 'mmap access busyloop' &"
+	test_alloc_generic -B $BACKEND -N 32 -L 'mmap access busyloop' &
 	pid=$!
 	sleep 0.1
 	if ! check_process_status $pid ; then

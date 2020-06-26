@@ -12,7 +12,7 @@ BACKEND=<%= param["backend"] %>
 
 . $TRDIR/lib/setup_mmgeneric.sh
 
-TEST_PROGRAM="lib/test_alloc_generic -B $BACKEND -N 1 -L 'mmap access mlock2:wait_after exit:wait_before'"
+TEST_PROGRAM="test_alloc_generic -B $BACKEND -N 1 -L 'mmap access mlock2:wait_after exit:wait_before'"
 
 <% if param["backend"] =~ /zero/ %>
 EXPECTED_RETURN_CODE="MLOCK_FAILED EXIT"

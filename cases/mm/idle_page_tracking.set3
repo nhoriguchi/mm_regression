@@ -8,14 +8,14 @@ PIPETIMEOUT=20
 EACH_BUFSIZE_IN_PAGE=$[1024*16]
 
 HUGETLB=100
-TEST_PROGRAM="lib/test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -n $EACH_BUFSIZE_IN_PAGE -L 'start:wait_after mmap access:wait_after busyloop munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -n $EACH_BUFSIZE_IN_PAGE -L 'start:wait_after mmap access:wait_after busyloop munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="EXIT"
 
 _prepare() {
 	prepare_mm_generic || return 1
 	# TODO: Wait?
-	echo "lib/test_alloc_generic -B anonymous -n $[$(grep ^MemTotal: /proc/meminfo | awk '{print $2}') * 2 / 4 / 4] -L \"start mmap access busyloop\" &"
-	lib/test_alloc_generic -B anonymous -n $[$(grep ^MemTotal: /proc/meminfo | awk '{print $2}') * 2 / 4 / 4] -L "start mmap access busyloop" &
+	echo "test_alloc_generic -B anonymous -n $[$(grep ^MemTotal: /proc/meminfo | awk '{print $2}') * 2 / 4 / 4] -L \"start mmap access busyloop\" &"
+	test_alloc_generic -B anonymous -n $[$(grep ^MemTotal: /proc/meminfo | awk '{print $2}') * 2 / 4 / 4] -L "start mmap access busyloop" &
 	sleep 3
 	free
 }
@@ -36,8 +36,8 @@ _control() {
 		"after_access")
 			get_mm_stats 1 $pid > /dev/null
 
-			echo_log lib/mark_idle_all write
-			lib/mark_idle_all write
+			echo_log mark_idle_all write
+			mark_idle_all write
 
 			get_pagetypes $pid pagetypes.idle.1 -ra 0x700000000+0x10000000 -b idle_page
 
@@ -46,8 +46,8 @@ _control() {
 		"before_munmap")
 			sleep 1
 
-			echo_log lib/mark_idle_all read
-			lib/mark_idle_all read
+			echo_log mark_idle_all read
+			mark_idle_all read
 
 			get_pagetypes $pid pagetypes.idle.2 -ra 0x700000000+0x10000000 -b idle_page
 
@@ -62,8 +62,8 @@ _control() {
 		"entering busy loop")
 			sleep 2
 
-			echo_log lib/mark_idle_all read
-			lib/mark_idle_all read
+			echo_log mark_idle_all read
+			mark_idle_all read
 
 			get_pagetypes $pid pagetypes.idle.3 -ra 0x700000000+0x10000000 -b idle_page
 

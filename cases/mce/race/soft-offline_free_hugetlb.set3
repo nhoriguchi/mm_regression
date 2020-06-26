@@ -27,8 +27,8 @@ _prepare() {
 random_hugetlb_allocation() {
 	echo "random_hugetlb_allocation thread running ..."
 	while true ; do
-		# lib/test_alloc_generic -B $BACKEND -N $[HUGETLB/2] -s -L 'mmap access'
-		lib/test_alloc_generic -B $BACKEND -N $[HUGETLB/2] -s -L 'mmap access'
+		# test_alloc_generic -B $BACKEND -N $[HUGETLB/2] -s -L 'mmap access'
+		test_alloc_generic -B $BACKEND -N $[HUGETLB/2] -s -L 'mmap access'
 		local ret=$?
 		if [ "$ret" -eq 135 ] ; then
 			echo "test_alloc_generic returned with $ret (SIGBUS(BUS_MCEERR_AR))"

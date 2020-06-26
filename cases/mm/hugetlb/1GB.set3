@@ -8,7 +8,7 @@ HUGETLBFSDIR=tmp/hugetlbfs
 
 . $TRDIR/lib/setup_mmgeneric.sh
 
-# TEST_PROGRAM="lib/test_alloc_generic -L 'start:wait_after memory_compaction exit:wait_before'"
+# TEST_PROGRAM="test_alloc_generic -L 'start:wait_after memory_compaction exit:wait_before'"
 EXPECTED_RETURN_CODE="EXIT"
 PIPETIMEOUT=30
 HUGEPAGESIZE=1048576

@@ -9,7 +9,7 @@ THP=512
 
 background_alloc_exit() {
 	while true ; do
-		lib/test_alloc_generic -B thp -N $THP -L "mmap access"
+		test_alloc_generic -B thp -N $THP -L "mmap access"
 	done
 }
 

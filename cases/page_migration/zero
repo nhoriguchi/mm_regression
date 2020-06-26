@@ -4,4 +4,4 @@ NUMA_NODE=2
 EXPECTED_RETURN_CODE="EXIT"
 PRIORITY=15
 
-TEST_PROGRAM="lib/test_alloc_generic -B zero -n 3 -B zero -n 3 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after mbind munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="test_alloc_generic -B zero -n 3 -B zero -n 3 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after mbind munmap:wait_before exit:wait_before'"

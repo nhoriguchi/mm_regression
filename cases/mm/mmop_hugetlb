@@ -4,7 +4,7 @@ HUGETLB=100
 
 FALSENEGATIVE=true
 EXPECTED_RETURN_CODE="MREMAP_OK EXIT"
-TEST_PROGRAM="lib/test_alloc_generic -v -B hugetlb_anon -N 10 -L 'mmap access:wait_after mremap munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="test_alloc_generic -v -B hugetlb_anon -N 10 -L 'mmap access:wait_after mremap munmap:wait_before exit:wait_before'"
 
 _control() {
     local pid="$1"

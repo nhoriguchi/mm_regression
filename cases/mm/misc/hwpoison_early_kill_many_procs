@@ -22,17 +22,17 @@ _control() {
 	local pid2
 
 	for i in $(seq 100) ; do
-		lib/test_alloc_generic -B pagecache -N 1 -w tmp -L "mmap busyloop" &
+		test_alloc_generic -B pagecache -N 1 -w tmp -L "mmap busyloop" &
 		pid1="$pid1 $!"
-		lib/test_alloc_generic -B pagecache -N 1 -w tmp -L "mmap access:wait_after" &
+		test_alloc_generic -B pagecache -N 1 -w tmp -L "mmap access:wait_after" &
 		pid2="$pid2 $!"
 	done
 
 	sleep 0.1
 	local pid=$(echo $pid1 | awk '{print $1}')
 
-	echo "test_core/lib/page-types -p $pid -N -a 0x700000000 -X"
-	test_core/lib/page-types.v5.8-rc1 -p $pid -N -a 0x700000000 -X
+	echo "page-types -p $pid -N -a 0x700000000 -X"
+	page-types -p $pid -N -a 0x700000000 -X
 	
 	# TODO: better way to confirm all processes are kill by SIGBUS
 	sleep 3

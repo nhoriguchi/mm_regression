@@ -50,5 +50,5 @@ ACTION=hotremove:pageflags=$(get_backend_pageflags anonymous)
 SKIP_THIS_TEST=true
 <% end %>
 
-TEST_PROGRAM="lib/test_alloc_generic -B thp -N $THP_ALLOCATED -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="test_alloc_generic -B thp -N $THP_ALLOCATED -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"

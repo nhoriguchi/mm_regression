@@ -93,11 +93,11 @@ get_target_memblk() {
 	<% if param["memtype"] == "buddy" %>
 	tmp="$(find_buddy_memory_block)"
 	<% elsif param["memtype"] == "anonymous" %>
-	lib/test_alloc_generic -B anonymous -N 128 -L 'mmap access:wait_after' > /dev/null &
+	test_alloc_generic -B anonymous -N 128 -L 'mmap access:wait_after' > /dev/null &
 	sleep 0.2
 	local tmp="$(find_block anonymous)"
 	<% elsif param["memtype"] == "mlocked_anon" %>
-	lib/test_alloc_generic -B anonymous -N 128 -L 'mmap access mlock:wait_after' > /dev/null &
+	test_alloc_generic -B anonymous -N 128 -L 'mmap access mlock:wait_after' > /dev/null &
 	sleep 0.2
 	local tmp="$(find_block mblocked)"
 	<% end %>

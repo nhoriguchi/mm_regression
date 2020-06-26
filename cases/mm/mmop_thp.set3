@@ -34,4 +34,4 @@ OP_FORK=fork
 
 EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
 # busyloop work?
-TEST_PROGRAM="lib/test_alloc_generic -v -B thp -N $THP -L 'start:wait_after mmap access:wait_after $OP_FORK $OPERATION_TYPE munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="test_alloc_generic -v -B thp -N $THP -L 'start:wait_after mmap access:wait_after $OP_FORK $OPERATION_TYPE munmap:wait_before exit:wait_before'"

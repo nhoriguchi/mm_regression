@@ -26,7 +26,7 @@ _prepare() {
 random_allocation() {
 	echo "random_allocation thread running ..."
 	while true ; do
-		lib/test_alloc_generic -B $BACKEND -n $NR_PAGES -L 'mmap access'
+		test_alloc_generic -B $BACKEND -n $NR_PAGES -L 'mmap access'
 		local ret=$?
 		if [ "$ret" -eq 135 ] ; then
 			echo "test_alloc_generic returned with $ret (bus error)"

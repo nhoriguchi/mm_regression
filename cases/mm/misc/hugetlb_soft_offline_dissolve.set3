@@ -86,7 +86,7 @@ check_reusable() {
 	echo_log "--- $FUNCNAME"
 	local pfn=$1
 	local available_pages=$(echo $[$(grep MemAvailable /proc/meminfo | awk '{print $2}') / 4])
-	lib/test_alloc_generic -B anonymous -n $available_pages -L 'mmap access:wait_after' &
+	test_alloc_generic -B anonymous -n $available_pages -L 'mmap access:wait_after' &
 	local backpid=$!
 	echo_log "running background process ($backpid) ..."
 	sleep 3.0
@@ -106,7 +106,7 @@ check_reusable() {
 }
 
 __control_inuse() {
-	lib/test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATE -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft:wait_after' &
+	test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATE -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after madv_soft:wait_after' &
 	sleep 1.0
 	if ! pgrep -f test_alloc_generic ; then
 		ps axfw
@@ -144,7 +144,7 @@ __control_inuse() {
 
 __control_free() {
 	<% if param["flavor"] == "full_reserved" %>
-	lib/test_alloc_generic -B hugetlb_anon -N $HUGETLB -L 'mmap:wait_after' &
+	test_alloc_generic -B hugetlb_anon -N $HUGETLB -L 'mmap:wait_after' &
 	<% end %>
 	echo_log "--- check initial page status"
 	$PAGETYPES -Nrl -b huge | grep -v offset | tee $TMPD/1 >&2

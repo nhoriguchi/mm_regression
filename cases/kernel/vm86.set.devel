@@ -30,14 +30,14 @@ _control() {
 	# 	set_return_code RESERVED
 	# fi
 
-	lib/test_alloc_generic -B thp -N 1 -L "mmap access vm86" &
+	test_alloc_generic -B thp -N 1 -L "mmap access vm86" &
 	# sleep 0.1
 	# show_hugetlb_pool
 	# if [ "$(get_hugepage_reserved)" -eq 3 ] ; then
 	# 	set_return_code RESV_CONSUMED
 	# fi
 
-	# lib/test_alloc_generic -B hugetlb_file -N 10 -w $tmp_hugetlb_mount -f base2 -L "mmap access:wait_after" &
+	# test_alloc_generic -B hugetlb_file -N 10 -w $tmp_hugetlb_mount -f base2 -L "mmap access:wait_after" &
 	# sleep 0.1
 	# show_hugetlb_pool
 	# if [ "$(get_hugepage_reserved)" -eq 0 ] ; then

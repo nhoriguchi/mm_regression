@@ -97,4 +97,4 @@ _control() {
 }
 
 EXPECTED_RETURN_CODE="OFFLINE_SUCCEEDED MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
-TEST_PROGRAM="lib/test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATED -L '$MAPTYPE access:wait_after noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="test_alloc_generic -B hugetlb_anon -N $HUGETLB_ALLOCATED -L '$MAPTYPE access:wait_after noop:wait_after $ACTION munmap:wait_before exit:wait_before'"

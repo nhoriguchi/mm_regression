@@ -7,7 +7,7 @@ EXPECTED_RETURN_CODE="SUCCEEDED"
 CHECK_PFN=0
 
 _prepare() {
-	CHECK_PFN=0x$(test_core/lib/page-types -b buddy -NrL | tail -n 1 | cut -f1)
+	CHECK_PFN=0x$(page-types -b buddy -NrL | tail -n 1 | cut -f1)
 	if [ "$CHECK_PFN" = "0x" ] ; then
 		echo "Failed to get physical address of buddy page"
 		return 1

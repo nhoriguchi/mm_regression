@@ -50,7 +50,7 @@ background_iteration() {
 }
 
 <% if param["thp"] == "pte_mapped" %>
-TEST_PROGRAM="lib/test_alloc_generic -B thp -N 1 -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after split_thp:only_pmd busyloop exit:wait_before'"
+TEST_PROGRAM="test_alloc_generic -B thp -N 1 -L 'mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after split_thp:only_pmd busyloop exit:wait_before'"
 _control() {
     local pid="$1"
     local line="$2"
@@ -82,16 +82,16 @@ _control() {
 _control() {
 	for i in $(seq 10) ; do
 		<% if param["thp"] == "mbind" %>
-			lib/test_alloc_generic -B thp -N $THP -L "mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after=200000 mbind busyloop" &
+			test_alloc_generic -B thp -N $THP -L "mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after=200000 mbind busyloop" &
 			local pid=$!
 			background_iteration $pid clear_soft_dirty > /dev/null &
 			sleep 0.3
 			kill -SIGUSR1 $pid 2> /dev/null
 			continue
 		<% elsif param["thp"] == "single_mapped" %>
-			lib/test_alloc_generic -B thp -N $THP -L "mmap access busyloop" &
+			test_alloc_generic -B thp -N $THP -L "mmap access busyloop" &
 		<% elsif param["thp"] == "double_mapped" %>
-			lib/test_alloc_generic -B thp -N $THP -L "mmap access fork busyloop" &
+			test_alloc_generic -B thp -N $THP -L "mmap access fork busyloop" &
 		<% end %>
 		local pid=$!
 		sleep 0.2

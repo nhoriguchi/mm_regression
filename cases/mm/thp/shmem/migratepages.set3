@@ -24,5 +24,5 @@ SPLIT_THP="split_thp access"
 HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 <% end %>
 
-TEST_PROGRAM="lib/test_alloc_generic -B pagecache -N $NR_THP -w $SHMEM_DIR -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+TEST_PROGRAM="test_alloc_generic -B pagecache -N $NR_THP -w $SHMEM_DIR -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"

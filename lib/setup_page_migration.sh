@@ -132,16 +132,16 @@ prepare_hugepage_migration() {
 	prepare_mm_generic || return 1
 
 	if [ "$RESERVE_HUGEPAGE" ] ; then
-		echo_log "lib/test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L \"mmap:wait_after\" &"
-		lib/test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L "mmap:wait_after" &
+		echo_log "test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L \"mmap:wait_after\" &"
+		test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L "mmap:wait_after" &
 		set_return_code RESERVE
 		sleep 1 # TODO: properly wait for reserve completion
 	fi
 
 	if [ "$ALLOCATE_HUGEPAGE" ] ; then
-		echo_log "lib/test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L \"mmap access busyloop\" &"
+		echo_log "test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L \"mmap access busyloop\" &"
 		# ALLOCATE_NODE?
-		lib/test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L "mmap access busyloop" &
+		test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L "mmap access busyloop" &
 		set_return_code ALLOCATE
 		sleep 1 # TODO: properly wait for reserve completion
 	fi

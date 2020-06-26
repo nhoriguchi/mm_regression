@@ -49,7 +49,7 @@ _control() {
 	echo 1 > /sys/kernel/debug/mce/fake_panic
 	echo "5 4 1 5" > /proc/sys/kernel/printk
 	for i in $(seq $RACE_ITERATIONS) ; do
-		lib/test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping &
+		test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping &
 		pid=$!
 
 		get_pagetypes $pid pagetypes.1 -b "$TARGET_PAGEFLAGS" -Nrla 0x700000000+0x10000000 > /dev/null

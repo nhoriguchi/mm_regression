@@ -22,7 +22,7 @@ prepare_mce_test() {
 	fi
 
 	# background memory accessor
-	lib/test_allocate_generic -B anonymous -N 1000 -L "mmap access busyloop" > /dev/null 2>&1 &
+	test_allocate_generic -B anonymous -N 1000 -L "mmap access busyloop" > /dev/null 2>&1 &
 
 	save_nr_corrupted_before
 
