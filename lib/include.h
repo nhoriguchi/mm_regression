@@ -42,7 +42,7 @@ int protflag = PROT_READ|PROT_WRITE;
 int nr_p = 512;
 int nr_chunk = 1;
 
-char *workdir = "work";
+char *workdir = "tmp";
 char *filebase = "testfile";
 int fd;
 int hugetlbfd;
