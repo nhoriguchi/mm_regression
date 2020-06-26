@@ -1,6 +1,10 @@
+cd $(dirname $BASH_SOURCE)
+
 [ ! "$RUNNAME" ] && RUNNAME=debug
 export RUNNAME
 # export AGAIN=true
+
+export PATH=$PWD/build:$PATH
 
 export SOFT_RETRY=1
 export HARD_RETRY=1

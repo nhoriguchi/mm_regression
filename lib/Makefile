@@ -12,6 +12,7 @@ all: $(DST)
 
 %: %.c
 	C_INCLUDE_PATH=.. $(CC) $(CFLAGS) -o $@ $< $(OPT) $(LIBOPT)
+	install $@ ../build
 
 clean:
 	rm $(DST)
