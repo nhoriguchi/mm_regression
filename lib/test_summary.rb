@@ -87,6 +87,7 @@ class RunSummary
     @recipelist = File.readlines("#{dir}/recipelist").map do |r|
       r.chomp.gsub(/^cases\//, '')
     end
+    @recipelist.delete_if {|rc| File.basename(rc) == "config"}
 
     @dir = dir
 

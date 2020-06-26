@@ -61,6 +61,10 @@ check_remove_suffix() {
 		return 1
 	fi
 
+	if [[ "$recipe" =~ /config$ ]] ; then
+		return 1
+	fi
+
 	if [[ "$recipe" =~ \.auto$ ]] ; then
 		if [ -f "${recipe%%.auto}" ] ; then
 			echo "Manually made recipe with same recipe ID exists (${recipe%%.auto},) so skip this .auto recipe"
