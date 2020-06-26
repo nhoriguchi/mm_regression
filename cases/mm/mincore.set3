@@ -37,7 +37,7 @@ _control() {
 			;;
 		"entering busy loop")
 			cat /proc/$pid/maps > $TMPD/maps
-			${PAGETYPES} -p $pid -rl > $TMPD/page-types
+			page-types -p $pid -rl > $TMPD/page-types
 			kill -SIGUSR1 $pid
 			;;
 		"mincore exit")

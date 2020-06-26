@@ -6,7 +6,7 @@ SYSFS_MCHECK=/sys/devices/system/machinecheck
 
 # TODO: unpoison is always problematic operation.
 if [ ! "$UNPOISON" ] || [ "$UNPOISON" == true ] ; then
-	all_unpoison() { $PAGETYPES -b hwpoison -x -N; }
+	all_unpoison() { page-types -b hwpoison -x -N; }
 else
 	all_unpoison() { true; }
 fi

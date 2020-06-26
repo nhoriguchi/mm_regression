@@ -15,7 +15,7 @@ simple_case() {
 	soft_offline $[$[$base + 0x300] * 4096]
 	soft_offline $[$[$base + 0x100] * 4096]
 	echo "unpoison all ..."
-	$PAGETYPES -b hwpoison -x -Nl
+	page-types -b hwpoison -x -Nl
 }
 
 iteration1() {
@@ -24,20 +24,20 @@ iteration1() {
 		soft_offline $[$[$base + $[RANDOM % 0x400]] * 4096]
 	done
 	echo "unpoison all ..."
-	$PAGETYPES -b hwpoison -x -Nl
+	page-types -b hwpoison -x -Nl
 }
 
 iteration2() {
 	local base=0x$(tail -n1 $TMPD/ppp | cut -f1)
 	for i in $(seq 100) ; do
 		soft_offline $[$[$base + $[RANDOM % 0x400]] * 4096]
-		$PAGETYPES -b hwpoison -x -Nl
+		page-types -b hwpoison -x -Nl
 	done
 }
 
 _control() {
-	echo "$PAGETYPES -b buddy -Nl | grep -P \"^10000\t\""
-	$PAGETYPES -b buddy -Nl | grep -P ^10000 | tee $TMPD/ppp
+	echo "page-types -b buddy -Nl | grep -P \"^10000\t\""
+	page-types -b buddy -Nl | grep -P ^10000 | tee $TMPD/ppp
 
 	if [ ! -s $TMPD/ppp ] ; then
 		echo 'injection point not found'

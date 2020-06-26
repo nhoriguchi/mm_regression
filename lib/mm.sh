@@ -1,10 +1,3 @@
-PAGETYPES=/usr/local/bin/page-types
-if [ ! -x "${PAGETYPES}" ] || [ ! -s "${PAGETYPES}" ] ; then
-	install $TCDIR/lib/page-types $PAGETYPES
-fi
-
-[ ! -x "${PAGETYPES}" ] && echo "Failed to build/install ${PAGETYPES}." >&2 && exit 1
-
 . $TRDIR/lib/numa.sh
 . $TRDIR/lib/mce.sh
 . $TRDIR/lib/hugetlb.sh
@@ -230,7 +223,7 @@ get_pagetypes() {
 	local pid=$1
 	local file=$2
 	shift 2
-	$PAGETYPES -p $pid $@ | grep -v offset > $TMPD/.$file
+	page-types -p $pid $@ | grep -v offset > $TMPD/.$file
 
 	# separate mapping list part and statistics part.
 	gawk '
@@ -258,7 +251,7 @@ get_pagemap() {
 	local pid=$1
 	local file=$2
 	shift 2
-	$PAGETYPES -p $pid $@ | grep -v offset | cut -f1,2 > $TMPD/$file
+	page-types -p $pid $@ | grep -v offset | cut -f1,2 > $TMPD/$file
 	local nr_lines=$(cat $TMPD/$file | wc -l)
 	if [ "$nr_lines" -gt 12 ] ; then
 		sed -ne 1,10p $TMPD/$file

@@ -40,7 +40,7 @@ get_hpa() {
 	local flagtype="$1"
 
 	get_gpa_guest_memeater "$flagtype" || return 1
-	echo_log -n "HPA status: " ; $PAGETYPES -a $TARGETHPA -Nlr | grep -v offset
+	echo_log -n "HPA status: " ; page-types -a $TARGETHPA -Nlr | grep -v offset
 	echo_log -n "GPA status: " ; ssh $vmip $GUESTPAGETYPES -a $TARGETGPA -Nlr | grep -v offset
 }
 
@@ -199,7 +199,7 @@ check_mce_kvm_soft_offline() {
 
 control_mce_kvm_inject_mce_on_qemu_page() {
 	local pid=$(cat /var/run/libvirt/qemu/$VM.pid)
-	$PAGETYPES -p $pid -Nrl -b lru | grep -v offset > $TMPD/pagetypes.1
+	page-types -p $pid -Nrl -b lru | grep -v offset > $TMPD/pagetypes.1
 
 	local target=$(tail -n1 $TMPD/pagetypes.1 | cut -f2)
 	if [ "$target" ] ; then

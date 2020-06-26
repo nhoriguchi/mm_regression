@@ -18,7 +18,7 @@ do_migratepages() {
 	fi
 }
 
-do_memory_hotremove() { bash memory_hotremove.sh ${PAGETYPES} $1; }
+do_memory_hotremove() { bash memory_hotremove.sh page-types $1; }
 
 reonline_memblocks() {
 	local block=""

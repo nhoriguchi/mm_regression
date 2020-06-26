@@ -23,9 +23,9 @@ _control() {
 		local pid=$!
 		echo "$pid"
 		sleep 0.3
-		$PAGETYPES -b thp -r | grep total
+		page-types -b thp -r | grep total
 		echo 1 > /sys/kernel/debug/split_huge_pages
-		$PAGETYPES -b thp -r | grep total
+		page-types -b thp -r | grep total
 	done
     set_return_code EXIT
 }

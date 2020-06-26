@@ -18,7 +18,7 @@ _control() {
     local backpid=$!
 
     for i in $(seq $POISON_ITERATION) ; do
-        $PAGETYPES -r -b $TARGET_PAGEFLAG -Nl | grep -v offset | cut -f1 | while read line ; do
+        page-types -r -b $TARGET_PAGEFLAG -Nl | grep -v offset | cut -f1 | while read line ; do
             $MCEINJECT -e $ERROR_TYPE -a 0x$line > /dev/null
         done
     done

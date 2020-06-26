@@ -23,7 +23,7 @@ BACKEND=thp
 EXPECTED_RETURN_CODE="EXIT"
 
 read_procpid() {
-	$PAGETYPES -p $pid -Nlr -a 0x700000000+0x10000000 > /dev/null
+	page-types -p $pid -Nlr -a 0x700000000+0x10000000 > /dev/null
 	cat /proc/$pid/numa_maps > /dev/null
 	cat /proc/$pid/maps > /dev/null
 	cat /proc/$pid/smaps > /dev/null

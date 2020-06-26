@@ -45,7 +45,7 @@ random_soft_offline() {
 	echo "random_soft_offline thread running ..."
 
 	while true ; do
-		local heads="$($PAGETYPES -r -b buddy -Nlr | grep -v offset | cut -f1 | head -n100)"
+		local heads="$(page-types -r -b buddy -Nlr | grep -v offset | cut -f1 | head -n100)"
 		for head in $heads ; do
 			echo 0x${head}000 > /sys/devices/system/memory/soft_offline_page 2> /dev/null
 		done

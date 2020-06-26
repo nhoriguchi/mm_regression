@@ -74,7 +74,7 @@ _prepare() {
 	dd if=/dev/zero of=$SHMEM_DIR/testfile bs=2M count=$TARGET_SIZE
 	ls -l $SHMEM_DIR/
 	cat $SHMEM_DIR/testfile > /dev/null
-	$PAGETYPES -f $SHMEM_DIR/testfile -Nlr | head
+	page-types -f $SHMEM_DIR/testfile -Nlr | head
 }
 
 _check() {

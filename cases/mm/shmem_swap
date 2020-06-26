@@ -95,7 +95,7 @@ _control() {
 			__get_smaps_shmem | tee -a $OFILE > $TMPD/smaps_shmem.1
 			__get_smaps_anon | tee -a $OFILE > $TMPD/smaps_anon.1
 			grep ^Swap: /proc/$pid/smaps > $TMPD/smaps_swap.1
-            $PAGETYPES -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.1
+            page-types -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.1
 			cat /proc/$pid/status > $TMPD/proc_status.1
             kill -SIGUSR1 $pid
             ;;
@@ -103,7 +103,7 @@ _control() {
 			__get_smaps_shmem | tee -a $OFILE > $TMPD/smaps_shmem.2
 			__get_smaps_anon | tee -a $OFILE > $TMPD/smaps_anon.2
 			grep ^Swap: /proc/$pid/smaps > $TMPD/smaps_swap.2
-            $PAGETYPES -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.2
+            page-types -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.2
 			cat /proc/$pid/status > $TMPD/proc_status.2
             kill -SIGUSR1 $pid
 			;;

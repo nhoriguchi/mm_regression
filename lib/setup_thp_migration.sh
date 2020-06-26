@@ -34,7 +34,7 @@ _control() {
 
 			if [ "$SHMEM_DIR" ] ; then
 				# '-f' provides some file metadata, so need to filter with '___'
-				$PAGETYPES -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.3
+				page-types -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.3
 			fi
 
 			if [ "$SHMEM_DIR" ] ; then
@@ -51,7 +51,7 @@ _control() {
 			get_mm_stats 2 $pid $(pgrep -P $pid) > /dev/null
 
 			if [ "$SHMEM_DIR" ] ; then
-				$PAGETYPES -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.2
+				page-types -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.2
 			fi
 
             kill -SIGUSR1 $pid

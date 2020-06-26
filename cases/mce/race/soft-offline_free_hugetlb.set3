@@ -51,7 +51,7 @@ random_soft_offline() {
 		show_hugetlb_pool
 
 		# grep HugePages_ /proc/meminfo
-		local heads="$($PAGETYPES -r -b huge,compound_head=huge,compound_head -Nlr | grep -v offset | cut -f1 | head -n $[HUGETLB/4])"
+		local heads="$(page-types -r -b huge,compound_head=huge,compound_head -Nlr | grep -v offset | cut -f1 | head -n $[HUGETLB/4])"
 		for head in $heads ; do
 			# echo_log "0x${head}000 > /sys/devices/system/memory/soft_offline_page"
 			echo 0x${head}000 > /sys/devices/system/memory/soft_offline_page # 2> /dev/null

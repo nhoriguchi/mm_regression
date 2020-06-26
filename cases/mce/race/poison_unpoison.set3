@@ -97,11 +97,11 @@ _control() {
 	sleep 2
 	case "$BACKEND" in
 		buddy|hugetlb_free)
-			$PAGETYPES -Nrl -b "$TARGET_PAGEFLAGS" | grep -v offset | \
+			page-types -Nrl -b "$TARGET_PAGEFLAGS" | grep -v offset | \
 				cut -f1 | sed -e 's/^/0x/' > $TMPD/target_pfns
 			;;
 		*)
-			$PAGETYPES -Nrl -b "$TARGET_PAGEFLAGS" -p $pid -a 0x700000000+0x10000000 \
+			page-types -Nrl -b "$TARGET_PAGEFLAGS" -p $pid -a 0x700000000+0x10000000 \
 				| grep -v offset | cut -f2 | sed -e 's/^/0x/' > $TMPD/target_pfns
 			;;
 	esac

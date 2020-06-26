@@ -18,7 +18,7 @@ control_vma_vm_pfnmap() {
 	echo_log "$line --"
 	case "$line" in
 		"after_access")
-			$PAGETYPES -p $pid -Nrl -a 0x700000000+0x100
+			page-types -p $pid -Nrl -a 0x700000000+0x100
 			read_pagemap $pid 0x700000000 1 > $TMPD/case1
 			read_pagemap $pid 0x700000001 1 > $TMPD/case2
 			read_pagemap $pid 0x700000002 1 > $TMPD/case3
@@ -137,7 +137,7 @@ _check() { check_vma_vm_pfnmap; }
 <% elsif param["flavor"] == "process" %>
 _control() {
 	echo_log "Walk through processes with vma(VM_PFNMAP) and check pagemap/maps/smaps/numa_maps" | tee -a $OFILE
-	TMPD=$TMPD PAGETYPES=$PAGETYPES bash $TRDIR/find_vma_vm_pfnmap.sh
+	TMPD=$TMPD PAGETYPES=page-types bash $TRDIR/find_vma_vm_pfnmap.sh
 	echo_log "done"
 	set_return_code EXIT
 }

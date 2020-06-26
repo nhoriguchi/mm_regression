@@ -5,9 +5,9 @@ PMEMDIR=/mnt/pmem
 
 _prepare() {
 	ndctl destroy-namespace namespace0.0 --force
-	$PAGETYPES
+	page-types
 	ndctl create-namespace -f -e namespace0.0 -m sector || return 1
-	$PAGETYPES
+	page-types
 
 	ls -ltra /dev | grep pmem
 

@@ -163,9 +163,9 @@ control_mce_test() {
 do_multi_inject() {
 	local pid=$1
 	echo_log "multi injection for target page $TARGET_PAGEFLAG"
-	echo "$PAGETYPES -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN,"
-	local target=$($PAGETYPES -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN, | grep -v X | grep -v offset | head -n1 | cut -f2)
-	$PAGETYPES -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN, | grep -v X | head -n10
+	echo "page-types -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN,"
+	local target=$(page-types -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN, | grep -v X | grep -v offset | head -n1 | cut -f2)
+	page-types -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN, | grep -v X | head -n10
 	if [ ! "$target" ] ; then
 		echo "No page with $TARGET_PAGEFLAG found"
         set_return_code TARGET_NOT_FOUND

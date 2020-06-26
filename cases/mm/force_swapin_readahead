@@ -61,7 +61,7 @@ _control() {
         "after_access")
 			get_mm_stats 1 $pid
             cgset -r memory.limit_in_bytes=0x8000000 test1 || set_return_code CGSET_FAIL
-			$PAGETYPES -p $pid -r -a 0x700000000+0x10000000
+			page-types -p $pid -r -a 0x700000000+0x10000000
             kill -SIGUSR1 $pid
             ;;
         "before_munmap")

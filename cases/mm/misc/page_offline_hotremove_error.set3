@@ -36,8 +36,8 @@ find_buddy_memory_block() {
 	# TODO: give max memblock automatically
 	for i in $(seq 0 37) ; do
 		# echo $i >&2
-		# echo "$PAGETYPES -a $[0x8000 * $i]+0x8000 -b buddy | grep 32768" >&2
-		$PAGETYPES -a $[0x8000 * $i]+0x8000 -b buddy | grep buddy | grep 32768 > $TMPD/xfyyz
+		# echo "page-types -a $[0x8000 * $i]+0x8000 -b buddy | grep 32768" >&2
+		page-types -a $[0x8000 * $i]+0x8000 -b buddy | grep buddy | grep 32768 > $TMPD/xfyyz
 		echo $[0x8000 * $i] > $TMPD/xfyyz.target_pfn
 		if grep -q 32768 $TMPD/xfyyz ; then
 			echo $i
@@ -59,8 +59,8 @@ find_block() {
 
 	for i in $(seq 0 $(get_max_memblk_num)) ; do
 		# echo $i >&2
-		# echo "$PAGETYPES -a $[0x8000 * $i]+0x8000 -b $flags" >&2
-		$PAGETYPES -a $[0x8000 * $i]+0x8000 -r -b $flags | grep total | awk '{print $2}' > $TMPD/xfyyz
+		# echo "page-types -a $[0x8000 * $i]+0x8000 -b $flags" >&2
+		page-types -a $[0x8000 * $i]+0x8000 -r -b $flags | grep total | awk '{print $2}' > $TMPD/xfyyz
 		if [ "$(cat $TMPD/xfyyz)" -gt "$max" ] ; then
 			max=$(cat $TMPD/xfyyz)
 			blknum=$i
@@ -71,7 +71,7 @@ find_block() {
 		echo NotFound
 	else
 		echo $blknum
-		$PAGETYPES -a $[0x8000 * $blknum]+0x8000 -r -b $flags -Nl | grep -v offset | head -n1 | awk '{print $1}' | sed 's/^/0x/' > $TMPD/xfyyz.target_pfn
+		page-types -a $[0x8000 * $blknum]+0x8000 -r -b $flags -Nl | grep -v offset | head -n1 | awk '{print $1}' | sed 's/^/0x/' > $TMPD/xfyyz.target_pfn
 	fi
 }
 
@@ -123,7 +123,7 @@ _control() {
 		set_return_code PAGE_OFFLINE_FAILED
 		return 1
 	fi
-	$PAGETYPES -r -a $[0x8000 * $target_memblk]+0x8000 
+	page-types -r -a $[0x8000 * $target_memblk]+0x8000
 	echo "-------- memory offlining"
 	echo_log "echo offline > /sys/devices/system/memory/memory$target_memblk/state"
 	echo offline > /sys/devices/system/memory/memory$target_memblk/state
@@ -133,7 +133,7 @@ _control() {
 		set_return_code MEMORY_OFFLINE_FAILED
 	fi
 	echo "--------"
-	$PAGETYPES -r -a $[0x8000 * $target_memblk]+0x8000 
+	page-types -r -a $[0x8000 * $target_memblk]+0x8000
 	echo online > /sys/devices/system/memory/memory$target_memblk/state
 	if [ $? -ne 0 ] ; then
 		set_return_code REONLINE_FAILED
@@ -141,7 +141,7 @@ _control() {
 		set_return_code REONLINE_FAILED
 	fi
 	echo "-------- memory re-onlining"
-	$PAGETYPES -r -a $[0x8000 * $target_memblk]+0x8000 
+	page-types -r -a $[0x8000 * $target_memblk]+0x8000
 
 	set_return_code EXIT
 }
