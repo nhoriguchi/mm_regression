@@ -5,14 +5,17 @@ CFLAGS=-g # -Wall -Wextra
 
 SRC = $(shell find . -maxdepth 1 -type f -name "*.c")
 DST = $(patsubst %.c,%,$(SRC))
+DST2 = $(patsubst %.c,../build/%,$(SRC))
+
+install: build $(DST2)
+
+../build/%: %
+	install $< $@
 
 build: $(DST)
 
-all: $(DST)
-
 %: %.c
 	C_INCLUDE_PATH=.. $(CC) $(CFLAGS) -o $@ $< $(OPT) $(LIBOPT)
-	install $@ ../build
 
 clean:
-	rm $(DST)
+	rm $(DST) $(DST2)

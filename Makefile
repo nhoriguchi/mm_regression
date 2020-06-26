@@ -1,7 +1,13 @@
 TESTCASE_FILTER=
 
+install:
+	@make --no-print-directory -C lib install
+
 build:
 	@make --no-print-directory -C lib build
+
+clean:
+	@make --no-print-directory -C lib clean
 
 all: get_test_core build
 
