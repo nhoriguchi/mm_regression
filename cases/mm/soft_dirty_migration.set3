@@ -11,6 +11,10 @@
 
 # NEED: khugepaged focused setting
 
+<% if param["backend"] =~ /hugetlb/ %>
+PRIORITY=20
+<% end %>
+
 . $TRDIR/lib/setup_mmgeneric.sh
 . $TRDIR/lib/setup_page_migration.sh
 
