@@ -3,9 +3,9 @@
 export TSTAMP=`date +%y%m%d_%H%M%S`
 
 [ ! "$TESTNAME" ] && TESTNAME=$TSTAMP
-export ODIR=${TRDIR}/results/$TESTNAME
-[ ! -d "$ODIR" ] && mkdir -p $ODIR
-export OFILE=$ODIR/result
+
+export TDIR=${TRDIR}/tmp
+[ ! -d "$TDIR" ] && mkdir -p $TDIR
 
 export WDIR=$TRDIR/work
 [ ! -d "$WDIR" ] && mkdir -p $WDIR
