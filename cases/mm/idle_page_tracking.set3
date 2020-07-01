@@ -28,7 +28,7 @@ _control() {
     local pid="$1"
     local line="$2"
 
-    echo "$line" | tee -a $OFILE
+    echo "$line"
     case "$line" in
 		"after_start")
 			kill -SIGUSR1 $pid

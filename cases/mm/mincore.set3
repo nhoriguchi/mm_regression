@@ -69,14 +69,12 @@ check_mincore_map() {
 	local pattern="$2"
 
 	count_testcount
-	local fff=$TMPD/mincore
-	fff=$OFILE
-	grep "^$tag" $fff | grep "$pattern" > /dev/null
+	grep "^$tag" $TMPD/mincore | grep "$pattern" > /dev/null
 	if [ $? -eq 0 ] ; then
 		count_success "correct mincore map in ${tag}."
 		return 0
 	else
-		count_failure "got incorrect mincore map in ${tag} $(grep "${tag}" $fff | cut -f2 -d:)"
+		count_failure "got incorrect mincore map in ${tag} $(grep "${tag}" $TMPD/mincore | cut -f2 -d:)"
 		return 1
 	fi
 }

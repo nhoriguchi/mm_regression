@@ -136,7 +136,7 @@ _control() { control_vma_vm_pfnmap "$1" "$2"; }
 _check() { check_vma_vm_pfnmap; }
 <% elsif param["flavor"] == "process" %>
 _control() {
-	echo_log "Walk through processes with vma(VM_PFNMAP) and check pagemap/maps/smaps/numa_maps" | tee -a $OFILE
+	echo_log "Walk through processes with vma(VM_PFNMAP) and check pagemap/maps/smaps/numa_maps"
 	TMPD=$TMPD PAGETYPES=page-types bash $TRDIR/find_vma_vm_pfnmap.sh
 	echo_log "done"
 	set_return_code EXIT

@@ -354,7 +354,7 @@ control_hugepage_migration() {
 					page-types -p $pid -r -b anon | grep total
 					grep -A15 ^70000 /proc/$pid/smaps | grep -i anon
 					grep RssAnon /proc/$pid/status
-					page-types -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee -a $OFILE | tee $TMPD/pagetypes2
+					page-types -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee $TMPD/pagetypes2
 				fi
 
 				page-types -p $pid -a 0x700000000+0x10000000 -NrL | grep -v offset | cut -f1,2 > $TMPD/.mig2

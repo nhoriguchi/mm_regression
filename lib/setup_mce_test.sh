@@ -100,7 +100,6 @@ control_mce_test() {
 			"waiting for injection from outside")
 
 				[ ! "$ERROR_OFFSET" ] && ERROR_OFFSET=0
-				# cat /proc/$pid/numa_maps | tee -a ${OFILE}
 				echo_log "$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]"
 				$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]
 				if check_process_status $pid ; then
