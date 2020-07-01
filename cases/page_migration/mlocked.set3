@@ -20,9 +20,13 @@ PIPETIMEOUT=20
 
 <% if param["backend"] =~ /thp/ %>
 THP=true
+  <% if param["migtype"] == "madv_soft" %>
+EXPECTED_RETURN_CODE="MIGRATION_PASSED HUGEPAGE_MIGRATED THP_SPLIT EXIT"
+  <% else %>
 EXPECTED_RETURN_CODE="MIGRATION_PASSED HUGEPAGE_MIGRATED THP_NOT_SPLIT EXIT"
+  <% end %>
 <% elsif param["backend"] =~ /anonymous/ %>
-EXPECTED_RETURN_CODE="MIGRATION_PASSED EXIT"
+EXPECTED_RETURN_CODE="MIGRATION_PASSED HUGEPAGE_NOT_EXIST EXIT"
 <% end %>
 
 TEST_PROGRAM="test_alloc_generic -B $BACKEND -N 10 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 mlock access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
