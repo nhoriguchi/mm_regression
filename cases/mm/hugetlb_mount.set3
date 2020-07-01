@@ -1,0 +1,83 @@
+#! {"mount_option" => "min_size"}
+#! {"mount_option" => "min_max_size"}
+
+. $TRDIR/lib/setup_mmgeneric.sh
+
+HUGETLB=100
+
+<% if param["mount_option"] == "min_size" %>
+EXPECTED_RETURN_CODE="RESERVED RESV_CONSUMED RESV_USEDUP RESV_REVERTED EXIT"
+MOUNT_OPTION="min_size=10M"
+<% elsif param["mount_option"] == "min_max_size" %>
+EXPECTED_RETURN_CODE="RESERVED RESV_CONSUMED RESV_NOT_USEDUP RESV_REVERTED EXIT"
+MOUNT_OPTION="min_size=10M,size=20M"
+<% end %>
+
+_control() {
+	local tmp_hugetlb_mount=$(mktemp -d)
+	show_hugetlb_pool
+
+	local mountcmd="mount -t hugetlbfs -o $MOUNT_OPTION none $tmp_hugetlb_mount"
+	echo $mountcmd
+	$mountcmd
+	if [ $? -ne 0 ] ; then
+		echo "mount failed"
+		set_return_code MOUNT_FAILED
+		return
+	fi
+	show_hugetlb_pool
+	if [ "$(get_hugepage_reserved)" -eq 5 ] ; then
+		set_return_code RESERVED
+	else
+		set_return_code NOT_RESERVED
+		return
+	fi
+
+	test_alloc_generic -B hugetlb_file -N 2 -w $tmp_hugetlb_mount -f base1 -L "mmap access:wait_after" &
+	local pid=$!
+	sleep 0.1
+	show_hugetlb_pool
+	if [ "$(get_hugepage_reserved)" -eq 3 ] ; then
+		echo "allocated 2 hugepages"
+		set_return_code RESV_CONSUMED
+	else
+		set_return_code RESV_NOT_CONSUMED
+		return
+	fi
+
+	test_alloc_generic -B hugetlb_file -N 10 -w $tmp_hugetlb_mount -f base2 -L "mmap access:wait_after" &
+	pid="$pid $!"
+	sleep 0.1
+	show_hugetlb_pool
+	if [ "$(get_hugepage_reserved)" -eq 0 ] ; then
+		echo "allocated another 10 hugepages"
+		set_return_code RESV_USEDUP
+	else
+		echo "failed to allocate another 10 hugepages"
+		set_return_code RESV_NOT_USEDUP
+	fi
+
+	kill -9 $pid
+	find $tmp_hugetlb_mount/hugetlbfs -type f | xargs rm -f
+	show_hugetlb_pool
+	if [ "$(get_hugepage_reserved)" -eq 5 ] ; then
+		set_return_code RESV_REVERTED
+	fi
+
+	set_return_code EXIT
+}
+
+_cleanup() {
+	mount | grep hugetlbfs | grep min_size | awk '{print $3}' | while read line ; do
+		echo umount -f $line
+		umount -f $line
+		if [ "$?" -ne 0 ] ; then
+			echo "Failed to unmount hugetlbfs $line" >&2
+		fi
+	done
+	cleanup_mmgeneric
+}
+
+_check() {
+	true
+}

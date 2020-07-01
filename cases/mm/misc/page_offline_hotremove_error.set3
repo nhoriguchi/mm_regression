@@ -1,0 +1,147 @@
+#! {"offline" => "soft", "memtype" => "buddy"}
+#! {"offline" => "soft", "memtype" => "mlocked_anon"}
+#! {"offline" => "soft", "memtype" => "anonymous"}
+#! {"offline" => "hard", "memtype" => "buddy"}
+#! {"offline" => "hard", "memtype" => "mlocked_anon"}
+#! {"offline" => "hard", "memtype" => "anonymous"}
+#! {"offline" => "mce-srao", "memtype" => "buddy"}
+#! {"offline" => "mce-srao", "memtype" => "mlocked_anon"}
+#! {"offline" => "mce-srao", "memtype" => "anonymous"}
+
+PRIORITY=16
+TEST_TYPE=devel
+
+. $TRDIR/lib/mm.sh
+. $TRDIR/lib/mce.sh
+
+EXPECTED_RETURN_CODE="EXIT"
+
+page_offline() {
+	local pfn=$1
+	local addr=$[$1 * 4096]
+
+	<% if param["offline"] == "soft" %>
+	printf "echo %lx > /sys/devices/system/memory/soft_offline_page\n" $addr
+	echo $addr > /sys/devices/system/memory/soft_offline_page
+	<% elsif param["offline"] == "hard" %>
+	printf "echo %lx > /sys/devices/system/memory/hard_offline_page\n" $addr
+	echo $addr > /sys/devices/system/memory/hard_offline_page
+	<% elsif param["offline"] == "mce-srao" %>
+	echo "$MCEINJECT -e mce-srao -a $pfn"
+	$MCEINJECT -e mce-srao -a $pfn
+	<% end %>
+}
+
+find_buddy_memory_block() {
+	# TODO: give max memblock automatically
+	for i in $(seq 0 37) ; do
+		# echo $i >&2
+		# echo "page-types -a $[0x8000 * $i]+0x8000 -b buddy | grep 32768" >&2
+		page-types -a $[0x8000 * $i]+0x8000 -b buddy | grep buddy | grep 32768 > $TMPD/xfyyz
+		echo $[0x8000 * $i] > $TMPD/xfyyz.target_pfn
+		if grep -q 32768 $TMPD/xfyyz ; then
+			echo $i
+			return 0
+		fi
+	done
+	echo NotFound
+	return 1
+}
+
+get_max_memblk_num() {
+	ls -1 /sys/devices/system/memory/ | grep memory | cut -c7- | sort -k1n | tail -1
+}
+
+find_block() {
+	local blknum=0
+	local max=0
+	local flags=$1
+
+	for i in $(seq 0 $(get_max_memblk_num)) ; do
+		# echo $i >&2
+		# echo "page-types -a $[0x8000 * $i]+0x8000 -b $flags" >&2
+		page-types -a $[0x8000 * $i]+0x8000 -r -b $flags | grep total | awk '{print $2}' > $TMPD/xfyyz
+		if [ "$(cat $TMPD/xfyyz)" -gt "$max" ] ; then
+			max=$(cat $TMPD/xfyyz)
+			blknum=$i
+		fi
+	done
+
+	if [ "$max" -eq 0 ] ; then
+		echo NotFound
+	else
+		echo $blknum
+		page-types -a $[0x8000 * $blknum]+0x8000 -r -b $flags -Nl | grep -v offset | head -n1 | awk '{print $1}' | sed 's/^/0x/' > $TMPD/xfyyz.target_pfn
+	fi
+}
+
+_prepare() {
+	save_nr_corrupted_before
+}
+
+_cleanup() {
+	save_nr_corrupted_unpoison
+	all_unpoison
+}
+
+_check() {
+	check_nr_hwcorrupted
+}
+
+get_target_memblk() {
+	local tmp=
+	<% if param["memtype"] == "buddy" %>
+	tmp="$(find_buddy_memory_block)"
+	<% elsif param["memtype"] == "anonymous" %>
+	test_alloc_generic -B anonymous -N 128 -L 'mmap access:wait_after' > /dev/null &
+	sleep 0.2
+	local tmp="$(find_block anonymous)"
+	<% elsif param["memtype"] == "mlocked_anon" %>
+	test_alloc_generic -B anonymous -N 128 -L 'mmap access mlock:wait_after' > /dev/null &
+	sleep 0.2
+	local tmp="$(find_block mblocked)"
+	<% end %>
+	echo $tmp
+}
+
+_control() {
+	echo 1 > /proc/sys/vm/panic_on_oom
+	echo 1 > /proc/sys/vm/panic_on_oom
+	echo 1 > /proc/sys/kernel/panic_on_warn
+
+	local target_memblk=$(get_target_memblk)
+	if [ "$target_memblk" == NotFound ] ; then
+		set_return_code TARGET_MEMBLOCK_NOTFOUND
+		return 1
+	fi
+
+	echo "-------- page offline buddy from memory block $target_memblk"
+	grep HardwareCorrupted /proc/meminfo | awk '{print $2}' > $TMPD/.corrupt1
+	page_offline $(cat $TMPD/xfyyz.target_pfn)
+	grep HardwareCorrupted /proc/meminfo | awk '{print $2}' > $TMPD/.corrupt2
+	if [ "$(cat $TMPD/.corrupt1)" -eq "$(cat $TMPD/.corrupt2)" ] ; then
+		set_return_code PAGE_OFFLINE_FAILED
+		return 1
+	fi
+	page-types -r -a $[0x8000 * $target_memblk]+0x8000
+	echo "-------- memory offlining"
+	echo_log "echo offline > /sys/devices/system/memory/memory$target_memblk/state"
+	echo offline > /sys/devices/system/memory/memory$target_memblk/state
+	if [ $? -ne 0 ] ; then
+		set_return_code MEMORY_OFFLINE_FAILED
+	elif [ "$(cat /sys/devices/system/memory/memory$target_memblk/state)" != "offline" ] ; then
+		set_return_code MEMORY_OFFLINE_FAILED
+	fi
+	echo "--------"
+	page-types -r -a $[0x8000 * $target_memblk]+0x8000
+	echo online > /sys/devices/system/memory/memory$target_memblk/state
+	if [ $? -ne 0 ] ; then
+		set_return_code REONLINE_FAILED
+	elif [ "$(cat /sys/devices/system/memory/memory$target_memblk/state)" != "online" ] ; then
+		set_return_code REONLINE_FAILED
+	fi
+	echo "-------- memory re-onlining"
+	page-types -r -a $[0x8000 * $target_memblk]+0x8000
+
+	set_return_code EXIT
+}

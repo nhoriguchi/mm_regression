@@ -1,0 +1,49 @@
+#! {"thp" => "base"}
+#! {"thp" => "shared_thp"}
+#! {"thp" => "double_mapping"}
+#! {"thp" => "pmd_split"}
+#! {"thp" => "thp_split"}
+
+MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
+FORK=
+SPLIT_THP=
+HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+ACTION=hotremove:busyloop:pageflags=$(get_backend_pageflags thp_shmem)
+ACTION=hotremove:pageflags=$(get_backend_pageflags thp_shmem)
+
+PIPETIMEOUT=60
+
+HUGEPAGESIZE=2048
+THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
+THP_ALLOCATED=$[THP*4/5]
+
+<% if param["thp"] == "shared_thp" %>
+FORK=fork:wait_after
+<% elsif param["thp"] == "double_mapping" %>
+FORK=fork:wait_after
+SPLIT_THP="split_thp:only_pmd access"
+<% elsif param["thp"] == "pmd_split" %>
+SPLIT_THP="split_thp:only_pmd access"
+<% elsif param["thp"] == "thp_split" %>
+SPLIT_THP="split_thp access"
+HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
+ACTION=hotremove:busyloop:pageflags=$(get_backend_pageflags thp_shmem_split)
+<% end %>
+
+# TODO: low-priority known issue
+
+<% if param["op"] == "hwpoison" %>
+SKIP_THIS_TEST=true
+<% end %>
+
+_prepare() {
+	prepare_mmgeneric || return 1
+	numactl --membind=0 dd if=/dev/zero of=$TDIR/shmem/testfile bs=2M count=$NR_THP
+}
+
+_cleanup() {
+	cleanup_mmgeneric || return 1
+}
+
+TEST_PROGRAM="test_alloc_generic -B pagecache -N $THP_ALLOCATED -w $SHMEM_DIR -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+EXPECTED_RETURN_CODE="MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"

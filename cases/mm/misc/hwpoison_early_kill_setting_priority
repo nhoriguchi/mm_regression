@@ -1,0 +1,78 @@
+_cleanup() {
+	sysctl vm.memory_failure_early_kill=0
+	pkill -9 -f test_alloc_generic
+}
+
+check_killed_early() {
+	local pid=$1
+
+	if [ "$pid" ] ; then
+		echo "process $pid still exists"
+		set_return_code NOSIGBUS
+	else
+		echo "process $pid is killed"
+		set_return_code SIGBUS
+	fi
+	kill -9 $pid > /dev/null 2>&1
+}
+
+EXPECTED_RETURN_CODE="NOSIGBUS SIGBUS NOSIGBUS SIGBUS SIGBUS NOSIGBUS EXIT"
+
+_control() {
+	local pid
+
+	sysctl vm.memory_failure_early_kill=0
+
+	sysctl vm.memory_failure_early_kill
+	echo "prctl() with PR_MCE_KILL_DEFAULT"
+	test_alloc_generic -B anonymous -N 1 -L "mmap access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 1
+	check_killed_early $(pgrep -f test_alloc_generic)
+
+	echo "prctl() with PR_MCE_KILL_EARLY"
+	test_alloc_generic -B anonymous -N 1 -L "mmap prctl:early_kill access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 1
+	check_killed_early $(pgrep -f test_alloc_generic)
+
+	echo "prctl() with PR_MCE_KILL_LATE"
+	test_alloc_generic -B anonymous -N 1 -L "mmap prctl:late_kill access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 1
+	check_killed_early $(pgrep -f test_alloc_generic)
+
+	sysctl vm.memory_failure_early_kill=1
+
+	echo "prctl() with PR_MCE_KILL_DEFAULT"
+	test_alloc_generic -B anonymous -N 1 -L "mmap access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 1
+	check_killed_early $(pgrep -f test_alloc_generic)
+
+	echo "prctl() with PR_MCE_KILL_EARLY"
+	test_alloc_generic -B anonymous -N 1 -L "mmap prctl:early_kill access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 1
+	check_killed_early $(pgrep -f test_alloc_generic)
+
+	echo "prctl() with PR_MCE_KILL_LATE"
+	test_alloc_generic -B anonymous -N 1 -L "mmap prctl:late_kill access:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -N -a 0x700000000 -X
+	sleep 1
+	check_killed_early $(pgrep -f test_alloc_generic)
+
+	set_return_code EXIT
+}

@@ -1,0 +1,36 @@
+# maybe this testcase will be enabled after 5.9
+
+. $TRDIR/lib/setup_page_migration.sh
+
+NUMA_NODE=2
+EXPECTED_RETURN_CODE="NO_SIGBUS_KILL"
+SOFT_RETRY=3
+
+_prepare() {
+	true
+}
+
+_cleanup() {
+	if [ -s "$TMPD/dmesg_diff" ] && grep -q "MCE: Killing .* due to hardware memory corruption fault at .*" $TMPD/dmesg_diff ; then
+		set_return_code SIGBUS_KILL
+	else
+		set_return_code NO_SIGBUS_KILL
+	fi
+}
+
+_control() {
+	test_alloc_generic -B anonymous -N 32 -L 'mmap access:wait_after' -p $TMPD/.pipe &
+	local pid=$!
+	read -t${PIPETIMEOUT} line <> ${PIPE}
+	echo "line $line"
+	page-types -p $pid -a 0x700000000 -Nrl
+	page-types -p $pid -a 0x700000000 -Nrl | grep ^70000 | cut -f2 > $TMPD/.addr
+	local targetaddr=0x$(cat $TMPD/.addr)000
+	echo "target physical address: $targetaddr"
+	echo $targetaddr > /sys/devices/system/memory/soft_offline_page
+	if [ $? -ne 0 ] ; then
+		set_return_code SOFT_OFFLINE_FAILED
+		return 1
+	fi
+	echo 1 > /proc/sys/vm/compact_memory
+}

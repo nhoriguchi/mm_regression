@@ -1,0 +1,76 @@
+#! {"backend" => "anonymous", "error" => "mce-srao"}
+#! {"backend" => "anonymous", "error" => "hard-offline"}
+#! {"backend" => "anonymous", "error" => "soft-offline"}
+#! {"backend" => "pagecache", "error" => "mce-srao"}
+#! {"backend" => "pagecache", "error" => "hard-offline"}
+#! {"backend" => "pagecache", "error" => "soft-offline"}
+#! {"backend" => "ksm", "error" => "mce-srao"}
+#! {"backend" => "ksm", "error" => "hard-offline"}
+#! {"backend" => "ksm", "error" => "soft-offline"}
+#! {"backend" => "zero", "error" => "mce-srao"}
+#! {"backend" => "zero", "error" => "hard-offline"}
+#! {"backend" => "zero", "error" => "soft-offline"}
+#! {"backend" => "hugetlb_anon", "error" => "mce-srao"}
+#! {"backend" => "hugetlb_anon", "error" => "hard-offline"}
+#! {"backend" => "hugetlb_anon", "error" => "soft-offline"}
+#! {"backend" => "thp", "error" => "mce-srao"}
+#! {"backend" => "thp", "error" => "hard-offline"}
+#! {"backend" => "thp", "error" => "soft-offline"}
+
+# Not care about head/tail difference for now.
+PRIORITY=13
+
+. $TRDIR/lib/setup_mce_test.sh || exit 1
+
+BACKEND=<%= param["backend"] %>
+ERROR_TYPE=<%= param["error"] %>
+TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
+
+RACE_ITERATIONS=20
+MONARCH_TIMEOUT=20000000
+
+<% if param["backend"] =~ /(ksm|zero)/ %>
+SKIP_THIS_TEST=true
+<% end %>
+
+# TODO: goto common place
+<% if param["backend"] == "thp" %>
+THP=10
+<% elsif param["backend"] =~ /hugetlb/ %>
+HUGETLB=100
+HUGEPAGESIZE=2048 # kB
+<% end %>
+
+EXPECTED_RETURN_CODE="EXIT"
+
+_control() {
+	local pid=
+
+	echo 1 > /sys/kernel/debug/mce/fake_panic
+	echo "5 4 1 5" > /proc/sys/kernel/printk
+	for i in $(seq $RACE_ITERATIONS) ; do
+		test_alloc_generic -B $BACKEND -N 10 -L iterate_mapping &
+		pid=$!
+
+		get_pagetypes $pid pagetypes.1 -b "$TARGET_PAGEFLAGS" -Nrla 0x700000000+0x10000000 > /dev/null
+		<% if param["error"] == "mce-srao" %>
+		cat $TMPD/pagetypes.1 | cut -f2 | head -n1 | while read line ; do
+			sleep 1
+			$MCEINJECT -q -e $ERROR_TYPE -a 0x$line &
+		done
+		<% else %>
+		cat $TMPD/pagetypes.1 | cut -f2 | while read line ; do
+			$MCEINJECT -q -e $ERROR_TYPE -a 0x$line &
+		done
+		<% end %>
+
+		kill_all_subprograms $BASHPID
+	done
+	echo 0 > /sys/kernel/debug/mce/fake_panic
+	echo "7 4 1 7" > /proc/sys/kernel/printk
+	set_return_code EXIT
+}
+
+_check() {
+	check_kernel_message -v "kernel panic"
+}

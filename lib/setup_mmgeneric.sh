@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $TCDIR/lib/mm.sh
+. $TRDIR/lib/mm.sh
 
 prepare_mmgeneric() {
 	prepare_mm_generic || return 1

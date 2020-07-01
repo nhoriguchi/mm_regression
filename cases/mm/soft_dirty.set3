@@ -1,0 +1,79 @@
+#! {"backend" => "anonymous"}
+#! {"backend" => "pagecache"}
+#! {"backend" => "thp"}
+#! {"backend" => "normal_shmem"}
+#! {"backend" => "hugetlb_anon"}
+
+# NEED: khugepaged focused setting
+
+# TODO: unmatured testcase
+PRIORITY=18
+
+. $TRDIR/lib/setup_mmgeneric.sh
+
+BACKEND=<%= param["backend"] %>
+
+<% if param["backend"] == "thp" %>
+THP=true
+<% end %>
+
+<% if param["backend"] =~ /hugetlb/ %>
+HUGETLB=100
+<% end %>
+
+TEST_PROGRAM="test_alloc_generic -B $BACKEND -N 1 -L 'start mmap access:tag=1 access:tag=2:wait_before:wait_after munmap exit:wait_before'"
+EXPECTED_RETURN_CODE="SOFTDIRTY NO_SOFTDIRTY SOFTDIRTY EXIT"
+
+_prepare() {
+	prepare_mm_generic || return 1
+}
+
+_cleanup() {
+	cleanup_mm_generic
+}
+
+check_soft_dirty() {
+	local tag=$1
+	local num=
+
+	num=$(grep softdirty $TMPD/pagetypes.$tag.stat | awk 'BEGIN {s=0} {s+=$2} END {print s}')
+	if [ "$num" -eq 0 ] ; then
+		set_return_code NO_SOFTDIRTY
+	else
+		set_return_code SOFTDIRTY
+	fi
+}
+
+_control() {
+	local pid="$1"
+	local line="$2"
+
+	echo_log "$line"
+	case "$line" in
+		"before_access_2")
+			get_mm_stats 1 $pid
+			check_soft_dirty 1
+			clear_soft_dirty $pid
+			get_mm_stats 2 $pid
+			check_soft_dirty 2
+			kill -SIGUSR1 $pid
+			;;
+		"after_access_2")
+			get_mm_stats 3 $pid
+			check_soft_dirty 3
+			kill -SIGUSR1 $pid
+			;;
+		"before_exit")
+			set_return_code EXIT
+			kill -SIGUSR1 $pid
+			return 0
+			;;
+		*)
+			;;
+	esac
+	return 1
+}
+
+_check() {
+	true
+}

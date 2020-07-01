@@ -1,0 +1,22 @@
+_prepare() {
+    # TODO: need generic way to get debugfs mount point
+    echo 1 > $DEBUGFSDIR/mce/fake_panic
+}
+
+_cleanup() {
+    # TODO: need generic way to get debugfs mount point
+    echo 0 > $DEBUGFSDIR/mce/fake_panic
+}
+
+_check() {
+	count_testcount
+	if grep -q "Fake kernel panic" "$TMPD/dmesg_diff" ; then
+		count_success "fake kernel panic"
+	else
+		count_failure "no fake kernel panic"
+	fi
+}
+
+_control() {
+	test_mce-srar
+}

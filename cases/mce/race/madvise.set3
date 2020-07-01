@@ -1,0 +1,49 @@
+# todo separate recipe for soft hard
+#! {"offline" => "hard"}
+#! {"offline" => "soft"}
+#! {"offline" => "hardsoft"}
+
+. $TRDIR/lib/setup_mce_test.sh
+
+PRIORITY=13
+EXPECTED_RETURN_CODE="EXIT"
+
+HUGETLB=300
+THP=true
+KSM=true
+
+ITERATION=16
+BUFSIZE=8
+BACKENDOPT="-B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -B hugetlb_file -B ksm -B normal_shmem"
+
+OPBASE="start mmap access:check"
+OP_HARD1="$OPBASE madvise:size=4096:advice=hwpoison"
+OP_SOFT1="$OPBASE madvise:size=4096:advice=soft_offline"
+OP_HARD2="$OPBASE madvise:size=4096:advice=hwpoison access"
+OP_SOFT2="$OPBASE madvise:size=4096:advice=soft_offline access"
+
+_control() {
+	local offline=<%= param["offline"] %>
+	echo_log "bufsize: $BUFSIZE, iteration: $ITERATION, op:$offline"
+
+	for i in $(seq $ITERATION) ; do
+		<% if param["offline"] =~ /hard/ %>
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -w tmp -f testfileA$i -L "$OP_HARD1" > /dev/null 2>&1 &
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -w tmp -f testfileB$i -L "$OP_HARD2" > /dev/null 2>&1 &
+		<% end %>
+		<% if param["offline"] =~ /soft/ %>
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -w tmp -f testfileC$i -L "$OP_SOFT1" > /dev/null 2>&1 &
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -w tmp -f testfileD$i -L "$OP_SOFT2" > /dev/null 2>&1 &
+		<% end %>
+	done
+	sleep 3
+
+	# TODO: still fail with remaining surplus
+	kill_all_subprograms $BASHPID
+
+	rm -rf tmp/testfile*
+	all_unpoison
+	cleanup_hugetlb_config
+
+	set_return_code EXIT
+}

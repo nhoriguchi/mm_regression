@@ -1,0 +1,90 @@
+#! {"migtype" => "migratepages", "background" => "reserve", "overcommit" => "overcommit"}
+#! {"migtype" => "migratepages", "background" => "reserve", "overcommit" => "noovercommit"}
+#! {"migtype" => "mbind", "background" => "reserve", "overcommit" => "overcommit"}
+#! {"migtype" => "mbind", "background" => "reserve", "overcommit" => "noovercommit"}
+#! {"migtype" => "move_pages", "background" => "reserve", "overcommit" => "overcommit"}
+#! {"migtype" => "move_pages", "background" => "reserve", "overcommit" => "noovercommit"}
+#! {"migtype" => "madv_soft", "background" => "reserve", "overcommit" => "overcommit"}
+#! {"migtype" => "madv_soft", "background" => "reserve", "overcommit" => "noovercommit"}
+
+# "allocate0 + noovercommit" case is meaningless testcases because test program
+# always fail to allocate hugepage from node 0 and killed by SIGBUS before trying
+# to page migration.
+
+#! {"migtype" => "migratepages", "background" => "allocate0", "overcommit" => "overcommit"}
+#! {"migtype" => "migratepages", "background" => "allocate1", "overcommit" => "overcommit"}
+#! {"migtype" => "mbind", "background" => "allocate0", "overcommit" => "overcommit"}
+#! {"migtype" => "mbind", "background" => "allocate1", "overcommit" => "overcommit"}
+#! {"migtype" => "move_pages", "background" => "allocate0", "overcommit" => "overcommit"}
+#! {"migtype" => "move_pages", "background" => "allocate1", "overcommit" => "overcommit"}
+#! {"migtype" => "madv_soft", "background" => "allocate0", "overcommit" => "overcommit"}
+#! {"migtype" => "madv_soft", "background" => "allocate1", "overcommit" => "overcommit"}
+
+#! {"migtype" => "migratepages", "background" => "allocate1", "overcommit" => "noovercommit"}
+#! {"migtype" => "mbind", "background" => "allocate1", "overcommit" => "noovercommit"}
+#! {"migtype" => "move_pages", "background" => "allocate1", "overcommit" => "noovercommit"}
+#! {"migtype" => "madv_soft", "background" => "allocate1", "overcommit" => "noovercommit"}
+
+. $TRDIR/lib/setup_page_migration.sh
+
+# In older kernel (< 4.15), if the hugepage pool of destination node is fully
+# used, hugepage migraion fails due to ENOMEM. But in newer kernels, hugepage
+# migration succeeds even in such a situation, so let the testcase know that.
+# CONFIG_EXPECTED_BEHAVIOR_HUGEPAGE_MIGRATION=true means that the kernel is
+# supposed to have the newer behavior. Otherwise, the test expects the older
+# behavior.
+CONFIG_HUGEPAGE_MIGRATION_EXPECTED_NEWER_BEHAVIOR=true
+
+BACKEND=hugetlb_anon
+MIGRATE_SRC=<%= param["migtype"] %>
+BACKGROUND=<%= param["background"] %>
+NUMA_NODE=2
+HUGEPAGESIZE=2048 # kB
+
+EXPECTED_RETURN_CODE=""
+
+PIPETIMEOUT=20
+
+HUGETLB=100
+<% if param["overcommit"] == "overcommit" %>
+HUGETLB_OVERCOMMIT=10
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE SET_OVERCOMMIT"
+<% end %>
+
+<% if param["background"] == "reserve" %>
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE RESERVE"
+RESERVE_HUGEPAGE=$[HUGETLB - 2]
+<% elsif param["background"] == "allocate0" %>
+ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
+ALLOCATE_NODE=0
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ALLOCATE"
+<% elsif param["background"] == "allocate1" %>
+# allocate
+ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
+ALLOCATE_NODE=1
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ALLOCATE"
+<% end %>
+
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE"
+
+if [ "$CONFIG_HUGEPAGE_MIGRATION_EXPECTED_NEWER_BEHAVIOR" == true ] ; then
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
+elif [ "$BACKGROUND" == reserve ] ; then
+	<% if param["overcommit"] == "overcommit" %>
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
+	<% else %>
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_FAILED HUGEPAGE_NOT_MIGRATED"
+	<% end %>
+elif [ "$BACKGROUND" == allocate0 ] || [ "$BACKGROUND" == allocate1 ] ; then
+	<% if param["overcommit"] == "overcommit" %>
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
+	<% else %>
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_FAILED HUGEPAGE_NOT_MIGRATED"
+	<% end %>
+else
+	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
+fi
+
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
+
+TEST_PROGRAM="test_alloc_generic -B $BACKEND -N 2 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"

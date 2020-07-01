@@ -1,0 +1,24 @@
+#! {"flavor" => "simple"}
+#! {"flavor" => "fuzz"}
+#! {"flavor" => "fuzz_heavy"}
+. $TRDIR/lib/setup_mbind.sh
+
+FLAVOR=<%= param["flavor"] %>
+
+HUGETLB=200
+MBIND_FUZZ_DURATION=5
+
+<% if param["flavor"] == "simple" %>
+	TEST_PROGRAM="test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -N 8 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after mbind munmap:wait_before exit:wait_before'"
+	EXPECTED_RETURN_CODE="MIGRATION_PASSED EXIT"
+<% elsif param["flavor"] == "fuzz" %>
+	FUZZ_CMD="test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -N 10 -L 'mmap access mbind_fuzz'"
+	MBIND_FUZZ_THREADS=1
+	MBIND_FUZZ_DURATION=10
+	_control() { control_mbind_fuzz; }
+<% elsif param["flavor"] == "fuzz_heavy" %>
+	FUZZ_CMD="test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -B normal_shmem -N 1000 -L 'mmap access mbind_fuzz'"
+	MBIND_FUZZ_THREADS=100
+	MBIND_FUZZ_DURATION=30
+	_control() { control_mbind_fuzz; }
+<% end %>

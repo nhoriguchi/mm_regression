@@ -14,11 +14,11 @@ THP=true
 
 case __STR_BACKEND in
 	buddy|hugetlb_free)
-		EXPECTED_RETURN_CODE="START EXIT"
+		EXPECTED_RETURN_CODE="EXIT"
 		;;
     *)
-		TEST_PROGRAM="lib/test_alloc_generic -B 0xffffffff -N 1 -L 'mmap access'"
-		EXPECTED_RETURN_CODE="START EXIT"
+		TEST_PROGRAM="test_alloc_generic -B 0xffffffff -N 1 -L 'mmap access'"
+		EXPECTED_RETURN_CODE="EXIT"
         ;;
 esac
 

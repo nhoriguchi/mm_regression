@@ -2,14 +2,14 @@
 
 PRIORITY=17 # only devel level
 ERROR_TYPE=hard-offline
-EXPECTED_RETURN_CODE="START EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 POISON_ITERATION=3
 TARGET_PAGEFLAG="thp,compound_head=thp,compound_head"
 THP=512
 
 background_alloc_exit() {
 	while true ; do
-		lib/test_alloc_generic -B thp -N $THP -L "mmap access"
+		test_alloc_generic -B thp -N $THP -L "mmap access"
 	done
 }
 
@@ -18,7 +18,7 @@ _control() {
     local backpid=$!
 
     for i in $(seq $POISON_ITERATION) ; do
-        $PAGETYPES -r -b $TARGET_PAGEFLAG -Nl | grep -v offset | cut -f1 | while read line ; do
+        page-types -r -b $TARGET_PAGEFLAG -Nl | grep -v offset | cut -f1 | while read line ; do
             $MCEINJECT -e $ERROR_TYPE -a 0x$line > /dev/null
         done
     done

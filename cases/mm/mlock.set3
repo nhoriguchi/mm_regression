@@ -1,0 +1,62 @@
+#! {"backend" => "anonymous"}
+#! {"backend" => "pagecache"}
+#! {"backend" => "hugetlb_anon"}
+#! {"backend" => "hugetlb_shmem"}
+#! {"backend" => "hugetlb_file"}
+#! {"backend" => "ksm"}
+#! {"backend" => "thp"}
+#! {"backend" => "zero"}
+#! {"backend" => "huge_zero"}
+
+BACKEND=<%= param["backend"] %>
+
+. $TRDIR/lib/setup_mmgeneric.sh
+
+TEST_PROGRAM="test_alloc_generic -B $BACKEND -N 1 -L 'mmap access mlock2:wait_after exit:wait_before'"
+
+<% if param["backend"] =~ /zero/ %>
+EXPECTED_RETURN_CODE="MLOCK_FAILED EXIT"
+PRIORITY=15 # low priority
+<% elsif param["backend"] =~ /hugetlb/ %>
+HUGETLB=100
+EXPECTED_RETURN_CODE="MLOCK_FAILED EXIT"
+<% elsif param["backend"] =~ /thp/ %>
+THP=true
+<% else %>
+EXPECTED_RETURN_CODE="MLOCKED EXIT"
+<% end %>
+
+_control() {
+	local pid="$1"
+	local line="$2"
+
+	echo_log "$line"
+	case "$line" in
+		"after_mlock2")
+			get_mm_stats 1 $pid
+
+			# looking at "unevictable" flag, not "mlocked" flag
+			if cut -f4 $TMPD/pagetypes.1 | grep u > /dev/null ; then
+				set_return_code MLOCKED
+			else
+				set_return_code MLOCK_FAILED
+			fi
+
+			kill -SIGUSR1 $pid
+			;;
+		"before_exit")
+			kill -SIGUSR1 $pid
+			set_return_code EXIT
+			return 0
+			;;
+		*)
+			;;
+	esac
+	return 1
+}
+
+<% if param["backend"] =~ /hugetlb/ %>
+_cleanup() {
+	cleanup_hugetlb_config
+}
+<% end %>

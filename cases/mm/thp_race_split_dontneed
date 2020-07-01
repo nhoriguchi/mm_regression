@@ -1,0 +1,45 @@
+# . $TRDIR/lib/setup_mmgeneric.sh
+. $TRDIR/lib/mm.sh
+
+THP=true
+
+EXPECTED_RETURN_CODE="EXIT"
+TEST_PROGRAM="test_alloc_generic -B thp -N 1000 -L 'mmap access madvise:advice=dontneed:wait_before=7000000 exit:wait_before'"
+
+PIPETIMEOUT=10
+
+_prepare() {
+	prepare_mm_generic "$1" "$2"
+}
+
+_control() {
+    local pid="$1"
+    local line="$2"
+
+    echo_log "$line"
+    case "$line" in
+		"before_madvise")
+			get_mm_stats 0 $pid $(pgrep -P $pid)
+            kill -SIGUSR1 $pid
+			echo_log split_huge_pages
+			echo 1 > /sys/kernel/debug/split_huge_pages
+            ;;
+        "before_exit")
+			get_mm_stats 1 $pid $(pgrep -P $pid)
+            set_return_code EXIT
+            kill -SIGUSR1 $pid
+            return 0
+            ;;
+        *)
+            ;;
+    esac
+    return 1
+}
+
+_cleanup() {
+	cleanup_mm_generic
+}
+
+_check() {
+	true
+}

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $TCDIR/lib/mm.sh
+. $TRDIR/lib/mm.sh
 
 get_vma_protection() { grep -A 2 700000000000 /proc/$pid/maps; }
 
@@ -132,16 +132,16 @@ prepare_hugepage_migration() {
 	prepare_mm_generic || return 1
 
 	if [ "$RESERVE_HUGEPAGE" ] ; then
-		echo_log "lib/test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L \"mmap:wait_after\" &"
-		lib/test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L "mmap:wait_after" &
+		echo_log "test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L \"mmap:wait_after\" &"
+		test_alloc_generic -B hugetlb_anon -N $RESERVE_HUGEPAGE -L "mmap:wait_after" &
 		set_return_code RESERVE
 		sleep 1 # TODO: properly wait for reserve completion
 	fi
 
 	if [ "$ALLOCATE_HUGEPAGE" ] ; then
-		echo_log "lib/test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L \"mmap access busyloop\" &"
+		echo_log "test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L \"mmap access busyloop\" &"
 		# ALLOCATE_NODE?
-		lib/test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L "mmap access busyloop" &
+		test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L "mmap access busyloop" &
 		set_return_code ALLOCATE
 		sleep 1 # TODO: properly wait for reserve completion
 	fi
@@ -195,8 +195,8 @@ control_hugepage_migration() {
 
 				# TODO: better condition check
 				if [ "$RACE_SRC" == "race_with_fork" ] ; then
-					$PAGETYPES -p $pid -r -b thp,compound_head=thp,compound_head
-					$PAGETYPES -p $pid -r -b anon | grep total
+					page-types -p $pid -r -b thp,compound_head=thp,compound_head
+					page-types -p $pid -r -b anon | grep total
 					ps ax | grep thp
 					grep -A15 ^70000 /proc/$pid/smaps | grep -i anon
 					( for i in $(seq 10) ; do migratepages $pid 0 1 ; migratepages $pid 1 0 ; done ) &
@@ -259,7 +259,7 @@ control_hugepage_migration() {
 				taskset -p $pid
 				# get_numa_maps $pid | tee $TMPD/numa_maps.1 | grep ^70000
 				# get_numa_maps ${pid}
-				# $PAGETYPES -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
+				# page-types -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
 				# grep numa_hint_faults /proc/vmstat
 				# expecting numa balancing migration
 				sleep 3
@@ -267,7 +267,7 @@ control_hugepage_migration() {
 				taskset -p $pid
 
 				get_numa_maps $pid | tee $TMPD/numa_maps.2 | grep ^70000
-				$PAGETYPES -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
+				page-types -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
 				grep numa_hint_faults /proc/vmstat
 				kill -SIGUSR1 $pid
 				;;
@@ -281,8 +281,8 @@ control_hugepage_migration() {
 				echo_log "echo offline > /sys/devices/system/memory/memory$targetmemblk/state"
 
 				if [ "$OPERATION_SRC" == hwpoison ] ; then
-					echo_log "$PAGETYPES -a $[$targetmemblk * $MEMBLK_SIZE] -X"
-					$PAGETYPES -a $[$targetmemblk * $MEMBLK_SIZE] -X
+					echo_log "page-types -a $[$targetmemblk * $MEMBLK_SIZE] -X"
+					page-types -a $[$targetmemblk * $MEMBLK_SIZE] -X
 				fi
 
 				echo offline > /sys/devices/system/memory/memory$targetmemblk/state
@@ -324,12 +324,12 @@ control_hugepage_migration() {
 				fi
 
 				if [ "$OPERATION_TYPE" == mlock ] ; then
-					$PAGETYPES -p $pid -Nrl -a 0x700000000+$[THP * 512] | head
+					page-types -p $pid -Nrl -a 0x700000000+$[THP * 512] | head
 				fi
 
 				if [ "$OPERATION_TYPE" == mprotect ] ; then
 					get_vma_protection
-					$PAGETYPES -p $pid -Nrl -a 0x700000000+$[THP * 512] | head
+					page-types -p $pid -Nrl -a 0x700000000+$[THP * 512] | head
 				fi
 
 				if [ "$MIGRATE_SRC" = auto_numa ] ; then
@@ -339,25 +339,25 @@ control_hugepage_migration() {
 					taskset -p $pid
 					get_numa_maps $pid | tee $TMPD/numa_maps.1 | grep ^70000
 					# get_numa_maps ${pid}
-					$PAGETYPES -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
+					page-types -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
 					grep numa_hint_faults /proc/vmstat
 					# expecting numa balancing migration
 					sleep 3
 					echo "current CPU: $(ps -o psr= $pid)"
 					taskset -p $pid
 					get_numa_maps $pid | tee $TMPD/numa_maps.2 | grep ^70000
-					$PAGETYPES -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
+					page-types -p $pid -Nl -a 0x700000000+$[NR_THPS * 512]
 					grep numa_hint_faults /proc/vmstat
 				fi
 
 				if [ "$MIGRATE_SRC" = change_cpuset ] ; then
-					$PAGETYPES -p $pid -r -b anon | grep total
+					page-types -p $pid -r -b anon | grep total
 					grep -A15 ^70000 /proc/$pid/smaps | grep -i anon
 					grep RssAnon /proc/$pid/status
-					$PAGETYPES -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee -a $OFILE | tee $TMPD/pagetypes2
+					page-types -p $pid -rNl -a 0x700000000+$[NR_THPS * 512] | grep -v offset | head | tee $TMPD/pagetypes2
 				fi
 
-				$PAGETYPES -p $pid -a 0x700000000+0x10000000 -NrL | grep -v offset | cut -f1,2 > $TMPD/.mig2
+				page-types -p $pid -a 0x700000000+0x10000000 -NrL | grep -v offset | cut -f1,2 > $TMPD/.mig2
 				# count diff stats
 				diff -u0 $TMPD/.mig1 $TMPD/.mig2 > $TMPD/.mig3
 				diffsize=$(grep -c -e ^+ -e ^- $TMPD/.mig3)

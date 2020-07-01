@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $TCDIR/lib/mm.sh
+. $TRDIR/lib/mm.sh
 
 set_monarch_timeout() {
     local value=$1
@@ -22,12 +22,16 @@ prepare_mce_test() {
 	fi
 
 	# background memory accessor
-	lib/test_allocate_generic -B anonymous -N 1000 -L "mmap access busyloop" > /dev/null 2>&1 &
+	test_allocate_generic -B anonymous -N 1000 -L "mmap access busyloop" > /dev/null 2>&1 &
 
-    save_nr_corrupted_before
+	save_nr_corrupted_before
+
+	echo 1 > $DEBUGFSDIR/mce/fake_panic
 }
 
 cleanup_mce_test() {
+	echo 0 > $DEBUGFSDIR/mce/fake_panic
+
 	# This chech is only meaningful only if test programs are run in sync mode.
 	if [ "$TEST_PROGRAM" ] ; then
 		save_nr_corrupted_inject
@@ -96,7 +100,6 @@ control_mce_test() {
 			"waiting for injection from outside")
 
 				[ ! "$ERROR_OFFSET" ] && ERROR_OFFSET=0
-				# cat /proc/$pid/numa_maps | tee -a ${OFILE}
 				echo_log "$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]"
 				$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]
 				if check_process_status $pid ; then
@@ -109,7 +112,9 @@ control_mce_test() {
 				;;
 			"error injection with madvise")
 				# tell cmd the page offset into which error is injected
-				echo $ERROR_OFFSET > $PIPE
+				# kill -SIGUSR1 $pid
+				# echo "${ERROR_OFFSET:=0} > $PIPE"
+				echo ${ERROR_OFFSET:=0} > $PIPE &
 				sleep 0.1
 				kill -SIGUSR1 $pid
 				;;
@@ -157,9 +162,9 @@ control_mce_test() {
 do_multi_inject() {
 	local pid=$1
 	echo_log "multi injection for target page $TARGET_PAGEFLAG"
-	echo "$PAGETYPES -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN,"
-	local target=$($PAGETYPES -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN, | grep -v X | grep -v offset | head -n1 | cut -f2)
-	$PAGETYPES -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN, | grep -v X | head -n10
+	echo "page-types -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN,"
+	local target=$(page-types -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN, | grep -v X | grep -v offset | head -n1 | cut -f2)
+	page-types -p $pid -b $TARGET_PAGEFLAG -rNl -a $BASEVFN, | grep -v X | head -n10
 	if [ ! "$target" ] ; then
 		echo "No page with $TARGET_PAGEFLAG found"
         set_return_code TARGET_NOT_FOUND

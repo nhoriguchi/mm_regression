@@ -1,7 +1,7 @@
 . $TRDIR/lib/setup_mmgeneric.sh
 . $TRDIR/lib/setup_page_migration.sh
 
-THP=true
+THP=always
 NUMA_NODE=2
 
 _prepare() {
@@ -34,7 +34,9 @@ _control() {
 
 			if [ "$SHMEM_DIR" ] ; then
 				# '-f' provides some file metadata, so need to filter with '___'
-				$PAGETYPES -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.3
+				echo page-types -f $SHMEM_DIR/testfile -rlN
+				page-types -f $SHMEM_DIR/testfile -rlN
+				page-types -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.3
 			fi
 
 			if [ "$SHMEM_DIR" ] ; then
@@ -51,7 +53,9 @@ _control() {
 			get_mm_stats 2 $pid $(pgrep -P $pid) > /dev/null
 
 			if [ "$SHMEM_DIR" ] ; then
-				$PAGETYPES -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.2
+				echo page-types -f $SHMEM_DIR/testfile -rlN
+				page-types -f $SHMEM_DIR/testfile -rlN
+				page-types -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.2
 			fi
 
             kill -SIGUSR1 $pid

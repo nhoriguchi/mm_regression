@@ -1,0 +1,56 @@
+#! {}
+
+. $TRDIR/lib/setup_mmgeneric.sh
+
+EXPECTED_RETURN_CODE="MOVE_PASS EXIT"
+
+__prepare_memcg() {
+    cgdelete cpu,memory:test1 2> /dev/null
+    cgdelete cpu,memory:test2 2> /dev/null
+    cgcreate -g cpu,memory:test1 || return 1
+    cgcreate -g cpu,memory:test2 || return 1
+    echo 1 > $MEMCGDIR/test1/memory.move_charge_at_immigrate || return 1
+    echo 1 > $MEMCGDIR/test2/memory.move_charge_at_immigrate || return 1
+}
+
+__cleanup_memcg() {
+    cgdelete cpu,memory:test1 || return 1
+    cgdelete cpu,memory:test2 || return 1
+}
+
+_prepare() {
+    __prepare_memcg || return 1
+}
+
+_cleanup() {
+    __cleanup_memcg || return 1
+}
+
+_control() {
+    cgexec -g cpu,memory:test1 sleep 1000 &
+    disown $!
+    cgexec -g cpu,memory:test1 sleep 1000 &
+    disown $!
+    # take some time until created tasks are registered into the cgroup
+    sleep 0.5
+    cat $MEMCGDIR/test1/tasks > $TMPD/test1_tasks_1
+    cat $MEMCGDIR/test2/tasks > $TMPD/test2_tasks_1
+    cgclassify -g cpu,memory:test2 $(cat $MEMCGDIR/test1/tasks)
+    [ $? -eq 0 ] && set_return_code MOVE_PASS || set_return_code MOVE_FAIL
+    cat $MEMCGDIR/test1/tasks > $TMPD/test1_tasks_2
+    cat $MEMCGDIR/test2/tasks > $TMPD/test2_tasks_2
+    pkill -P $$ -9 sleep
+    set_return_code "EXIT"
+    return 0
+}
+
+_check() {
+    count_testcount
+    if diff $TMPD/test1_tasks_1 $TMPD/test2_tasks_2 2> /dev/null >&2 ; then
+        count_success "processes moved from memory:test1 to memory:test2"
+    else
+        count_failure "processes failed to move from memory:test1 to memory:test2"
+        echo "tasks before migration: test1 ($(cat $TMPD/test1_tasks_1)), test2 ($(cat $TMPD/test2_tasks_1))"
+        echo "tasks after migration: test1 ($(cat $TMPD/test1_tasks_2)), test2 ($(cat $TMPD/test2_tasks_2))"
+    fi
+}

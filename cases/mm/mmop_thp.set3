@@ -1,0 +1,37 @@
+#y! {"optype" => "mlock", "flavor" => "full", "fork" => "nofork"}
+#! {"optype" => "mlock", "flavor" => "full", "fork" => "fork"}
+#! {"optype" => "mlock", "flavor" => "partial", "fork" => "nofork"}
+#! {"optype" => "mlock", "flavor" => "partial", "fork" => "fork"}
+#! {"optype" => "mprotect", "flavor" => "full", "fork" => "nofork"}
+#! {"optype" => "mprotect", "flavor" => "full", "fork" => "fork"}
+#! {"optype" => "mprotect", "flavor" => "partial", "fork" => "nofork"}
+#! {"optype" => "mprotect", "flavor" => "partial", "fork" => "fork"}
+
+. $TRDIR/lib/setup_page_migration.sh
+
+NUMA_NODE=2
+THP=10
+
+# TODO: unmatured testcase
+PRIORITY=15
+
+<% if param["optype"] == "mlock" %>
+EXPECTED_RETURN_CODE="MLOCKED"
+<% elsif param["optype"] == "mprotect" %>
+EXPECTED_RETURN_CODE=""
+<% end %>
+
+<% if param["flavor"] == "partial" %>
+OPERATION_TYPE="$OPERATION_TYPE:hp_partial"
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE PMD_SPLIT"
+<% else %>
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE THP_NOT_SPLIT"
+<% end %>
+
+<% if param["fork"] == "fork" %>
+OP_FORK=fork
+<% end %>
+
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
+# busyloop work?
+TEST_PROGRAM="test_alloc_generic -v -B thp -N $THP -L 'start:wait_after mmap access:wait_after $OP_FORK $OPERATION_TYPE munmap:wait_before exit:wait_before'"

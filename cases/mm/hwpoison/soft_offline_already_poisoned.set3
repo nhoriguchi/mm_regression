@@ -1,0 +1,30 @@
+<% if backward_keyword.include? "soft-offline-rework" %>
+EXPECTED_RETURN_CODE="EBUSY"
+<% else %>
+EXPECTED_RETURN_CODE="SUCCEEDED"
+<% end %>
+
+CHECK_PFN=0
+
+_prepare() {
+	CHECK_PFN=0x$(page-types -b buddy -NrL | tail -n 1 | cut -f1)
+	if [ "$CHECK_PFN" = "0x" ] ; then
+		echo "Failed to get physical address of buddy page"
+		return 1
+	fi
+
+	echo ${CHECK_PFN}000 > /sys/devices/system/memory/soft_offline_page
+}
+
+_cleanup() {
+	echo ${CHECK_PFN} > ${DEBUGFSDIR}/hwpoison/unpoison-pfn
+}
+
+_control() {
+	echo ${CHECK_PFN}000 > /sys/devices/system/memory/soft_offline_page
+	if [ $? -eq 0 ] ; then
+		set_return_code SUCCEEDED
+	else
+		set_return_code EBUSY
+	fi
+}

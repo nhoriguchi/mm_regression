@@ -15,14 +15,14 @@ _cleanup() {
 
 _control() {
 	if [ "$FTRACE" ] ; then
-		echo "trace-cmd record -p function_graph -g __do_page_fault lib/test_devdax $MAP_SYNC"
-		trace-cmd record -p function_graph -g __do_page_fault lib/test_devdax $MAP_SYNC
+		echo "trace-cmd record -p function_graph -g __do_page_fault test_devdax $MAP_SYNC"
+		trace-cmd record -p function_graph -g __do_page_fault test_devdax $MAP_SYNC
 	elif [ "$FTRACE_EVENT" ] ; then
-		echo "trace-cmd record -e fs_dax:* lib/test_devdax $MAP_SYNC"
-		trace-cmd record -e fs_dax:* lib/test_devdax $MAP_SYNC
+		echo "trace-cmd record -e fs_dax:* test_devdax $MAP_SYNC"
+		trace-cmd record -e fs_dax:* test_devdax $MAP_SYNC
 	else
-		echo "lib/test_devdax $MAP_SYNC"
-		lib/test_devdax $MAP_SYNC
+		echo "test_devdax $MAP_SYNC"
+		test_devdax $MAP_SYNC
 
 		if [ $? -eq 0 ] ; then
 			set_return_code DEVDAX_MAPPING_DONE
