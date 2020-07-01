@@ -18,7 +18,7 @@ __cleanup_memcg() {
 }
 
 _prepare() {
-    local swapfile=$WDIR/swapfile
+    local swapfile=$TDIR/swapfile
     __prepare_memcg || return 1
     [ $? -ne 0 ] && echo "failed to __prepare_memcg" && return 1
     dd if=/dev/zero of=$swapfile bs=4096 count=10240 > /dev/null 2>&1
@@ -43,8 +43,8 @@ _prepare() {
 
 _cleanup() {
     set_thp_always
-    swapoff $WDIR/swapfile
-    rm -rf $WDIR/swapfile
+    swapoff $TDIR/swapfile
+    rm -rf $TDIR/swapfile
     __cleanup_memcg
 }
 

@@ -1,6 +1,6 @@
 . $TRDIR/lib/setup_mmgeneric.sh
 
-SWAPFILE=$WDIR/swapfile
+SWAPFILE=$TDIR/swapfile
 
 __prepare_memcg() {
 	cgdelete cpu,memory:test1 2> /dev/null

@@ -18,7 +18,7 @@ __cleanup_memcg() {
 }
 
 _prepare() {
-    local swapfile=$WDIR/swapfile
+    local swapfile=$TDIR/swapfile
     __prepare_memcg || return 1
     [ $? -ne 0 ] && echo "failed to __prepare_memcg" && return 1
     dd if=/dev/zero of=$swapfile bs=4096 count=10240 > /dev/null 2>&1
@@ -48,8 +48,8 @@ _prepare() {
 _cleanup() {
     set_thp_always
 	ipcrm --all
-    swapoff $WDIR/swapfile
-    rm -rf $WDIR/swapfile
+    swapoff $TDIR/swapfile
+    rm -rf $TDIR/swapfile
     __cleanup_memcg
 }
 
@@ -92,16 +92,16 @@ _control() {
             kill -SIGUSR1 $pid
             ;;
 		"after_access")
-			__get_smaps_shmem | tee -a $OFILE > $TMPD/smaps_shmem.1
-			__get_smaps_anon | tee -a $OFILE > $TMPD/smaps_anon.1
+			__get_smaps_shmem > $TMPD/smaps_shmem.1
+			__get_smaps_anon > $TMPD/smaps_anon.1
 			grep ^Swap: /proc/$pid/smaps > $TMPD/smaps_swap.1
             page-types -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.1
 			cat /proc/$pid/status > $TMPD/proc_status.1
             kill -SIGUSR1 $pid
             ;;
 		"before_munmap")
-			__get_smaps_shmem | tee -a $OFILE > $TMPD/smaps_shmem.2
-			__get_smaps_anon | tee -a $OFILE > $TMPD/smaps_anon.2
+			__get_smaps_shmem > $TMPD/smaps_shmem.2
+			__get_smaps_anon > $TMPD/smaps_anon.2
 			grep ^Swap: /proc/$pid/smaps > $TMPD/smaps_swap.2
             page-types -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.2
 			cat /proc/$pid/status > $TMPD/proc_status.2
