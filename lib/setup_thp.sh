@@ -1,6 +1,6 @@
 . $TRDIR/lib/setup_mmgeneric.sh
 
-THP=true
+THP=always
 
 _prepare() {
 	true

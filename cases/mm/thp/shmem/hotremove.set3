@@ -36,5 +36,14 @@ ACTION=hotremove:busyloop:pageflags=$(get_backend_pageflags thp_shmem_split)
 SKIP_THIS_TEST=true
 <% end %>
 
+_prepare() {
+	prepare_mmgeneric || return 1
+	numactl --membind=0 dd if=/dev/zero of=$TDIR/shmem/testfile bs=2M count=$NR_THP
+}
+
+_cleanup() {
+	cleanup_mmgeneric || return 1
+}
+
 TEST_PROGRAM="test_alloc_generic -B pagecache -N $THP_ALLOCATED -w $SHMEM_DIR -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"

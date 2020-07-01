@@ -3,6 +3,8 @@
 . $TRDIR/lib/setup_memcg_for_swap.sh
 . $TRDIR/lib/setup_thp.sh
 
+TEST_TYPE=debug
+
 MAPTYPE=mmap
 FORK=
 SPLIT_THP=

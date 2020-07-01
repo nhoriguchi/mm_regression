@@ -27,5 +27,14 @@ SPLIT_THP="split_thp access"
 HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 <% end %>
 
-TEST_PROGRAM="test_alloc_generic -B pagecache -N $NR_THP -w $SHMEM_DIR -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
+_prepare() {
+	prepare_mmgeneric || return 1
+	numactl --membind=0 dd if=/dev/zero of=$TDIR/shmem/testfile bs=2M count=$NR_THP
+}
+
+_cleanup() {
+	cleanup_mmgeneric || return 1
+}
+
+TEST_PROGRAM="test_alloc_generic -B pagecache -N $NR_THP -f testfile -w $SHMEM_DIR -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
