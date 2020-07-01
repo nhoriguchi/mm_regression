@@ -2,12 +2,16 @@ cd $(dirname $BASH_SOURCE)
 
 [ ! "$RUNNAME" ] && RUNNAME=debug
 export RUNNAME
+
 # export AGAIN=true
+export UNPOISON=false
 
 export PATH=$PWD/build:$PATH
 
-export SOFT_RETRY=1
-export HARD_RETRY=1
+[ ! "$SOFT_RETRY" ] && SOFT_RETRY=3
+export SOFT_RETRY
+[ ! "$HARD_RETRY" ] && HARD_RETRY=1
+export HARD_RETRY
 
 if [[ "$1" =~ cases/ ]] ; then
 	if [ "$RUNNAME" == debug ] ; then
