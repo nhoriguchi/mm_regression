@@ -28,18 +28,20 @@ _control() {
 
 	for i in $(seq $ITERATION) ; do
 		<% if param["offline"] =~ /hard/ %>
-		test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_HARD1" > /dev/null 2>&1 &
-		test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_HARD2" > /dev/null 2>&1 &
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -w tmp -f testfileA$i -L "$OP_HARD1" > /dev/null 2>&1 &
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -w tmp -f testfileB$i -L "$OP_HARD2" > /dev/null 2>&1 &
 		<% end %>
 		<% if param["offline"] =~ /soft/ %>
-		test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_SOFT1" > /dev/null 2>&1 &
-		test_alloc_generic $BACKENDOPT -N $BUFSIZE -L "$OP_SOFT2" > /dev/null 2>&1 &
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -w tmp -f testfileC$i -L "$OP_SOFT1" > /dev/null 2>&1 &
+		test_alloc_generic $BACKENDOPT -N $BUFSIZE -w tmp -f testfileD$i -L "$OP_SOFT2" > /dev/null 2>&1 &
 		<% end %>
 	done
 	sleep 3
 
 	# TODO: still fail with remaining surplus
 	kill_all_subprograms $BASHPID
+
+	rm -rf tmp/testfile*
 	all_unpoison
 	cleanup_hugetlb_config
 
