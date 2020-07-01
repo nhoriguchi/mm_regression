@@ -559,7 +559,7 @@ Environment=VM=$VM
 Environment=LOWEST_PRIORITY=$LOWEST_PRIORITY
 Environment=HIGHEST_PRIORITY=$HIGHEST_PRIORITY
 TimeoutSec=infinity
-Restart=no
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
