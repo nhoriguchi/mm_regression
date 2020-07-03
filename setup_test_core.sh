@@ -551,7 +551,7 @@ After=network-online.target
 
 [Service]
 User=root
-Type=oneshot
+Type=simple
 WorkingDirectory=$TRDIR
 ExecStart=/bin/bash $TRDIR/run.sh
 Environment=RUNNAME=$RUNNAME
@@ -568,6 +568,7 @@ EOF
 }
 
 cancel_systemd_service() {
+	systemctl stop test.service
 	systemctl disable test.service
 }
 

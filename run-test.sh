@@ -240,6 +240,11 @@ fi
 . $TCDIR/lib/environment.sh
 
 setup_systemd_service
+if [ "$BACKGROUND" ] ; then
+	systemctl start test.service
+	exit
+fi
 run_recipes $TRDIR $GTMPD/recipelist
 cancel_systemd_service
 echo "All testcases in project $RUNNAME finished."
+ruby test_core/lib/test_summary.rb work/$RUNNAME
