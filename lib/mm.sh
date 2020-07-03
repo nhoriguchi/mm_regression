@@ -2,7 +2,6 @@
 . $TRDIR/lib/mce.sh
 . $TRDIR/lib/hugetlb.sh
 . $TRDIR/lib/thp.sh
-. $TRDIR/lib/memcg.sh
 . $TRDIR/lib/ksm.sh
 
 # The behavior of page flag set in typical workload could change, so
@@ -91,11 +90,6 @@ prepare_mm_generic() {
 		set_return_code SET_OVERCOMMIT
 	fi
 
-	if [ "$CGROUP" ] ; then
-		cgdelete $CGROUP 2> /dev/null
-		cgcreate -g $CGROUP || return 1
-	fi
-
 	if [ "$THP" ] ; then
 		# TODO: how can we make sure that there's no thp on the test system?
 		set_thp_params_for_testing
@@ -159,10 +153,6 @@ cleanup_mm_generic() {
 
 	if [ "$HUGETLB_OVERCOMMIT" ] ; then
 		set_hugetlb_overcommit 0
-	fi
-
-	if [ "$CGROUP" ] ; then
-		cgdelete $CGROUP 2> /dev/null
 	fi
 
 	if [ "$THP" ] ; then
@@ -266,9 +256,9 @@ get_mm_global_stats() {
 	cp /proc/meminfo $TMPD/meminfo.$tag
 	cp /proc/vmstat $TMPD/vmstat.$tag
 	cp /proc/buddyinfo $TMPD/buddyinfo.$tag
-	if [ "$CGROUP" ] ; then
-		cgget -g $CGROUP > $TMPD/cgroup.$tag
-	fi
+	# if [ "$CGROUP" ] ; then
+	# 	cgget -g $CGROUP > $TMPD/cgroup.$tag
+	# fi
 }
 
 get_mm_stats_pid() {
