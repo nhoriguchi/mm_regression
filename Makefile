@@ -1,5 +1,10 @@
 TESTCASE_FILTER=
 
+all: update_test_core install
+
+update_test_core:
+	@git submodule update --init test_core
+
 install:
 	@make --no-print-directory -C lib install
 
@@ -8,8 +13,6 @@ build:
 
 clean:
 	@make --no-print-directory -C lib clean
-
-all: get_test_core build
 
 get_test_core:
 	@test ! -d "test_core" && test -f install.sh && bash install.sh || true
