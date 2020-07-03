@@ -172,7 +172,7 @@ control_hugepage_migration() {
 				get_mm_stats 0 $pid
 
 				if [ "$CGROUP" ] ; then
-					cgclassify -g $CGROUP $pid
+					move_process_cgroup $CGROUP $pid
 					if [ $? -eq 0 ] ; then
 						set_return_code CGCLASSIFY_PASS
 					else
@@ -248,8 +248,13 @@ control_hugepage_migration() {
 				;;
 			"waiting for change_cpuset")
 				echo_log "changing cpuset.mems 0 to 1"
-				cgset -r cpuset.mems=0 test1
-				cgset -r cpuset.mems=1 test1
+				if [ "$CGROUPVER" = v1 ] ; then
+					set_cgroup_value cpuset test1 cpuset.mems 0 || return 1
+					set_cgroup_value cpuset test1 cpuset.mems 1 || return 1
+				elif [ "$CGROUPVER" = v2 ] ; then
+					set_cgroup_value test1 cpuset.mems 0 || return 1
+					set_cgroup_value test1 cpuset.mems 1 || return 1
+				fi
 				kill -SIGUSR1 $pid
 				;;
 			"waiting for auto_numa")

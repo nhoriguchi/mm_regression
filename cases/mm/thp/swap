@@ -1,6 +1,7 @@
 #!1 THP_TYPE: base
 
-. $TRDIR/lib/setup_memcg_for_swap.sh
+. $TRDIR/lib/setup_mmgeneric.sh
+. $TRDIR/lib/setup_memcg.sh
 . $TRDIR/lib/setup_thp.sh
 
 TEST_TYPE=debug
@@ -9,45 +10,36 @@ MAPTYPE=mmap
 FORK=
 SPLIT_THP=
 
-# #if __MARK_THP_TYPE == __MARK_THP_TYPE_shared_thp
-# FORK=fork:wait_after
-# #elif __MARK_THP_TYPE == __MARK_THP_TYPE_double_mapping
-# FORK=fork:wait_after
-# SPLIT_THP=split_thp:only_pmd
-# #elif __MARK_THP_TYPE == __MARK_THP_TYPE_pmd_split
-# SPLIT_THP=split_thp:only_pmd
-# #elif __MARK_THP_TYPE == __MARK_THP_TYPE_thp_split
-# SPLIT_THP=split_thp
-# #endif
-
 NR_THP=16 # 32MB
 
 TEST_PROGRAM="test_alloc_generic -B thp -N $NR_THP -L 'start:wait_after $MAPTYPE access $FORK $SPLIT_THP noop:wait_after access:tag=1:wait_after munmap exit:wait_before'"
-EXPECTED_RETURN_CODE="INJECT EXIT"
+EXPECTED_RETURN_CODE="EXIT"
 
 _prepare() {
-	if [ ! -f "/sys/kernel/mm/transparent_hugepage/swapin_enabled" ] ; then
-		echo "swapin_enabled is not supported in this kernel ($(uname -r))" >&2
-		return 1
-	fi
-	echo always > /sys/kernel/mm/transparent_hugepage/swapin_enabled
+    local swapfile=$TDIR/swapfile
     set_thp_always
 
 	# 400MB
-	__prepare_memcg
-	# __prepare_swap_device 10240 || return 1
+	create_cgroup || return 1
+    dd if=/dev/zero of=$swapfile bs=4096 count=10240 > /dev/null 2>&1
+    [ $? -ne 0 ] && echo "failed to create $swapfile" && return 1
+    mkswap $swapfile
+    chmod 0600 $swapfile
+    swapon $swapfile
     count_testcount
     if swapon -s | grep ^$swapfile > /dev/null ; then
         count_success "create swapfile"
     else
         count_failure "create swapfile"
     fi
-	# 64M
-    cgset -r memory.limit_in_bytes=0x4000000 test1 || return 1
-    [ $? -ne 0 ] && echo "failed to cgset memory.limit_in_bytes" && return 1
-	# 128M
-    cgset -r memory.memsw.limit_in_bytes=0x8000000 test1 || return 1
-    [ $? -ne 0 ] && echo "failed to cgset memory.memsw.limit_in_bytes" && return 1
+
+	if [ "$CGROUPVER" = v1 ] ; then
+		set_cgroup_value memory test1 memory.limit_in_bytes 0x4000000 || return 1
+		set_cgroup_value memory test1 memory.memsw.limit_in_bytes 0x8000000 || return 1
+	elif [ "$CGROUPVER" = v2 ] ; then
+		set_cgroup_value test1 memory.max 0x4000000 || return 1
+		set_cgroup_value test1 memory.swap.high 0x8000000 || return 1
+	fi
 
     echo 3 > /proc/sys/vm/drop_caches
     return 0
@@ -55,8 +47,9 @@ _prepare() {
 
 _cleanup() {
 	echo "clean up..."
-	# __cleanup_swap_device
-    __cleanup_memcg
+    swapoff $TDIR/swapfile
+    rm -rf $TDIR/swapfile
+	delete_cgroup
 }
 
 _control() {
@@ -66,14 +59,25 @@ _control() {
     echo_log "$line"
     case "$line" in
         "after_start")
-            cgclassify -g cpu,memory:test1 $pid || set_return_code CGCLASSIFY_FAIL
+			move_process_cgroup test1 $pid || set_return_code CGCLASSIFY_FAIL
             kill -SIGUSR1 $pid
             ;;
         "after_noop")
 			echo "--> trigger swapout"
-			cgset -r memory.limit_in_bytes=0x1000000 test1 || set_return_code CGSET_FAIL
+			if [ "$CGROUPVER" = v1 ] ; then
+				set_cgroup_value memory test1 memory.limit_in_bytes 0x1000000 || return 1
+			elif [ "$CGROUPVER" = v2 ] ; then
+				set_cgroup_value test1 memory.high 0x1000000 || set_return_code CGSET_FAIL
+				set_cgroup_value test1 memory.max  0x1000000 || set_return_code CGSET_FAIL
+				cat $CGDIR/test1/memory.high
+				cat $CGDIR/test1/memory.max
+			fi
 			get_mm_stats 1 $pid
-            cgset -r memory.limit_in_bytes=0x8000000 test1 || set_return_code CGSET_FAIL
+			if [ "$CGROUPVER" = v1 ] ; then
+				set_cgroup_value memory test1 memory.limit_in_bytes 0x8000000 || return 1
+			elif [ "$CGROUPVER" = v2 ] ; then
+				set_cgroup_value test1 memory.max 0x8000000 || set_return_code CGSET_FAIL
+			fi
             kill -SIGUSR1 $pid
             ;;
         "after_access_1")
@@ -111,9 +115,9 @@ _check() {
     count_testcount
     local sc1=$(grep ^SwapCached: $TMPD/meminfo.1 2> /dev/null | awk '{print $2}')
     local sc2=$(grep ^SwapCached: $TMPD/meminfo.2 2> /dev/null | awk '{print $2}')
-    if [ "$sc1" -lt "$sc2" ] ; then
-        count_success "some swap data is loaded on swapcache forcibly"
+    if [ "$sc1" -gt "$sc2" ] ; then
+        count_success "swapcached becomes anonymous pages"
     else
-        count_failure "swapin didn't work (before $sc1, after $sc2)"
+        count_failure "swapcached didn't become anonymous pages"
     fi
 }

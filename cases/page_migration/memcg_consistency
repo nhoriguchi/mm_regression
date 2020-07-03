@@ -1,4 +1,5 @@
 . $TRDIR/lib/setup_page_migration.sh
+. $TRDIR/lib/setup_memcg.sh
 
 NUMA_NODE=2
 HUGEPAGESIZE=2048 # kB
@@ -7,9 +8,22 @@ EXPECTED_RETURN_CODE="CGCLASSIFY_PASS MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
 TEST_PROGRAM="test_alloc_generic -B hugetlb_anon -N 10 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after migratepages munmap:wait_before exit:wait_before'"
 MIGRATE_SRC=migratepages
 
-CGROUP=cpu,memory,hugetlb:test1
+if [ "$CGROUPVER" = v1 ] ; then
+	CGROUP=test1 # cpu,memory,hugetlb:test1
+elif [ "$CGROUPVER" = v2 ] ; then
+	CGROUP=test1 # cpu,memory,hugetlb:test1
+fi
 
 _prepare() {
-    prepare_hugepage_migration || return 1
-	cgset -r memory.move_charge_at_immigrate=1 test1
+	prepare_hugepage_migration || return 1
+	create_cgroup || return 1
+	if [ "$CGROUPVER" = v1 ] ; then
+		set_cgroup_value memory test1 memory.move_charge_at_immigrate 1 || return 1
+	elif [ "$CGROUPVER" = v2 ] ; then
+		return 0
+	fi
+}
+
+_cleanup() {
+	delete_cgroup
 }

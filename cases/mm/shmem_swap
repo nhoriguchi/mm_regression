@@ -1,26 +1,12 @@
 . $TRDIR/lib/setup_mmgeneric.sh
+. $TRDIR/lib/setup_memcg.sh
 
 TEST_PROGRAM="test_alloc_generic -B normal_shmem -n 3072 -L 'start:wait_after mmap access:wait_after allocate_more munmap:wait_before exit:wait_before'"
 EXPECTED_RETURN_CODE="EXIT"
 
-__prepare_memcg() {
-    cgdelete cpu,memory:test1 2> /dev/null
-    cgdelete cpu,memory:test2 2> /dev/null
-    cgcreate -g cpu,memory:test1 || return 1
-    cgcreate -g cpu,memory:test2 || return 1
-    echo 1 > $MEMCGDIR/test1/memory.move_charge_at_immigrate || return 1
-    echo 1 > $MEMCGDIR/test2/memory.move_charge_at_immigrate || return 1
-}
-
-__cleanup_memcg() {
-    cgdelete cpu,memory:test1 || return 1
-    cgdelete cpu,memory:test2 || return 1
-}
-
 _prepare() {
     local swapfile=$TDIR/swapfile
-    __prepare_memcg || return 1
-    [ $? -ne 0 ] && echo "failed to __prepare_memcg" && return 1
+    create_cgroup || return 1
     dd if=/dev/zero of=$swapfile bs=4096 count=10240 > /dev/null 2>&1
     [ $? -ne 0 ] && echo "failed to create $swapfile" && return 1
     mkswap $swapfile
@@ -33,14 +19,14 @@ _prepare() {
         count_failure "create swapfile"
     fi
     echo 3 > /proc/sys/vm/drop_caches
-	# 16M
-    echo "cgset -r memory.limit_in_bytes=0x1000000 test1"
-    cgset -r memory.limit_in_bytes=0x1000000 test1
-    [ $? -ne 0 ] && echo "failed to cgset memory.limit_in_bytes" && return 1
-	# 128M
-    echo "cgset -r memory.memsw.limit_in_bytes=0x8000000 test1"
-    cgset -r memory.memsw.limit_in_bytes=0x8000000 test1
-    [ $? -ne 0 ] && echo "failed to cgset memory.memsw.limit_in_bytes" && return 1
+
+	if [ "$CGROUPVER" = v1 ] ; then
+		set_cgroup_value memory test1 memory.limit_in_bytes 0x1000000 || return 1
+		set_cgroup_value memory test1 memory.memsw.limit_in_bytes 0x8000000 || return 1
+	elif [ "$CGROUPVER" = v2 ] ; then
+		set_cgroup_value test1 memory.high 0x1000000 || return 1
+		set_cgroup_value test1 memory.swap.high 0x8000000 || return 1
+	fi
     set_thp_never
     return 0
 }
@@ -50,7 +36,7 @@ _cleanup() {
 	ipcrm --all
     swapoff $TDIR/swapfile
     rm -rf $TDIR/swapfile
-    __cleanup_memcg
+	delete_cgroup
 }
 
 __get_smaps_shmem() {
@@ -88,7 +74,7 @@ _control() {
     echo_log "$line"
     case "$line" in
 		"after_start")
-            cgclassify -g cpu,memory:test1 $pid || set_return_code CGCLASSIFY_FAIL
+			move_process_cgroup test1 $pid || set_return_code CGCLASSIFY_FAIL
             kill -SIGUSR1 $pid
             ;;
 		"after_access")

@@ -1,8 +1,9 @@
 . $TRDIR/lib/setup_page_migration.sh
+. $TRDIR/lib/setup_memcg.sh
 
 NUMA_NODE=2
 THP=1
-CGROUP=cpu,cpuset,memory:test1
+CGROUP=test1 # cpu,cpuset,memory:test1
 MIGRATE_SRC=change_cpuset
 
 # TODO: other backend
@@ -12,8 +13,18 @@ TEST_PROGRAM="test_alloc_generic -B thp -N $THP -L 'start:wait_after mmap_numa:p
 
 _prepare() {
     prepare_hugepage_migration || return 1
-	cgset -r cpuset.memory_migrate=1 test1
-	# TODO: set cpus from NUMA setting (sometimes CPUs are split into 0,2 and 1,3)
-	cgset -r cpuset.cpus=0 test1
-	cgset -r cpuset.mems=0 test1
+	create_cgroup || return 1
+	if [ "$CGROUPVER" = v1 ] ; then
+		# TODO: set cpus from NUMA setting (sometimes CPUs are split into 0,2 and 1,3)
+		set_cgroup_value cpuset test1 cpuset.memory_migrate 1 || return 1
+		set_cgroup_value cpuset test1 cpuset.cpus 0 || return 1
+		set_cgroup_value cpuset test1 cpuset.mems 0 || return 1
+	elif [ "$CGROUPVER" = v2 ] ; then
+		echo "cpuset.memory_migrate not supported in v2"
+		return 1
+	fi
+}
+
+_cleanup() {
+	delete_cgroup
 }
