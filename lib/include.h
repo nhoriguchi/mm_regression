@@ -240,8 +240,11 @@ int pprintf(char *fmt, ...) {
 	va_end(ap);
 	if (!testpipe)
 		ret = printf(buf);
-	else
+	else {
 		ret = __pipe_printf(buf);
+		/* TODO: intentional delay to avoid stacking pipe reader */
+		usleep(100);
+	}
 	return ret;
 }
 
