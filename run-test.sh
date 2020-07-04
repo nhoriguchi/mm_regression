@@ -50,6 +50,12 @@ fi
 . $TCDIR/lib/patch.sh
 . $TCDIR/lib/common.sh
 
+if [ "$USER" = root ] ; then
+	echo 1 > /proc/sys/kernel/panic_on_oops
+	echo 1 > /proc/sys/kernel/softlockup_panic
+	echo 1 > /proc/sys/kernel/softlockup_all_cpu_backtrace
+fi
+
 stop_test_running() {
 	echo "kill_all_subprograms $$"
 	kill_all_subprograms $$
@@ -57,10 +63,6 @@ stop_test_running() {
 }
 
 trap stop_test_running SIGTERM SIGINT
-
-echo 1 > /proc/sys/kernel/panic_on_oops
-echo 1 > /proc/sys/kernel/softlockup_panic
-echo 1 > /proc/sys/kernel/softlockup_all_cpu_backtrace
 
 skip_testcase_out_priority() {
 	echo_log "This testcase is skipped because the testcase priority ($PRIORITY) is not within given priority range [$HIGHEST_PRIORITY, $LOWEST_PRIORITY]. To run this, set HIGEST_PRIORITY and LOWEST_PRIORITY to contain PRIORITY ($PRIORITY)"
@@ -137,92 +139,82 @@ run_recipe() {
 	echo_log "<=== testcase '$TEST_TITLE' end" | tee /dev/kmsg
 }
 
-run_recipe_tree() {
-	local dir="$1"
-
-	if [ -f "$dir/config" ] ; then
-		. "$dir/config"
-		if [ "$?" -ne 0 ] ; then
-			echo "skip this directory due to the failure in $dir/config" >&2
-			return 1
-		fi
-	fi
-
-	for f in $(ls -1 $dir) ; do
-		(
-			if [ "$f" == config ] ; then
-				true
-			elif [ -f "$dir/$f" ] ; then
-				run_recipe "$dir/$f"
-			elif [ -d "$dir/$f" ] ; then
-				run_recipe_tree "$dir/$f"
-			fi
-		) &
-		local pid=$!
-		echo_verbose "run_recipe_tree: $$/$BASHPID -> $pid"
-		wait $pid
-	done
-
-	dir_cleanup
-}
-
-get_next_level() {
-	local dir="$1"
-	local list="$2"
-
-	cat $list | sed "s|^|$PWD/|" | grep ^$dir/ | sed -e "s|^$dir/||" | cut -f1 -d / | uniq
-}
-
-run_recipe_list() {
-	local dir="$1"
-	local list="$2"
-
-	if [ -f "$dir/config" ] ; then
-		. "$dir/config"
-		if [ "$?" -ne 0 ] ; then
-			echo "skip this directory due to the failure in $dir/config" >&2
-			return 1
-		fi
-	fi
-
-	for f in $(get_next_level $dir $list) ; do
-		(
-			if [ "$f" == config ] ; then
-				true
-			elif [ -f "$dir/$f" ] ; then
-				run_recipe "$dir/$f"
-			elif [ -d "$dir/$f" ] ; then
-				run_recipe_list "$dir/$f" "$list"
-			fi
-		) &
-		local pid=$!
-		echo_verbose "run_recipe_list: $$/$BASHPID -> $pid"
-		wait $pid
-	done
-
-	dir_cleanup
-}
-
 run_recipes() {
-	local dir=$1
-	local list=$2
+	local pid=
+	local basedir=$(echo $@ | cut -f1 -d:)
+	local elms="$(echo $@ | cut -f2- -d:)"
+	# echo "- parsing [$basedir] $elms"
 
-	if [ -f "$list" ] ; then
-		if [ "$AGAIN" == true ] ; then
-			rm -f $GTMPD/finished_testcase 2> /dev/null
+	if [ -f "$basedir/config" ] ; then
+		# TODO: this is a hack for dir_cleanup, to be simplified.
+		local tmp="$(echo $basedir | sed 's|cases|work/'${RUNNAME:=debug}'|')"
+		echo $BASHPID > $tmp/BASHPID
+		. "$basedir/config"
+		if [ "$?" -ne 0 ] ; then
+			echo "skip this directory due to the failure in $basedir/config" >&2
+			return 1
 		fi
-		if [ -f "$GTMPD/finished_testcase" ] ; then
-			local nr_point="$(grep -x -n $(cat $GTMPD/finished_testcase) $list | cut -f1 -d:)"
-			sed -n $[nr_point + 1]',$p' $list > /tmp/current_recipelist
-			list=/tmp/current_recipelist
+	fi
+
+	local elm=
+	local keepdir=
+	local linerecipe=
+	for elm in $elms ; do
+		local dir=$(echo $elm | cut -f1 -d/)
+		local abc=$(echo $elm | cut -f2- -d/)
+
+		# echo "-- $elm: $dir, $abc"
+		if [ "$elm" = "$dir" ] ; then # file
+			if [ "$keepdir" ] ; then # end of previous dir
+				(
+					run_recipes "$linerecipe"
+				) &
+				pid=$!
+				echo_verbose "$FUNCNAME: $$/$BASHPID -> $pid"
+				wait $pid
+				keepdir=
+				linerecipe=
+			fi
+			# execute file recipe
+			# echo "--- Execute recipe: $basedir/$elm"
+			(
+				run_recipe "$basedir/$elm"
+			) &
+			pid=$!
+			echo_verbose "$FUNCNAME: $$/$BASHPID -> $pid"
+			wait $pid
+		else # dir
+			if [ "$keepdir" != "$dir" ] ; then # new dir
+				if [ "$keepdir" ] ; then # end of previous dir
+					# echo "--- 1: run_recipes \"$linerecipe\""
+					(
+						run_recipes "$linerecipe"
+					) &
+					pid=$!
+					echo_verbose "$FUNCNAME: $$/$BASHPID -> $pid"
+					wait $pid
+					linerecipe=
+				fi
+				linerecipe="${basedir:+$basedir/}$dir: $abc"
+				keepdir=$dir
+				# echo "--- 3"
+			else # keep dir
+				linerecipe="$linerecipe $abc"
+				# echo "--- 5"
+			fi
 		fi
-		if [ "$FILTER" ] ; then
-			grep "$FILTER" $list > /tmp/current_recipelist2
-			list=/tmp/current_recipelist2
-		fi
-		run_recipe_list $dir $list
-	else
-		run_recipe_tree $dir
+	done
+	if [ "$linerecipe" ] ; then
+		(
+			run_recipes "$linerecipe"
+		) &
+		pid=$!
+		echo_verbose "$FUNCNAME: $$/$BASHPID -> $pid"
+		wait $pid
+	fi
+
+	if [ -s "$tmp/BASHPID" ] && [ "$(cat $tmp/BASHPID)" = "$BASHPID" ] ; then
+		dir_cleanup
 	fi
 }
 
@@ -239,12 +231,17 @@ fi
 
 . $TCDIR/lib/environment.sh
 
+if [ "$USER" != root ] ; then
+	run_recipes ": $(cat $GTMPD/recipelist | tr '\n' ' ')"
+	exit
+fi
+
 setup_systemd_service
 if [ "$BACKGROUND" ] ; then
 	systemctl start test.service
 	exit
 fi
-run_recipes $TRDIR $GTMPD/recipelist
+run_recipes ": $(cat $GTMPD/recipelist | tr '\n' ' ')"
 cancel_systemd_service
 echo "All testcases in project $RUNNAME finished."
 ruby test_core/lib/test_summary.rb work/$RUNNAME
