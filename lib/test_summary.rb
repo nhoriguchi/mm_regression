@@ -15,13 +15,13 @@ class TestCaseSummary
     @success = 0
     @failure = 0
     @later = 0
+    File.read('cases/' + tc_dir).split("\n").select do |line|
+      @priority = $1.to_i if line =~ /^PRIORITY=(\d+)/
+    end
     return if ! Dir.exist?(@tc_dir)
     @date = File.mtime(@tc_dir)
     if File.exist?(@tc_dir + "/run_status")
       @run_status = File.read(@tc_dir + "/run_status").strip
-    end
-    File.read(@tc_dir + '/_recipe').split("\n").select do |line|
-      @priority = $1.to_i if line =~ /^PRIORITY=(\d+)/
     end
     if data_check != true
       @testcount = @success = @failure = @later = 0
