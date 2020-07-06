@@ -5,22 +5,19 @@ DEVEL_MODE=
 # RECIPELIST might be set as an environment variable
 # TESTCASE_FILTER might be set as an environment variable
 SHOW_TEST_VERSION=
-# HIGHEST_PRIORITY might be set as an environment variable
-# LOWEST_PRIORITY might be set as an environment variable
+# PRIORITY might be set as an environment variable
 RUN_ALL_WAITING=
 
-while getopts v:s:t:f:SpDVh:l:w OPT ; do
+while getopts v:s:t:f:Sp:DVw OPT ; do
     case $OPT in
         v) export LOGLEVEL="$OPTARG" ;;
         s) KERNEL_SRC="$OPTARG" ;;
         t) TESTNAME="$OPTARG" ;;
         f) TESTCASE_FILTER="$TESTCASE_FILTER $OPTARG" ;;
         S) SCRIPT=true ;;
-		p) SUBPROCESS=true ;;
+		p) PRIORITY=$OPTARG ;;
 		D) DEVEL_MODE=true ;;
 		V) SHOW_TEST_VERSION=true ;;
-		h) HIGHEST_PRIORITY=$OPTARG ;;
-		l) LOWEST_PRIORITY=$OPTARG ;;
 		w) RUN_ALL_WAITING=true ;;
     esac
 done
@@ -65,7 +62,7 @@ stop_test_running() {
 trap stop_test_running SIGTERM SIGINT
 
 skip_testcase_out_priority() {
-	echo_log "This testcase is skipped because the testcase priority ($PRIORITY) is not within given priority range [$HIGHEST_PRIORITY, $LOWEST_PRIORITY]. To run this, set HIGEST_PRIORITY and LOWEST_PRIORITY to contain PRIORITY ($PRIORITY)"
+	echo_log "This testcase is skipped because the testcase priority ($TEST_PRIORITY) is not within given priority range [$PRIORITY]."
 	echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
 }
 
@@ -91,7 +88,7 @@ run_recipe() {
 
 	( set -o posix; set ) > $TMPD/.var1
 
-	PRIORITY=10 # TODO: better place?
+	TEST_PRIORITY=10 # TODO: better place?
 	. $RECIPE_FILE
 	ret=$?
 	echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
@@ -103,10 +100,7 @@ run_recipe() {
 	elif [ "$ret" -ne 0 ] ; then
 		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
 		echo SKIPPED > $TMPD/run_status
-	elif [ "$PRIORITY" ] && [ "$HIGHEST_PRIORITY" -gt "$PRIORITY" ] ; then
-		skip_testcase_out_priority
-		echo SKIPPED > $TMPD/run_status
-	elif [ "$PRIORITY" ] && [ "$LOWEST_PRIORITY" -lt "$PRIORITY" ] ; then
+	elif ! check_skip_priority $TEST_PRIORITY ; then
 		skip_testcase_out_priority
 		echo SKIPPED > $TMPD/run_status
 	else

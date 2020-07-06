@@ -6,8 +6,30 @@ KERNEL_SRC=/src/linux-dev
 [ ! "$LOGLEVEL" ] && export LOGLEVEL=1
 [ ! "$SOFT_RETRY" ] && SOFT_RETRY=2
 
-[ ! "$HIGHEST_PRIORITY" ] && export HIGHEST_PRIORITY=0
-[ ! "$LOWEST_PRIORITY" ] && export LOWEST_PRIORITY=10
+[ ! "$PRIORITY" ] && export PRIORITY=0-10
+
+normalize_priority() {
+	local out=
+	local elm=
+	for elm in $(echo $@ | tr ',' ' ') ; do
+		if [[ "$elm" =~ [0-9]-[0-9] ]] ; then
+			local a1=$(echo $elm | cut -f1 -d'-')
+			local a2=$(echo $elm | cut -f2 -d'-')
+			out="$out,$(seq $a1 $a2 | tr '\n' ',')"
+		else
+			out="$out,$elm"
+		fi
+	done
+	echo $out, | sed 's/,,/,/g'
+}
+
+check_skip_priority() {
+	local test_priority=$1
+
+	echo $_PRIORITY | grep -q ",$test_priority,"
+}
+
+_PRIORITY=$(normalize_priority $PRIORITY)
 
 check_and_define_tp() {
     local symbol=$1

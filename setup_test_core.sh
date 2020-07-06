@@ -556,8 +556,7 @@ WorkingDirectory=$TRDIR
 ExecStart=/bin/bash $TRDIR/run.sh
 Environment=RUNNAME=$RUNNAME
 Environment=VM=$VM
-Environment=LOWEST_PRIORITY=$LOWEST_PRIORITY
-Environment=HIGHEST_PRIORITY=$HIGHEST_PRIORITY
+Environment=PRIORITY=$PRIORITY
 TimeoutSec=infinity
 Restart=on-failure
 
