@@ -3,7 +3,7 @@
 
 # set lower priority because unpoison is essentially unstable, and we can't
 # expect this to work fine.
-PRIORITY=15
+TEST_PRIORITY=15
 
 . $TRDIR/lib/setup_mce_test.sh
 

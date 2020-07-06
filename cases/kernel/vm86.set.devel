@@ -3,7 +3,7 @@
 # . $TRDIR/lib/setup_mmgeneric.sh
 . $TRDIR/lib/mm.sh
 
-PRIORITY=15
+TEST_PRIORITY=15
 
 THP=true
 

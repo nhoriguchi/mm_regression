@@ -18,7 +18,7 @@
 #! {"backend" => "thp", "error" => "soft-offline"}
 
 # Not care about head/tail difference for now.
-PRIORITY=13
+TEST_PRIORITY=13
 
 . $TRDIR/lib/setup_mce_test.sh || exit 1
 

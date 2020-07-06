@@ -2,7 +2,7 @@
 
 # TODO:
 
-PRIORITY=20
+TEST_PRIORITY=20
 
 HUGETLBFSDIR=tmp/hugetlbfs
 

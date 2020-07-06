@@ -13,7 +13,7 @@
 
 . $TRDIR/lib/setup_mce_test.sh
 
-PRIORITY=15 # low priority
+TEST_PRIORITY=15 # low priority
 
 BACKEND=<%= param["backend"] %>
 ERROR_TYPE=<%= param["error"] %>

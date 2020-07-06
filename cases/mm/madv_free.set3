@@ -3,7 +3,7 @@
 
 # TODO: other madvise flavor
 # TODO: low priority
-PRIORITY=15
+TEST_PRIORITY=15
 
 . $TRDIR/lib/setup_mmgeneric.sh
 

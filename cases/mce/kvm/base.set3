@@ -6,7 +6,7 @@
 # VM=f21a
 
 # # TODO: assuming that sshvm is installed (via deploy_vm_image)
-PRIORITY=15
+TEST_PRIORITY=15
 
 <% if param["flavor"] == "panic" %>
 EXPECTED_RETURN_CODE="GOT_HPA GUEST_PANICKED"

@@ -8,7 +8,7 @@
 #! {"offline" => "mce-srao", "memtype" => "mlocked_anon"}
 #! {"offline" => "mce-srao", "memtype" => "anonymous"}
 
-PRIORITY=16
+TEST_PRIORITY=16
 TEST_TYPE=devel
 
 . $TRDIR/lib/mm.sh

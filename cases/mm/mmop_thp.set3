@@ -13,7 +13,7 @@ NUMA_NODE=2
 THP=10
 
 # TODO: unmatured testcase
-PRIORITY=15
+TEST_PRIORITY=15
 
 <% if param["optype"] == "mlock" %>
 EXPECTED_RETURN_CODE="MLOCKED"

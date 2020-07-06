@@ -49,7 +49,7 @@ THP=always
 <% end %>
 
 <% if param["backend"] == "zero" %>
-PRIORITY=15 # low priority
+TEST_PRIORITY=15 # low priority
 <% end %>
 
 TARGET_PAGETYPES="$(get_backend_pageflags $BACKEND)"
