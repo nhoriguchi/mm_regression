@@ -214,21 +214,39 @@ run_recipes() {
 	fi
 }
 
-if [ -f "$RECIPELIST" ] ; then
-	cp $RECIPELIST $GTMPD/recipelist
-elif [ ! -f "$GTMPD/recipelist" ] ; then
-	if [ -f "$GTMPD/full_recipe_list" ] ; then
-		cp $GTMPD/full_recipe_list $GTMPD/recipelist
-	else
-		make --no-print-directory allrecipes | grep ^cases | sort > $GTMPD/recipelist
+generate_recipelist() {
+	if [ -f "$RECIPELIST" ] ; then # RECIPELIST is given by caller
+		cp $RECIPELIST $GTMPD/recipelist
+	elif [ ! -f "$GTMPD/recipelist" ] ; then
+		if [ -f "$GTMPD/full_recipe_list" ] ; then
+			cp $GTMPD/full_recipe_list $GTMPD/recipelist
+		else
+			make --no-print-directory allrecipes | grep ^cases | sort > $GTMPD/recipelist
+		fi
 	fi
-fi
-# make --no-print-directory RUNNAME=$RUNNAME waiting_recipes | grep ^cases > $GTMPD/waiting_recipe_list
+
+	# recipe control, need to have separate function for this
+	if [ "$AGAIN" == true ] ; then
+		rm -f $GTMPD/finished_testcase 2> /dev/null
+	fi
+	if [ "$FILTER" ] ; then
+		grep "$FILTER" $RLIST > /tmp/current_recipelist2
+		RLIST=/tmp/current_recipelist2
+	elif [ -f "$GTMPD/finished_testcase" ] ; then
+		local nr_point="$(grep -x -n $(cat $GTMPD/finished_testcase) $RLIST | cut -f1 -d:)"
+		sed -n $[nr_point + 1]',$p' $RLIST > /tmp/current_recipelist
+		RLIST=/tmp/current_recipelist
+	fi
+}
+
+RLIST=$GTMPD/recipelist
+# RLIST could be updated in generate_recipelist()
+generate_recipelist
 
 . $TCDIR/lib/environment.sh
 
 if [ "$USER" != root ] ; then
-	run_recipes ": $(cat $GTMPD/recipelist | tr '\n' ' ')"
+	run_recipes ": $(cat $RLIST | tr '\n' ' ')"
 	exit
 fi
 
@@ -237,7 +255,7 @@ if [ "$BACKGROUND" ] ; then
 	systemctl start test.service
 	exit
 fi
-run_recipes ": $(cat $GTMPD/recipelist | tr '\n' ' ')"
+run_recipes ": $(cat $RLIST | tr '\n' ' ')"
 cancel_systemd_service
 echo "All testcases in project $RUNNAME finished."
 ruby test_core/lib/test_summary.rb work/$RUNNAME
