@@ -467,7 +467,7 @@ __do_test_try() {
 	local hard_try=$2
 
 	(
-		TMPD=$RTMPD/${soft_try}-${hard_try}
+		TMPD=$RTMPD/${soft_try:+$soft_try-}$hard_try
 		mkdir -p $TMPD
 		do_test_try | tee $TMPD/result 2>&1
 	) &
@@ -486,13 +486,13 @@ do_hard_try() {
 	local soft_try=$1
 
 	if [ ! "$HARD_RETRY" ] || [ "$HARD_RETRY" -eq 1 ] ; then
-		do_test_try
+		__do_test_try "$soft_try" 1
 		return $?
 	fi
 
 	for hard_try in $(seq $HARD_RETRY) ; do
 		echo_log "====> Trial #${soft_try:+$soft_try-}$hard_try"
-		__do_test_try $soft_try $hard_try
+		__do_test_try "$soft_try" "$hard_try"
 		case $? in
 			0)
 				echo_log "<==== Trial #${soft_try:+$soft_try-}$hard_try passed"
@@ -516,7 +516,7 @@ do_hard_try() {
 do_soft_try() {
 	local ret=0
 	if [ ! "$SOFT_RETRY" ] || [ "$SOFT_RETRY" -eq 1 ] ; then
-		do_hard_try
+		do_hard_try 1
 		ret=$?
 	else
 		for soft_try in $(seq $SOFT_RETRY) ; do

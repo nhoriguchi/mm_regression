@@ -2,6 +2,7 @@
 # should be available in all recipe files under this directory.
 
 TEST_GROUP=dir1
+HARD_RETRY=3
 
 echo "Enter $TEST_GROUP"
 
