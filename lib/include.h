@@ -243,7 +243,8 @@ int pprintf(char *fmt, ...) {
 	else {
 		ret = __pipe_printf(buf);
 		/* TODO: intentional delay to avoid stacking pipe reader */
-		usleep(100);
+		/* need longer delay when writing long string */
+		usleep(10000);
 	}
 	return ret;
 }
