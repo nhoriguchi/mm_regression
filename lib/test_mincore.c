@@ -42,7 +42,7 @@ void show_mincore_map(char *tag, size_t length, unsigned char *vec) {
 		p[idx+i] = vec[i] ? '1' : '0';
 	p[idx+i] = '\n';
 	p[idx+i+1] = '\0';
-	printf(p);
+	pprintf(p);
 }
 
 int main(int argc, char *argv[]) {
@@ -153,7 +153,6 @@ int main(int argc, char *argv[]) {
 
 	if (type & (1 << 5)) {
 		/* small vmas in a single pmd */
-		printf("%lx\n", address);
 		mapflag = MAP_PRIVATE|MAP_ANONYMOUS;
 		psmall1 = checked_mmap((void *)address, 2*PS, MMAP_PROT, mapflag, -1, 0);
 		psmall2 = checked_mmap((void *)address+4*PS, 2*PS, MMAP_PROT, mapflag, -1, 0);

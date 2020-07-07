@@ -6,31 +6,31 @@
 HUGETLB=200
 
 <% if param["flavor"] == "simple" %>
-TEST_PROGRAM="test_mincore -f $GTMPD/holefile -t 0xffff"
+TEST_PROGRAM="test_mincore -f $TDIR/holefile -t 0xffff"
 EXPECTED_RETURN_CODE="EXIT"
 <% elsif param["flavor"] == "hole" %>
-TEST_PROGRAM="test_mincore -f $GTMPD/holefile -t 0x010"
+TEST_PROGRAM="test_mincore -f $TDIR/holefile -t 0x010"
 EXPECTED_RETURN_CODE="EXIT"
 <% end %>
 
 _prepare() {
 	set_thp_always
 	set_and_check_hugetlb_pool 200
-	dd if=/dev/zero of=$GTMPD/holefile bs=4096 count=2 > /dev/null 2>&1
-	dd if=/dev/zero of=$GTMPD/holefile bs=4096 count=2 seek=2046 > /dev/null 2>&1
+	dd if=/dev/zero of=$TDIR/holefile bs=4096 count=2 > /dev/null 2>&1
+	dd if=/dev/zero of=$TDIR/holefile bs=4096 count=2 seek=2046 > /dev/null 2>&1
 }
 
 _cleanup() {
 	set_thp_always
 	set_and_check_hugetlb_pool 200
-	rm -f $GTMPD/holefile
+	rm -f $TDIR/holefile
 }
 
 _control() {
 	local pid="$1"
 	local line="$2"
 
-	echo_log "$line"
+	echo "$line" | tee -a $TMPD/mincore
 	case "$line" in
 		"start check")
 			kill -SIGUSR1 $pid
