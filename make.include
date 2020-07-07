@@ -41,11 +41,11 @@ version:
 	@true
 
 allrecipes:
-	@find cases -type f | bash test_core/lib/filter_recipe.sh | sort -k2n | cut -f1
+	@find cases -type f | bash test_core/lib/filter_recipe.sh | sort -k2n -k1 | cut -f3
 	@true
 
 recipe_priority:
-	@find cases -type f | bash test_core/lib/filter_recipe.sh | sort -k2n
+	@find cases -type f | bash test_core/lib/filter_recipe.sh | sort -k2n -k1
 	@true
 
 # You need give RUNNAME

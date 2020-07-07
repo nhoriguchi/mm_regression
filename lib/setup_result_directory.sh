@@ -11,4 +11,4 @@ fi
 full_recipe=work/$RUNNAME/full_recipe_list
 
 mkdir -p work/$RUNNAME
-make --no-print-directory allrecipes | grep ^cases | sort > work/$RUNNAME/full_recipe_list
+make --no-print-directory allrecipes | grep ^cases > work/$RUNNAME/full_recipe_list
