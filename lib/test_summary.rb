@@ -32,7 +32,9 @@ class TestCaseSummary
     @success = File.read(@tc_dir + "/_success").to_i
     @failure = File.read(@tc_dir + "/_failure").to_i
     @later = File.read(@tc_dir + "/_later").to_i
-    @return_code_seq = File.read(@tc_dir + "/_return_code_seq")
+    # find _return_code_seq file in latest trial loop
+    tmp = Dir.glob(@tc_dir + "/*/_return_code_seq").max_by {|f| File.mtime(f)}
+    @return_code_seq = File.read(tmp) if tmp
   end
 
   # If a testcase failed badly, some result data might not be stored,
@@ -84,7 +86,12 @@ class RunSummary
   def initialize test_summary, dir
     @test_summary = test_summary
     # Items in this list has 'cases/' prefix
-    @recipelist = File.readlines("#{dir}/recipelist").map do |r|
+    rlist = "#{dir}/recipelist"
+    if not File.exist? rlist
+      rlist = "#{dir}/full_recipe_list"
+    end
+
+    @recipelist = File.readlines(rlist).map do |r|
       r.chomp.gsub(/^cases\//, '')
     end
     @recipelist.delete_if {|rc| File.basename(rc) == "config"}
