@@ -70,23 +70,22 @@ run_recipe() {
 	export RECIPE_FILE="$1"
 	local recipe_relpath=$(echo $RECIPE_FILE | sed 's/.*cases\///')
 	export TEST_TITLE=$recipe_relpath
-	export TMPD=$GTMPD/$recipe_relpath
+	export RTMPD=$GTMPD/$recipe_relpath
 	export TMPF=$TMPD
-	export OFILE=$TMPD/result
 
-	if [ -d $TMPD ] && [ "$AGAIN" == true ] ; then
-		rm -rf $TMPD/* > /dev/null 2>&1
+	if [ -d $RTMPD ] && [ "$AGAIN" == true ] ; then
+		rm -rf $RTMPD/* > /dev/null 2>&1
 	fi
-	mkdir -p $TMPD > /dev/null 2>&1
+	mkdir -p $RTMPD > /dev/null 2>&1
 
 	# recipe run status check
 	check_testcase_already_run && return
 	check_remove_suffix $RECIPE_FILE || return
 
 	# just for saving, not functional requirement.
-	cp $RECIPE_FILE $TMPD/_recipe
+	cp $RECIPE_FILE $RTMPD/_recipe
 
-	( set -o posix; set ) > $TMPD/.var1
+	( set -o posix; set ) > $RTMPD/.var1
 
 	TEST_PRIORITY=10 # TODO: better place?
 	. $RECIPE_FILE
@@ -96,13 +95,17 @@ run_recipe() {
 	if [ "$SKIP_THIS_TEST" ] ; then
 		echo_log "This testcase is marked to be skipped by developer."
 		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
-		echo SKIPPED > $TMPD/run_status
+		echo SKIPPED > $RTMPD/run_status
 	elif [ "$ret" -ne 0 ] ; then
 		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
-		echo SKIPPED > $TMPD/run_status
+		echo SKIPPED > $RTMPD/run_status
 	elif ! check_skip_priority $TEST_PRIORITY ; then
 		skip_testcase_out_priority
-		echo SKIPPED > $TMPD/run_status
+		echo SKIPPED > $RTMPD/run_status
+	elif check_test_flag ; then
+		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		echo SKIPPED > $RTMPD/run_status
+		# TODO: check_inclusion_of_fixedby_patch && break
 	else
 		save_environment_variables
 
@@ -114,18 +117,17 @@ run_recipe() {
 		else
 			echo $RECIPE_FILE > $GTMPD/current_testcase
 		fi
-		echo RUNNING > $TMPD/run_status
-		date +%s%3N > $TMPD/start_time
+		echo RUNNING > $RTMPD/run_status
+		date +%s%3N > $RTMPD/start_time
 		sync
-		# TODO: put general system information under $TMPD
+		# TODO: put general system information under $RTMPD
 		# prepare empty testcount file at first because it's used to check
 		# testcase result from summary script.
 		reset_per_testcase_counters
-		init_return_code
 		echo_verbose "PID calling do_soft_try $BASHPID"
-		do_soft_try > >(tee -a $OFILE) 2>&1
-		date +%s%3N > $TMPD/end_time
-		echo FINISHED > $TMPD/run_status
+		do_soft_try > >(tee -a $RTMPD/result) 2>&1
+		date +%s%3N > $RTMPD/end_time
+		echo FINISHED > $RTMPD/run_status
 		rm -f $GTMPD/current_testcase
 		echo -n cases/$recipe_relpath > $GTMPD/finished_testcase
 		sync

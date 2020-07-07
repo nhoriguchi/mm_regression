@@ -26,11 +26,11 @@ echo -n 0 > $GTMPD/__skipped # skip the testcase for a good reason
 # These counters are independent between each testcase, commit_counts() does
 # add values of per-testcase counters into total counters
 reset_per_testcase_counters() {
-	echo -n 0 > $TMPD/_testcount
-	echo -n 0 > $TMPD/_success
-	echo -n 0 > $TMPD/_failure
-	echo -n 0 > $TMPD/_warning
-	echo -n 0 > $TMPD/_later
+	echo -n 0 > $RTMPD/_testcount
+	echo -n 0 > $RTMPD/_success
+	echo -n 0 > $RTMPD/_failure
+	echo -n 0 > $RTMPD/_warning
+	echo -n 0 > $RTMPD/_later
 }
 
 add_counts() {
@@ -41,11 +41,11 @@ add_counts() {
 }
 
 commit_counts() {
-	add_counts $GTMPD/__testcount $(cat $TMPD/_testcount)
-	add_counts $GTMPD/__success   $(cat $TMPD/_success)
-	add_counts $GTMPD/__failure   $(cat $TMPD/_failure)
-	add_counts $GTMPD/__warning   $(cat $TMPD/_warning)
-	add_counts $GTMPD/__later     $(cat $TMPD/_later)
+	add_counts $GTMPD/__testcount $(cat $RTMPD/_testcount)
+	add_counts $GTMPD/__success   $(cat $RTMPD/_success)
+	add_counts $GTMPD/__failure   $(cat $RTMPD/_failure)
+	add_counts $GTMPD/__warning   $(cat $RTMPD/_warning)
+	add_counts $GTMPD/__later     $(cat $RTMPD/_later)
 }
 
 FALSENEGATIVE=false
@@ -71,7 +71,7 @@ count_testcount() {
         esac
     done
     [ "$@" ] && echo_log $nonewline "$@"
-    add_counts $TMPD/_testcount 1
+    add_counts $RTMPD/_testcount 1
 }
 
 count_success() {
@@ -83,11 +83,11 @@ count_success() {
         esac
     done
     if [ "$FALSENEGATIVE" = true ] ; then
-        add_counts $TMPD/_later 1
+        add_counts $RTMPD/_later 1
         echo_log $nonewline "LATER: PASS: $@"
         return 0
     else
-        add_counts $TMPD/_success 1
+        add_counts $RTMPD/_success 1
         echo_log $nonewline "PASS: $@"
         return 0
     fi
@@ -102,11 +102,11 @@ count_failure() {
         esac
     done
     if [ "$FALSENEGATIVE" = true ] ; then
-        add_counts $TMPD/_later 1
+        add_counts $RTMPD/_later 1
         echo_log $nonewline "LATER: FAIL: $@"
         return 0
     else
-        add_counts $TMPD/_failure 1
+        add_counts $RTMPD/_failure 1
         echo_log $nonewline "FAIL: $@"
         return 1
     fi
@@ -120,7 +120,7 @@ count_warning() {
             *) break ;;
         esac
     done
-    add_counts $TMPD/_warning 1
+    add_counts $RTMPD/_warning 1
     echo_log $nonewline "WARN: $@"
     return 0
 }
@@ -142,6 +142,7 @@ count_skipped() {
 
 # TODO: testcases could be skipped, so searching PASS/FAIL count from OFILE is
 # not a good idea. Need to record this in tmporary file.
+# TODO: deprecated function. need to fix.
 show_fail_summary() {
     grep -e "--- testcase" -e "^PASS: " -e "^FAIL: " -e "^LATER: " ${OFILE} > $GTMPD/sum
 

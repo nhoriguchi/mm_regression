@@ -2,8 +2,10 @@
 export RUNNAME
 # export AGAIN=true
 
-export SOFT_RETRY=1
-export HARD_RETRY=1
+[ ! "$SOFT_RETRY" ] && SOFT_RETRY=1
+export SOFT_RETRY
+[ ! "$HARD_RETRY" ] && HARD_RETRY=1
+export HARD_RETRY
 
 if [[ "$1" =~ cases/ ]] ; then
 	if [ "$RUNNAME" == debug ] ; then
@@ -19,7 +21,6 @@ if [[ "$1" =~ cases/ ]] ; then
 	fi
 	make build
 	make --no-print-directory test
-	ruby test_core/lib/test_summary.rb work/$RUNNAME
 	exit 0
 fi
 
@@ -33,4 +34,4 @@ fi
 make build
 make prepare
 make --no-print-directory test
-ruby test_core/lib/test_summary.rb work/$RUNNAME
+

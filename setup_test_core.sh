@@ -77,7 +77,7 @@ check_console_output() {
 	local word="$1"
 	if [ "$word" ] ; then
 		count_testcount
-		grep "$word" $GTMPD/dmesgafterinjectdiff > /dev/null 2>&1
+		grep "$word" $TMPD/dmesg_diff > /dev/null 2>&1
 		if [ $? -eq 0 ] ; then
 			if [ "$inverse" ] ; then
 				count_failure "host kernel message shows unexpected word '$word'."
@@ -130,10 +130,10 @@ check_return_code() {
 # not true, then return true only when current testcase does not run yet.
 check_testcase_already_run() {
 	[ "$AGAIN" == true ] && return 1
-	[ ! -s "$TMPD/run_status" ] && return 1
+	[ ! -s "$RTMPD/run_status" ] && return 1
 
-	[ "$(cat $TMPD/run_status)" == SKIPPED ] && return 0
-	[ "$(cat $TMPD/run_status)" == FINISHED ] && return 0
+	[ "$(cat $RTMPD/run_status)" == SKIPPED ] && return 0
+	[ "$(cat $RTMPD/run_status)" == FINISHED ] && return 0
 	return 1
 }
 
@@ -143,7 +143,7 @@ prepare_system_default() {
 }
 
 cleanup_unimportant_temporal_files() {
-	find $TMPD/ -name ".*" | xargs rm -rf
+	find ${RTMPD:-.}/ -name ".*" | xargs rm -rf
 }
 
 run_beaker_environment_checker() {
@@ -379,7 +379,6 @@ __do_test() {
 
 	echo_log "$cmd"
 
-	# exec 2> >( tee -a ${OFILE} )
 	# Keep pipe open to hold the data on buffer after the writer program
 	# is terminated.
 	exec 11<>${PIPE}
@@ -444,10 +443,7 @@ generate_testcase_pipe() {
 
 do_test_try() {
 	local ret=0
-	local failure_before="$(cat $TMPD/_failure)"
-
-	check_test_flag && return 1
-	# check_inclusion_of_fixedby_patch && break
+	local failure_before="$(cat $RTMPD/_failure)"
 
 	generate_testcase_pipe
 	if [ "$TEST_PROGRAM" ] ; then
@@ -458,12 +454,25 @@ do_test_try() {
 	# test aborted due to the preparation failure
 	if [ $? -ne 0 ] ; then
 		ret=1
-	elif [ "$(cat $TMPD/_failure)" -gt "$failure_before" ] ; then
+	elif [ "$(cat $RTMPD/_failure)" -gt "$failure_before" ] ; then
 		ret=2
 	else
 		ret=0
 	fi
 	return $ret
+}
+
+__do_test_try() {
+	local soft_try=$1
+	local hard_try=$2
+
+	(
+		TMPD=$RTMPD/${soft_try}-${hard_try}
+		mkdir -p $TMPD
+		do_test_try | tee $TMPD/result 2>&1
+	) &
+	local pid=$!
+	wait $pid
 }
 
 warmup() {
@@ -483,7 +492,7 @@ do_hard_try() {
 
 	for hard_try in $(seq $HARD_RETRY) ; do
 		echo_log "====> Trial #${soft_try:+$soft_try-}$hard_try"
-		do_test_try
+		__do_test_try $soft_try $hard_try
 		case $? in
 			0)
 				echo_log "<==== Trial #${soft_try:+$soft_try-}$hard_try passed"
