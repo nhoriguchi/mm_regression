@@ -1,0 +1,31 @@
+EXPECTED_RETURN_CODE="OOM EXIT"
+
+_control() {
+	local pid
+
+	local maxmem=$(free | grep ^Mem: | awk '{print $2}')
+	local maxswap=$(free | grep ^Swap: | awk '{print $2}')
+	local maxbytes=$[(maxmem+maxswap)*2048]
+
+	PIPETIMEOUT=$[2 * maxbytes / 0x40000000]
+	echo "Try allocating $maxbytes bytes) to trigger OOM killer ..."
+	echo "PIPETIMEOUT=$PIPETIMEOUT"
+
+	test_alloc_generic -B anonymous -N $[maxbytes / 0x100000] -L 'mmap access:wait_after' -p $TMPD/.pipe &
+	local pid=$!
+	read -t${PIPETIMEOUT} line <> ${PIPE}
+	echo "line $line"
+
+	free
+	cat /proc/$pid/maps
+
+	if kill -0 $pid 2> /dev/null ; then
+		echo "process $pid still exists"
+		set_return_code NOOOM
+	else
+		echo "process $pid is killed"
+		set_return_code OOM
+	fi
+	
+	set_return_code EXIT
+}
