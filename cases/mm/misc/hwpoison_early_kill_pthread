@@ -1,4 +1,3 @@
-
 _cleanup() {
 	pkill -9 -f test_early_kill_pthread
 	sysctl vm.memory_failure_early_kill=0

@@ -13,7 +13,6 @@ _prepare() {
 }
 
 _cleanup() {
-	[[ "$(jobs -p)" ]] || kill -9 $(jobs -p) 2> /dev/null
 	cleanup_system_default
 }
 
@@ -26,6 +25,7 @@ _control() {
 		page-types -b thp -r | grep total
 		echo 1 > /sys/kernel/debug/split_huge_pages
 		page-types -b thp -r | grep total
+		kill -SIGUSR1 $pid
 	done
     set_return_code EXIT
 }
