@@ -127,12 +127,11 @@ check_return_code() {
 }
 
 # Return false if AGAIN is true, so this testcase will run anyway. If AGAIN is
-# not true, then return true only when current testcase does not run yet.
+# not true, then return true only when current testcase does not finish yet.
 check_testcase_already_run() {
 	[ "$AGAIN" == true ] && return 1
 	[ ! -s "$RTMPD/run_status" ] && return 1
 
-	[ "$(cat $RTMPD/run_status)" == SKIPPED ] && return 0
 	[ "$(cat $RTMPD/run_status)" == FINISHED ] && return 0
 	return 1
 }
@@ -410,7 +409,7 @@ __do_test() {
 	done
 	# exec 11<&-
 	# exec 11>&-
-	kill_all_subprograms $pid self
+	kill_all_subprograms $BASHPID
 
 	cleanup
 	check
@@ -427,7 +426,7 @@ __do_test_async() {
 	run_controller &
 	local pid=$!
 	wait $pid
-	kill_all_subprograms $pid self
+	kill_all_subprograms $BASHPID
 	cleanup
 	check
 	return 0
