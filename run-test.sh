@@ -177,7 +177,7 @@ run_recipes() {
 				run_recipe "$basedir/$elm"
 			) &
 			pid=$!
-			echo_verbose "$FUNCNAME: $$/$BASHPID -> $pid"
+			echo_verbose "$FUNCNAME (new recipe $dir: $basedir/$elm): $$/$BASHPID -> $pid"
 			wait $pid
 		else # dir
 			if [ "$keepdir" != "$dir" ] ; then # new dir
