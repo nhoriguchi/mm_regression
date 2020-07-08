@@ -1,5 +1,8 @@
 cd $(dirname $BASH_SOURCE)
 
+[ ! "$TEST_DESCRIPTION" ] && TEST_DESCRIPTION="MM regression test"
+export TEST_DESCRIPTION
+
 [ ! "$RUNNAME" ] && RUNNAME=debug
 export RUNNAME
 
