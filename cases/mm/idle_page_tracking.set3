@@ -3,6 +3,7 @@
 . $TRDIR/lib/setup_mmgeneric.sh
 
 TEST_PRIORITY=15
+TEST_TYPE=devel
 
 PIPETIMEOUT=20
 EACH_BUFSIZE_IN_PAGE=$[1024*16]

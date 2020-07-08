@@ -34,7 +34,8 @@
 
 # set lower priority because unpoison is essentially unstable, and we can't
 # expect this to work fine.
-TEST_PRIORITY=15
+TEST_PRIORITY=18
+TEST_TYEP=devel
 
 . $TRDIR/lib/setup_mce_test.sh
 

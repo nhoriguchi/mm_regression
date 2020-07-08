@@ -3,7 +3,8 @@
 
 # set lower priority because unpoison is essentially unstable, and we can't
 # expect this to work fine.
-TEST_PRIORITY=15
+TEST_PRIORITY=18
+TEST_TYPE=stress
 
 . $TRDIR/lib/setup_mce_test.sh
 
@@ -15,7 +16,7 @@ THP=
 NR_PAGES=$[2*256*1024]
 DMESG_DIFF_LIMIT="head -n20"
 
-TIMEOUT=300
+TIMEOUT=30
 
 _prepare() {
 	[ -e "$TMPD/BUS_MCEERR_AR" ] && rm -f $TMPD/BUS_MCEERR_AR
