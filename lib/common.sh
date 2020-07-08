@@ -49,16 +49,19 @@ collect_subprocesses() {
 	local tmp=""
 
 	for t in $@ ; do
-		tmp="$tmp $(grep "^$t " $GTMPD/.ps-fj | cut -f2 -d' ' | tr '\n' ' ')"
+		tmp="$tmp $(grep "^$t " $RTMPD/.ps-jx | cut -f2 -d' ' | tr '\n' ' ')"
 	done
 	echo -n "$tmp "
 	collect_subprocesses $tmp
 }
 
 collect_orphan_processes() {
-	local sid=$(ps -p $$ --no-headers -o sid | tr -d ' ')
-	ps fj | awk '{print $1, $2, $4}' | grep " $sid$" | grep "^1 " | cut -f2 -d' ' | tr '\n' ' '
+	local sid=$1
+	ps jx | awk '{print $1, $2, $3, $4}' | grep " $sid$" | grep -v " $sid $sid $sid$" | grep "^1 " | cut -f2 -d' ' | tr '\n' ' '
 }
+
+# keep SESSIONID to find process sub-tree and/or orphan processes later.
+SESSIONID=$(ps -p $$ --no-headers -o sid | tr -d ' ')
 
 # kill all subprocess of the given process, and orphan processes belonging to
 # the same process group. If the second argument is non-null, $pid itself will
@@ -66,13 +69,15 @@ collect_orphan_processes() {
 kill_all_subprograms() {
 	local pid=$1
 	local self=$2
-	local sid=$(ps -p $pid --no-headers -o sid | tr -d ' ')
-	ps fj | grep -v "ps fj$" | awk '{print $1, $2, $4}' | grep " $sid$" | cut -f1-2 -d' ' > $GTMPD/.ps-fj
-	echo_verbose "collect_subprocesses $pid: $(collect_subprocesses $pid)"
-	echo_verbose "orphan_processes: $(collect_orphan_processes)"
-	kill -9 ${self:+$pid} $(collect_subprocesses $pid) 2> /dev/null
-	kill -9 $(collect_orphan_processes) 2> /dev/null
-	rm -f $GTMPD/.ps-jf
+
+	ps jx | grep -v "ps jx$" | awk '{print $1, $2, $4}' | grep " $SESSIONID$" | cut -f1-2 -d' ' > $RTMPD/.ps-jx
+	local subprocs="$(collect_subprocesses $pid)"
+	local orphanprocs="$(collect_orphan_processes $SESSIONID)"
+	echo_verbose "collect_subprocesses $pid/$SESSIONID: $subprocs"
+	echo_verbose "orphan_processes $pid/$SESSIONID: $orphanprocs"
+	kill -9 ${self:+$pid} $subprocs 2> /dev/null
+	kill -9 $orphanprocs 2> /dev/null
+	rm -f $RTMPD/.ps-jx
 }
 
 check_process_status() {
