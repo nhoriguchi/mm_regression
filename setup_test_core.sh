@@ -553,7 +553,7 @@ do_soft_try() {
 setup_systemd_service() {
 	cat <<EOF > /etc/systemd/system/test.service
 [Unit]
-Description=MM regression test
+Description=$TEST_DESCRIPTION
 After=network.target
 After=systemd-user-sessions.service
 After=network-online.target
@@ -566,6 +566,8 @@ ExecStart=/bin/bash $TRDIR/run.sh
 Environment=RUNNAME=$RUNNAME
 Environment=VM=$VM
 Environment=PRIORITY=$PRIORITY
+Environment=LOGLEVEL=$LOGLEVEL
+Environment=RUN_MODE=$RUN_MODE
 TimeoutSec=infinity
 Restart=on-failure
 
