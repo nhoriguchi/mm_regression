@@ -446,12 +446,13 @@ do_test_try() {
 
 	generate_testcase_pipe
 	if [ "$TEST_PROGRAM" ] ; then
-		__do_test "$TEST_PROGRAM -p $PIPE"
+		__do_test "$TEST_PROGRAM -p $PIPE" | tee $TMPD/result 2>&1
 	else
-		__do_test_async
+		__do_test_async | tee $TMPD/result 2>&1
 	fi
+	ret=$?
 	# test aborted due to the preparation failure
-	if [ $? -ne 0 ] ; then
+	if [ $ret -ne 0 ] ; then
 		ret=1
 	elif [ "$(cat $RTMPD/_failure)" -gt "$failure_before" ] ; then
 		ret=2
@@ -468,10 +469,14 @@ __do_test_try() {
 	(
 		TMPD=$RTMPD/${soft_try:+$soft_try-}$hard_try
 		mkdir -p $TMPD
-		do_test_try | tee $TMPD/result 2>&1
+		do_test_try
+		local ret=$?
+		return $ret
 	) &
 	local pid=$!
 	wait $pid
+	local ret=$?
+	return $ret
 }
 
 warmup() {
@@ -486,13 +491,15 @@ do_hard_try() {
 
 	if [ ! "$HARD_RETRY" ] || [ "$HARD_RETRY" -eq 1 ] ; then
 		__do_test_try "$soft_try" 1
-		return $?
+		ret=$?
+		return $ret
 	fi
 
 	for hard_try in $(seq $HARD_RETRY) ; do
 		echo_log "====> Trial #${soft_try:+$soft_try-}$hard_try"
 		__do_test_try "$soft_try" "$hard_try"
-		case $? in
+		ret=$?
+		case $ret in
 			0)
 				echo_log "<==== Trial #${soft_try:+$soft_try-}$hard_try passed"
 				;;
