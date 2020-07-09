@@ -16,12 +16,12 @@ _cleanup() {
 _control() {
 	(
 		eval 'move_process_cgroup test1 $$'
-		sleep 1000
+		sleep 10
 	) &
 	disown $!
 	(
 		eval 'move_process_cgroup test1 $$'
-		sleep 1000
+		sleep 10
 	) &
 	disown $!
 	# take some time until created tasks are registered into the cgroup
