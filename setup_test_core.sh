@@ -567,6 +567,7 @@ Environment=VM=$VM
 Environment=PRIORITY=$PRIORITY
 Environment=LOGLEVEL=$LOGLEVEL
 Environment=RUN_MODE=$RUN_MODE
+Environment=TEST_RUN_MODE=background
 TimeoutSec=infinity
 Restart=on-failure
 

@@ -85,3 +85,13 @@ check_process_status() {
 
 	kill -0 $pid 2> /dev/null
 }
+
+system_health_check() {
+	if [ "$TEST_RUN_MODE" ] ; then
+		if dmesg | tail -n 100 | grep -q "Failed to send WATCHDOG=1 notification message" ; then
+			echo "systemd seems have unstability, so reboot before continuing testing."
+			sync
+			reboot
+		fi
+	fi
+}

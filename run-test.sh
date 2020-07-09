@@ -82,6 +82,8 @@ run_recipe() {
 	check_testcase_already_run && return
 	check_remove_suffix $RECIPE_FILE || return
 
+	system_health_check
+
 	# just for saving, not functional requirement.
 	cp $RECIPE_FILE $RTMPD/_recipe
 
