@@ -15,7 +15,7 @@ class TestCaseSummary
     @success = 0
     @failure = 0
     @later = 0
-    File.read('cases/' + tc_dir).split("\n").select do |line|
+    File.read('cases/' + tc_dir, :encoding => 'UTF-8').split("\n").select do |line|
       @priority = $1.to_i if line =~ /TEST_PRIORITY=(\d+)/
     end
     return if ! Dir.exist?(@tc_dir)
