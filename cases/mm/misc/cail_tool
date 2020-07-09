@@ -1,0 +1,20 @@
+TEST_PRIORITY=15
+TEST_TYPE=devel
+
+EXPECTED_RETURN_CODE="PASS EXIT"
+
+HUGETLB=300
+
+_prepare() {
+	make -C lib/cailtest
+}
+
+_control() {
+	lib/cailtest/random 1
+	if [ $? -eq 0 ] ; then
+		set_return_code PASS
+	else
+		set_return_code FAIL
+	fi
+	set_return_code EXIT
+}
