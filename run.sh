@@ -28,9 +28,8 @@ if [[ "$1" =~ cases/ ]] ; then
 		echo "no recipe matched to $1" >&2
 		exit 1
 	fi
-	make build
+	make -s build
 	make --no-print-directory test
-	ruby test_core/lib/test_summary.rb work/$RUNNAME
 	exit 0
 fi
 
