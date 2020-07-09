@@ -48,14 +48,15 @@ fi
 . $TCDIR/lib/common.sh
 
 if [ "$USER" = root ] ; then
-	echo 1 > /proc/sys/kernel/panic_on_oops
-	echo 1 > /proc/sys/kernel/softlockup_panic
-	echo 1 > /proc/sys/kernel/softlockup_all_cpu_backtrace
+	sysctl -q kernel.panic_on_warn=1
+	sysctl -q kernel.panic_on_oops=1
+	sysctl -q kernel.softlockup_panic=1
+	sysctl -q kernel.softlockup_all_cpu_backtrace=1
 fi
 
 stop_test_running() {
-	echo "kill_all_subprograms $$"
-	kill_all_subprograms $$
+	echo "kill_all_subprograms $BASHPID by signal"
+	kill_all_subprograms $BASHPID
 	exit
 }
 
@@ -255,9 +256,9 @@ fi
 setup_systemd_service
 if [ "$BACKGROUND" ] ; then
 	systemctl start test.service
-	exit
+else
+	run_recipes ": $(cat $RLIST | tr '\n' ' ')"
+	cancel_systemd_service
+	echo "All testcases in project $RUNNAME finished."
+	ruby test_core/lib/test_summary.rb work/$RUNNAME
 fi
-run_recipes ": $(cat $RLIST | tr '\n' ' ')"
-cancel_systemd_service
-echo "All testcases in project $RUNNAME finished."
-ruby test_core/lib/test_summary.rb work/$RUNNAME
