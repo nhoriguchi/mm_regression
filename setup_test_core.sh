@@ -446,9 +446,9 @@ do_test_try() {
 
 	generate_testcase_pipe
 	if [ "$TEST_PROGRAM" ] ; then
-		__do_test "$TEST_PROGRAM -p $PIPE" | tee $TMPD/result 2>&1
+		__do_test "$TEST_PROGRAM -p $PIPE"
 	else
-		__do_test_async | tee $TMPD/result 2>&1
+		__do_test_async
 	fi
 	ret=$?
 	# test aborted due to the preparation failure
