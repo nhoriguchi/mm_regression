@@ -9,7 +9,7 @@
 MAPTYPE=mmap
 FORK=
 SPLIT_THP=
-ACTION=memory_error_injection:error_type=hard-offline
+ACTION=memory_error_injection:error_type=hard-offline:error_offset=1
 ERROR_TYPE=hard-offline
 ERROR_OFFSET=1 # offset 0 is unmapped via split pmd
 

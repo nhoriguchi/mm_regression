@@ -810,23 +810,12 @@ static void do_memory_error_injection(struct op_control *opc) {
 	} else if (!strcmp(error_type, "madv_hard")
 		   || !strcmp(error_type, "madv_soft")) {
 		char rbuf[256];
+		char *p_error_offset = opc_get_value(opc, "error_offset");
 		unsigned long offset = 0;
 		int ret;
 
-		if (!testpipe) { /* no offset considered */
-			if ((ret = madvise(chunkset[0].p, PS,
-					   !strcmp(error_type, "madv_hard") ?
-					   MADV_HWPOISON : MADV_SOFT_OFFLINE)) != 0)
-				perror("madvise");
-			goto out;
-		}
-
-		pprintf_wait_func(NULL, opc, "error injection with madvise\n");
-		ret = pipe_read(rbuf);
-		/* TODO: how to handle this issue? (currently soft retry) */
-		if (ret == -1)
-			perror("pipe_read");
-		offset = strtol(rbuf, NULL, 0);
+		if (p_error_offset)
+			strtol(p_error_offset, NULL, 0);
 		Dprintf("madvise inject to addr %lx\n", chunkset[0].p + offset * PS);
 		if ((ret = madvise(chunkset[0].p + offset * PS, PS,
 				   !strcmp(error_type, "madv_hard") ?
@@ -836,10 +825,11 @@ static void do_memory_error_injection(struct op_control *opc) {
 	} else {
 		errmsg("unknown error_type: %s\n", error_type);
 	}
-out:
+
 	if (opc_defined(opc, "access_after_injection")) {
 		pprintf_wait_func(NULL, opc, "writing affected region\n");
 		do_access(opc);
+		pprintf("ABC DONE.\n");
 	}
 }
 
@@ -1391,7 +1381,7 @@ static const char *op_supported_args[][10] = {
 	[NR_move_pages]			= {},
 	[NR_mlock]			= {"hp_partial"},
 	[NR_mlock2]			= {"hp_partial"},
-	[NR_memory_error_injection]	= {"error_type", "access_after_injection"},
+	[NR_memory_error_injection]	= {"error_type", "access_after_injection", "error_offset"},
 	[NR_auto_numa]			= {"busyloop"},
 	[NR_mprotect]			= {"hp_partial", "permission"},
 	[NR_change_cpuset]		= {"busyloop"},

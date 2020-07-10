@@ -110,14 +110,6 @@ control_mce_test() {
 				fi
 				kill -SIGUSR1 $pid
 				;;
-			"error injection with madvise")
-				# tell cmd the page offset into which error is injected
-				# kill -SIGUSR1 $pid
-				# echo "${ERROR_OFFSET:=0} > $PIPE"
-				echo ${ERROR_OFFSET:=0} > $PIPE &
-				sleep 0.1
-				kill -SIGUSR1 $pid
-				;;
 			"after madvise injection")
 				# TODO: return value?
 				if check_process_status $pid ; then
@@ -126,6 +118,7 @@ control_mce_test() {
 					set_return_code KILLED_IN_INJECTION
 					return 0
 				fi
+				sleep 0.3
 				kill -SIGUSR1 $pid
 				;;
 			"writing affected region")

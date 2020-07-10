@@ -136,9 +136,14 @@ INJOP=memory_error_injection:error_type=$ERROR_TYPE
 <% end %>
 
 <% if param["error_offset"] == "head" %>
+INJOP="$INJOP:error_offset=0"
 ERROR_OFFSET=0
 <% elsif param["error_offset"] == "tail" %>
+INJOP="$INJOP:error_offset=1"
 ERROR_OFFSET=1
+<% else %>
+INJOP="$INJOP:error_offset=0"
+ERROR_OFFSET=0
 <% end %>
 
 TEST_PROGRAM="test_alloc_generic -B $BACKEND -N 2 -L 'start:wait_after mmap access:wait_after=1000000 $INJOP munmap:wait_before exit:wait_before' ${DEBUG:+-v}"
