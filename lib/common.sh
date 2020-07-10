@@ -91,7 +91,8 @@ system_health_check() {
 		if dmesg | tail -n 100 | grep -q "Failed to send WATCHDOG=1 notification message" ; then
 			echo "systemd seems have unstability, so reboot before continuing testing."
 			sync
-			reboot
+			echo 1 > /proc/sys/kernel/sysrq
+			echo b > /proc/sysrq-trigger
 		fi
 	fi
 }
