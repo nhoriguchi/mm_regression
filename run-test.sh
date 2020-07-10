@@ -253,12 +253,12 @@ if [ "$USER" != root ] ; then
 	exit
 fi
 
-setup_systemd_service
-if [ "$BACKGROUND" ] ; then
+if [ "$BACKGROUND" ] ; then # kick background service and kick now
+	setup_systemd_service
 	systemctl start test.service
 else
 	run_recipes ": $(cat $RLIST | tr '\n' ' ')"
 	cancel_systemd_service
-	echo "All testcases in project $RUNNAME finished."
+	echo "All testcases in project $RUNNAME finished." | tee /dev/kmsg
 	ruby test_core/lib/test_summary.rb work/$RUNNAME
 fi
