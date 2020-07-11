@@ -1,15 +1,20 @@
+TEST_PRIORITY=15
+TEST_TYPE=devel
+
 EXPECTED_RETURN_CODE="EXIT"
 
-_preapre() {
-	sysctl vm.panic_on_oom=1
-	sysctl kernel.panic_on_warn=1
-	sysctl kernel.panic_on_oops=1
-}
+HUGETLB=100
 
-_clearup() {
-	sysctl vm.panic_on_oom=0
-	sysctl kernel.panic_on_warn=0
-	sysctl kernel.panic_on_oops=0
+_prepare() {
+	for i in $(seq 10) ; do
+		(
+			for j in $(seq 10) ; do
+				test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -N 50 -L 'mmap access'
+				echo "run $! $i $j"
+			done
+		) &
+	done
+	sleep 1
 }
 
 soft_offline() {
@@ -23,20 +28,19 @@ iteration1() {
 	for i in $(seq 10) ; do
 		soft_offline $[$[$base + $[RANDOM % 0x400]] * 4096]
 	done
-	# page-types -b hwpoison -x -Nl
 }
 
 iteration2() {
 	local base=0x$(tail -n1 $TMPD/ppp | cut -f1)
 	for i in $(seq 10) ; do
 		soft_offline $[$[$base + $[RANDOM % 0x400]] * 4096]
-		# page-types -b hwpoison -x -Nl
 	done
 }
 
 _control() {
 	echo "page-types -b buddy -Nl | grep -P \"^10000\t\""
 	page-types -b buddy -Nl | grep -P ^10000 | tee $TMPD/ppp
+	page-types -b buddy -Nl | tee $TMPD/ppp
 
 	if [ ! -s $TMPD/ppp ] ; then
 		echo 'injection point not found'
