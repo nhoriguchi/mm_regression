@@ -1,17 +1,36 @@
 TEST_PRIORITY=15
 TEST_TYPE=devel
 
+. $TRDIR/lib/check_hwpoison_limit.sh
+
 EXPECTED_RETURN_CODE="PASS EXIT"
 
 HUGETLB=300
+ITERATION=30
 
 _prepare() {
-	make -C lib/cailtest
+	check_hwpoison_limit_in_buddy 20 10 && reboot
+
+	sysctl -q kernel.panic_on_oops=1
+	sysctl -q kernel.panic_on_warn=1
+
+#	echo "4 4 1 4" > /proc/sys/kernel/printk
+}
+
+_cleanup() {
+	echo "7 4 1 7" > /proc/sys/kernel/printk
 }
 
 _control() {
-	lib/cailtest/random 1
-	if [ $? -eq 0 ] ; then
+	for i in $(seq $ITERATION) ; do
+		random 1 2> $TMPD/log
+		if grep -q "madvise: Input/output error" $TMPD/log ; then
+			dmesg | tail | tee -a $TMPD/dmesg_eio
+			break
+		fi
+	done
+
+	if [ -s "$TMPD/dmesg_eio" ] ; then
 		set_return_code PASS
 	else
 		set_return_code FAIL
