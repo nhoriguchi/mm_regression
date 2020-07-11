@@ -3,19 +3,28 @@ OPT=-DDEBUG
 LIBOPT=-lnuma -lpthread # -lcgroup -lpmem
 CFLAGS=-g # -Wall -Wextra
 
-SRC = $(shell find . -maxdepth 1 -type f -name "*.c")
-DST = $(patsubst %.c,%,$(SRC))
-DST2 = $(patsubst %.c,../build/%,$(SRC))
+SRC = $(shell find * -type f -name "*.c" -print)
+DST1 = $(patsubst %.c,%,$(SRC))
+DST2 = $(patsubst %,$(DSTDIR)/%,$(notdir $(DST1)))
+DSTDIR = ../build
+
+VPATH = ../cailtest
 
 install: build $(DST2)
 
-../build/%: %
+build: cailtest $(DST1)
+
+cailtest:
+	make -C cailtest
+
+$(DSTDIR)/random: cailtest/random
 	install $< $@
 
-build: $(DST)
+$(DSTDIR)/%: %
+	install $< $@
 
 %: %.c
 	C_INCLUDE_PATH=.. $(CC) $(CFLAGS) -o $@ $< $(OPT) $(LIBOPT)
 
 clean:
-	rm $(DST) $(DST2)
+	rm $(DST1) $(DST2)
