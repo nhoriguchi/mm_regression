@@ -139,11 +139,11 @@ prepare_hugepage_migration() {
 	fi
 
 	if [ "$ALLOCATE_HUGEPAGE" ] ; then
-		echo_log "test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L \"mmap access busyloop\" &"
-		# ALLOCATE_NODE?
-		test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L "mmap access busyloop" &
+		echo_log "test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L \"mmap_numa:preferred_cpu_node=$ALLOCATE_NODE:preferred_mem_node=$ALLOCATE_NODE access busyloop\" &"
+		test_alloc_generic -B hugetlb_anon -N $ALLOCATE_HUGEPAGE -L "mmap_numa:preferred_cpu_node=$ALLOCATE_NODE:preferred_mem_node=$ALLOCATE_NODE access busyloop" &
 		set_return_code ALLOCATE
 		sleep 1 # TODO: properly wait for reserve completion
+		cat /proc/$(pgrep -f test_alloc_generic)/numa_maps | grep ^700
 	fi
 
 	if [ "$MIGRATE_TYPE" = hotremove ] ; then
@@ -244,6 +244,7 @@ control_hugepage_migration() {
 				echo_log "calling do_migratepages for $pid"
 				do_migratepages $pid
 				echo_log "return $?"
+				sleep 1 # need to finish migration
 				kill -SIGUSR1 $pid
 				;;
 			"waiting for change_cpuset")

@@ -11,11 +11,8 @@
 # always fail to allocate hugepage from node 0 and killed by SIGBUS before trying
 # to page migration.
 
-#! {"migtype" => "migratepages", "background" => "allocate0", "overcommit" => "overcommit"}
 #! {"migtype" => "migratepages", "background" => "allocate1", "overcommit" => "overcommit"}
-#! {"migtype" => "mbind", "background" => "allocate0", "overcommit" => "overcommit"}
 #! {"migtype" => "mbind", "background" => "allocate1", "overcommit" => "overcommit"}
-#! {"migtype" => "move_pages", "background" => "allocate0", "overcommit" => "overcommit"}
 #! {"migtype" => "move_pages", "background" => "allocate1", "overcommit" => "overcommit"}
 #! {"migtype" => "madv_soft", "background" => "allocate0", "overcommit" => "overcommit"}
 #! {"migtype" => "madv_soft", "background" => "allocate1", "overcommit" => "overcommit"}
@@ -59,7 +56,6 @@ ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
 ALLOCATE_NODE=0
 EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ALLOCATE"
 <% elsif param["background"] == "allocate1" %>
-# allocate
 ALLOCATE_HUGEPAGE=$[HUGETLB - 2]
 ALLOCATE_NODE=1
 EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ALLOCATE"
