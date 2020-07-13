@@ -15,8 +15,13 @@ class TestCaseSummary
     @success = 0
     @failure = 0
     @later = 0
-    File.read('cases/' + tc_dir, :encoding => 'UTF-8').split("\n").select do |line|
-      @priority = $1.to_i if line =~ /TEST_PRIORITY=(\d+)/
+    if File.exist?('cases/' + tc_dir)
+      File.read('cases/' + tc_dir, :encoding => 'UTF-8').split("\n").select do |line|
+        if line =~ /TEST_PRIORITY=(\d+)/
+          @priority = $1.to_i
+          break
+        end
+      end
     end
     return if ! Dir.exist?(@tc_dir)
     @date = File.mtime(@tc_dir)
