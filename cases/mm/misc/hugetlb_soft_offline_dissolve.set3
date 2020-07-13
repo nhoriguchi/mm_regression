@@ -9,6 +9,7 @@
 
 . $TRDIR/lib/setup_page_migration.sh
 
+TEST_PRIORITY=18
 TEST_TYPE=debug
 
 MIGRATE_SRC=__STR_MIGRATE_SRC

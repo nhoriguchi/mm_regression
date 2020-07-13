@@ -3,6 +3,9 @@
 
 . $TRDIR/lib/setup_page_migration.sh
 
+TEST_PRIORITY=15
+TEST_TYPE=debug
+
 NUMA_NODE=2
 
 HUGEPAGESIZE=2048

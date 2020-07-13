@@ -4,6 +4,9 @@
 
 . $TRDIR/lib/setup_hugetlb_migration.sh
 
+TEST_TYPE=debug
+TEST_PRIORITY=18
+
 MIGRATE_SRC=hotremove
 
 # TODO: could improve migration success rate
@@ -45,12 +48,6 @@ _control() {
 			# get_mm_stats 0 $pid $(pgrep -P $pid)
             kill -SIGUSR1 $pid
             ;;
-        # "after_fork")
-		# 	echo $pid > $TMPD/pid.parent
-		# 	pgrep -P $pid > $TMPD/pid.child
-		# 	get_mm_stats 1 $pid $(pgrep -P $pid) > /dev/null
-        #     kill -SIGUSR1 $pid
-        #     ;;
         "before_munmap")
 			get_mm_stats 3 $pid $(pgrep -P $pid)
 
