@@ -79,6 +79,7 @@ _control() {
 		"waiting for migratepages")
 			echo "calling do_migratepages for $pid"
 			do_migratepages $pid
+			sleep 1 # need to finish migration
 			kill -SIGUSR1 $pid
 			;;
 		"waiting for memory_hotremove"*)
