@@ -20,6 +20,7 @@
 #define _GNU_SOURCE 1
 #define __USE_GNU 1
 #include <sched.h>
+#include <errno.h>
 
 extern long long vtop(long long);
 extern void proc_cpuinfo(int *nsockets, int *ncpus, char *model, int **apicmap);
@@ -305,9 +306,9 @@ int trigger_copyin(char *addr)
 	(void)unlink(filename);
 	if ((ret = write(fd, addr, 16) != 16)) {
 		if (ret == -1)
-			fprintf(stderr, "%s: couldn't write temp file\n", progname);
+			fprintf(stderr, "%s: couldn't write temp file (errno=%d)\n", progname, errno);
 		else
-			fprintf(stderr, "%s: short write to temp file\n", progname);
+			fprintf(stderr, "%s: short (%d bytes) write to temp file\n", ret, progname);
 	}
 	close(fd);
 	return 0;
