@@ -174,10 +174,10 @@ static FILE *pcfile;
 
 static void *page_cache_alloc(void)
 {
-	FILE *pcfile = tmpfile();
 	char c, *p;
 	int i;
 
+	pcfile = tmpfile();
 	for (i = 0; i < pagesize; i++) {
 		c = random();
 		fputc(c, pcfile);
@@ -323,7 +323,8 @@ int trigger_copyout(char *addr)
 		fprintf(stderr, "%s: couldn't allocate memory\n", progname);
 		return -1;
 	}
-	ret = read(fileno(pcfile), buf, pagesize);
+	rewind(pcfile);
+	ret = fread(buf, 1, pagesize, pcfile);
 	fprintf(stderr, "%s: read returned %d\n", progname);
 
 	return 0;
@@ -528,6 +529,12 @@ int main(int argc, char **argv)
 				printf("Expected SIGBUS, didn't get one\n");
 			}
 		}
+
+		if (pcfile) {
+			fclose(pcfile);
+			pcfile = NULL;
+		}
+
 		/* if system didn't already take page offline, ask it to do so now */
 		if (paddr == vtop((long long)vaddr)) {
 			printf("Manually take page offline\n");
