@@ -1,5 +1,7 @@
-#! {"backend" => "anonymous"}
-#! {"backend" => "hugetlb_anon"}
+#! {"backend" => "anonymous", "error" => "hard-offline"}
+#! {"backend" => "anonymous", "error" => "soft-offline"}
+#! {"backend" => "hugetlb_anon", "error" => "hard-offline"}
+#! {"backend" => "hugetlb_anon", "error" => "soft-offline"}
 
 . $TRDIR/lib/setup_page_migration.sh
 
@@ -57,8 +59,13 @@ _control() {
 			echo_log "preferred memory block: $targetmemblk"
 
 			## inject hwpoison on the target memblock
+			<% if param["backend"] == "hard-offline" %>
 			echo_log "echo $[$targetmemblk * $MEMBLK_SIZE * 4096] > /sys/devices/system/memory/hard_offline_page"
 			echo $[$targetmemblk * $MEMBLK_SIZE * 4096] > /sys/devices/system/memory/hard_offline_page
+			<% elsif param["backend"] == "soft-offline" %>
+			echo_log "echo $[$targetmemblk * $MEMBLK_SIZE * 4096] > /sys/devices/system/memory/soft_offline_page"
+			echo $[$targetmemblk * $MEMBLK_SIZE * 4096] > /sys/devices/system/memory/soft_offline_page
+			<% end %>
 
 			echo_log "echo offline > /sys/devices/system/memory/memory$targetmemblk/state"
 			OFFLINE_STATE=$(cat /sys/devices/system/memory/memory$targetmemblk/state)
