@@ -1,4 +1,4 @@
-TEST_PRIORITY=15
+TEST_PRIORITY=20
 TEST_TYPE=devel
 
 . $TRDIR/lib/check_hwpoison_limit.sh
