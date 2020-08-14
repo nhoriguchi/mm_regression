@@ -123,12 +123,13 @@ run_recipe() {
 				echo $rcount > $RTMPD/reboot_count
 
 				if [ "$rcount" -gt "${MAX_REBOOT:-0}" ] ; then
-					echo "System rebooted more than expected (${MAX_REBOOT:-0}), so let's finish this testcase."
+					echo "System rebooted more than expected (${MAX_REBOOT:-0}), so let's finish this testcase." | tee -a $RTMPD/result
 					doit=false
 				fi
 			fi
 
 			if [ "$doit" = true ] ; then
+				echo "reboot during running testcase $TEST_TITLE, and the testcase expect the reboot, so let's start round $[rcount+1]." | tee -a $RTMPD/result
 				echo_verbose "PID calling do_soft_try $BASHPID"
 				do_soft_try > >(tee -a $RTMPD/result) 2>&1
 			fi
