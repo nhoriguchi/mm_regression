@@ -5,8 +5,7 @@ TEST_TYPE=devel
 
 EXPECTED_RETURN_CODE="PASS EXIT"
 
-HUGETLB=300
-ITERATION=30
+ITERATION=1
 
 _prepare() {
 	check_hwpoison_limit_in_buddy 20 10 && reboot
@@ -14,7 +13,7 @@ _prepare() {
 	sysctl -q kernel.panic_on_oops=1
 	sysctl -q kernel.panic_on_warn=1
 
-#	echo "4 4 1 4" > /proc/sys/kernel/printk
+	echo "4 4 1 4" > /proc/sys/kernel/printk
 }
 
 _cleanup() {
@@ -28,12 +27,19 @@ _control() {
 			dmesg | tail | tee -a $TMPD/dmesg_eio
 			break
 		fi
+		if grep -q "madvise: Cannot allocate memory" $TMPD/log ; then
+			dmesg | tail | tee -a $TMPD/dmesg_eio
+			sync
+			reboot
+			break
+		fi
 	done
 
 	if [ -s "$TMPD/dmesg_eio" ] ; then
-		set_return_code PASS
-	else
 		set_return_code FAIL
+	else
+		set_return_code PASS
+		# reboot
 	fi
 	set_return_code EXIT
 }
