@@ -114,21 +114,37 @@ run_recipe() {
 
 		# reminder for restart after reboot. If we find this file when starting,
 		# that means the reboot was triggerred during running the testcase.
-		if [ -f $GTMPD/current_testcase ] && [ "$RECIPE_FILE" = $(cat $GTMPD/current_testcase) ] ; then
+		if [ "$TEST_RUN_MODE" ] && [ -f $GTMPD/current_testcase ] && [ "$RECIPE_FILE" = $(cat $GTMPD/current_testcase) ] ; then
 			# restarting from reboot
-			RESTART=true
+			local doit=true
+			if [ -s "$RTMPD/reboot_count" ] ; then
+				local rcount=$(cat $RTMPD/reboot_count)
+				rcount=$[rcount+1]
+				echo $rcount > $RTMPD/reboot_count
+
+				if [ "$rcount" -gt "${MAX_REBOOT:-0}" ] ; then
+					echo "System rebooted more than expected (${MAX_REBOOT:-0}), so let's finish this testcase."
+					doit=false
+				fi
+			fi
+
+			if [ "$doit" = true ] ; then
+				echo_verbose "PID calling do_soft_try $BASHPID"
+				do_soft_try > >(tee -a $RTMPD/result) 2>&1
+			fi
 		else
+			echo 0 > $RTMPD/reboot_count
 			echo $RECIPE_FILE > $GTMPD/current_testcase
+			echo RUNNING > $RTMPD/run_status
+			date +%s%3N > $RTMPD/start_time
+			sync
+			# TODO: put general system information under $RTMPD
+			# prepare empty testcount file at first because it's used to check
+			# testcase result from summary script.
+			reset_per_testcase_counters
+			echo_verbose "PID calling do_soft_try $BASHPID"
+			do_soft_try > >(tee -a $RTMPD/result) 2>&1
 		fi
-		echo RUNNING > $RTMPD/run_status
-		date +%s%3N > $RTMPD/start_time
-		sync
-		# TODO: put general system information under $RTMPD
-		# prepare empty testcount file at first because it's used to check
-		# testcase result from summary script.
-		reset_per_testcase_counters
-		echo_verbose "PID calling do_soft_try $BASHPID"
-		do_soft_try > >(tee -a $RTMPD/result) 2>&1
 		date +%s%3N > $RTMPD/end_time
 		echo FINISHED > $RTMPD/run_status
 		rm -f $GTMPD/current_testcase
