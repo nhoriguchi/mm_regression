@@ -98,7 +98,6 @@ control_mce_test() {
 				return 0
 				;;
 			"waiting for injection from outside")
-
 				[ ! "$ERROR_OFFSET" ] && ERROR_OFFSET=0
 				echo_log "$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]"
 				$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]
@@ -118,15 +117,16 @@ control_mce_test() {
 					set_return_code KILLED_IN_INJECTION
 					return 0
 				fi
-				sleep 0.3
 				kill -SIGUSR1 $pid
 				;;
 			"writing affected region")
 				set_return_code ACCESS
+				sleep 0.1
 				kill -SIGUSR1 $pid
 				# need to wait for the process is completely killed.
 				# surprisingly it might take more than 1 sec... :(
-				sleep 2
+				sleep 1
+				ps ax | grep $pid
 
 				if check_process_status $pid ; then
 					set_return_code ACCESS_SUCCEEDED
