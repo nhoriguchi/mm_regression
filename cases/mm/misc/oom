@@ -1,7 +1,22 @@
-EXPECTED_RETURN_CODE="OOM EXIT"
+EXPECTED_RETURN_CODE="OOM REBOOT"
+
+# When running this test case in background mode, testcase thread re-run
+# without rebooting. So there's some issue on thread handling.
+
+TEST_TYPE=devel
+TEST_PRIORITY=20
+
+MAX_REBOOT=1
 
 _control() {
 	local pid
+	local rcount=$(cat $RTMPD/reboot_count)
+
+	if [ "$rcount" -gt 0 ] ; then
+		echo "rebooted expectedly."
+		set_return_code REBOOT
+		return 0
+	fi
 
 	local maxmem=$(free | grep ^Mem: | awk '{print $2}')
 	local maxswap=$(free | grep ^Swap: | awk '{print $2}')
@@ -25,6 +40,8 @@ _control() {
 	else
 		echo "process $pid is killed"
 		set_return_code OOM
+		sync
+		reboot
 	fi
 	
 	set_return_code EXIT
