@@ -9,7 +9,7 @@
 
 . $TRDIR/lib/setup_page_migration.sh
 
-TEST_PRIORITY=18
+TEST_PRIORITY=20
 TEST_TYPE=debug
 
 MIGRATE_SRC=__STR_MIGRATE_SRC
@@ -130,10 +130,6 @@ __control_inuse() {
 	sleep 1.0
 	echo "page state after soft_offline"
 	page-types -a $[0x$target1]+0x200 -a $[0x$target2]+0x200 -a $[0x$target3]+0x200 -Nrl | tee $TMPD/3 >&2
-	all_unpoison
-	sleep 1.0
-	echo "page state after unpoison"
-	page-types -a $[0x$target1]+0x200 -a $[0x$target2]+0x200 -a $[0x$target3]+0x200 -Nrl | tee $TMPD/4 >&2
 
 	check_leak 0x$target1
 	<% if param["flavor"] == "none" %>
@@ -160,8 +156,6 @@ __control_free() {
 	echo "page state after kill test_alloc_generic"
 	page-types -a 0x$target1+0x200 -Nrl | tee $TMPD/5 >&2
 	<% end %>
-	all_unpoison
-	echo "page state after unpoison"
 	page-types -a 0x$target1+0x200 -Nrl | tee $TMPD/3 >&2
 	set_and_check_hugetlb_pool 0
 	echo "page state after shrink pool"
