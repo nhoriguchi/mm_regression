@@ -829,7 +829,6 @@ static void do_memory_error_injection(struct op_control *opc) {
 	if (opc_defined(opc, "access_after_injection")) {
 		pprintf_wait_func(NULL, opc, "writing affected region\n");
 		do_access(opc);
-		pprintf("ABC DONE.\n");
 	}
 }
 
@@ -1057,16 +1056,17 @@ static void do_mbind_pingpong(struct op_control *opc) {
 			  "entering iterate_mbind_pingpong\n");
 }
 
+static int __do_move_pages_pingpong(void *arg) {
+	int node;
+
+	node = 1;
+	do_work_memory(__move_pages_chunk, &node);
+	node = 0;
+	do_work_memory(__move_pages_chunk, &node);
+}
+
 static void do_move_pages_pingpong(struct op_control *opc) {
-	while (flag) {
-		int node;
-
-		node = 1;
-		do_work_memory(__move_pages_chunk, &node);
-
-		node = 0;
-		do_work_memory(__move_pages_chunk, &node);
-	}
+	pprintf_wait_func(__do_move_pages_pingpong, NULL, "entering move_pages_pingpong\n");
 }
 
 static pid_t do_fork(struct op_control *opc) {
