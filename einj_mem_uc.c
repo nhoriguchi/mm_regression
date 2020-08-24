@@ -246,7 +246,7 @@ int trigger_write(char *addr)
 }
 
 /*
- * parameters to the memcpy test.
+ * parameters to the memcpy and copyin tests.
  */
 int memcpy_runup = 0;	/* how much to copy before hitting poison */
 int memcpy_size = 512;	/* Total amount to copy */
@@ -304,7 +304,7 @@ int trigger_copyin(char *addr)
 		return -1;
 	}
 	(void)unlink(filename);
-	if ((ret = write(fd, addr, 16) != 16)) {
+	if ((ret = write(fd, addr - memcpy_runup, memcpy_size) != memcpy_size)) {
 		if (ret == -1)
 			fprintf(stderr, "%s: couldn't write temp file (errno=%d)\n", progname, errno);
 		else
