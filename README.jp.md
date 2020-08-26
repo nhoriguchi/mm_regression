@@ -63,18 +63,18 @@ $ bash run.sh cases/mm/compaction
 テストプロジェクトの走行結果や (テストが中断した場合などは) 走行状況を把握する必要がありますが、スクリプト `test_core/lib/test_summary.rb` を用いてテストプロジェクトの状況を確認できます。
 
 ```
-[build4:~/mm_regression]$ ruby test_core/lib/test_summary.rb work/200814a/
+$ ruby test_core/lib/test_summary.rb work/testrun/
 Progress: 428 / 455 (94%)
 PASS 307, FAIL 29, WARN 4, SKIP 88, NONE 27
 
-[build4:~/mm_regression]$ ruby test_core/lib/test_summary.rb -C work/200814a/
+$ ruby test_core/lib/test_summary.rb -C work/testrun/
 PASS 20200814/102319 [10] cases/mm/thp/swap
 FAIL 20200814/102351 [10] cases/mm/thp/anonymous/split_retry_thp-base.auto3
 FAIL 20200814/102431 [10] cases/mm/thp/anonymous/split_retry_thp-double_mapping.auto3
 PASS 20200814/102441 [10] cases/mm/thp/anonymous/split_retry_thp-pmd_split.auto3
 ...
 Progress: 428 / 455 (94%)
-Target: work/200814a
+Target: work/testrun
 ```
 
 `-C` オプションを用いると、テストケースごとのより詳細な情報を表示できます。各列は左から順番に、テスト状態・結果、完了時刻、テストケース優先度、テストケースID を意味します。
@@ -104,7 +104,7 @@ BACKGROUND=true bash run.sh
 - `LOGLEVEL`: 数値をセットしてログレベルを指定します。デフォルトは 1 で、 2 にするとログが増え、0 にするとログを減らせます。
 - `SOFT_RETRY`: デフォルトは 3 で、あるテストケースを `SOFT_RETRY` 回実行して 1 回でも成功すればそのテストケースはパスしたとみなします。
 - `HARD_RETRY`: デフォルトは 1 で、あるテストケースを `HARD_RETRY` 回実行して全て成功すればそのテストケースはパスしたとみなします。`SOFT_RETRY` と `HARD_RETRY` の両方を 2 以上にした場合、`SOFT_RETRY` 回失敗するまでに「`HARD_RETRY` 回連続で成功」すればパスとみなします。
-- `PRIORITY`: 各テストケースにはテストごとの優先度が定められています。0-20 までの数字で表現され、数字が小さいほど優先度が高いとみなします。環境変数 `PRIORITY` は実行するテストケースの優先度範囲を指定します。`PRIORITY=0-10,12,15-18` のようにカンマ区切りで複数回指定することや、ハイフンで範囲指定することができます。
+- `PRIORITY`: 各テストケースにはテストごとの優先度が定められています。0-20 までの数字で表現され、数字が小さいほど優先度が高いとみなします。環境変数 `PRIORITY` は実行するテストケースの優先度範囲を指定します。`PRIORITY=0-10,12,15-18` のようにカンマ区切りで複数回指定することや、ハイフンで範囲指定することができます。デフォルトは `PRIORITY=0-10` です。
 - `RUN_MODE`: 一部のテストケースは一時的な再現目的で作られただけで、長期間メンテすることが想定されていないものがあります。そのようなテストケースはデフォルトで流れないようにしてあるため、そのようなテストケースを実行したいときだけ、`RUN_MODE=devel` のように指定します。
 - `FAILRETRY`: TODO
 - `BACKWARD_KEYWORD`: テスト対象のカーネルや実行環境のバージョンによっては、期待動作が変わることがあります。この環境変数にキーワードを指定した時、そのキーワードに紐付けられた期待動作として古い期待動作を採用します。upstream カーネルに新機能が入り、そのカーネルがパスするようテストケースは追随しつつ、古いカーネルでも正しくテストしたい場合に有用です。
