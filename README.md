@@ -142,8 +142,124 @@ environment variables.
 
 # For developers
 
-TODO
+This section explains how this test tool works for test developers.
 
-## Contact
+## Structure of test case
+
+One test case is associated with one recipe file. A recipe file is a bash
+script.  Each recipe file has any testcase specific variables and the
+following four functions which are called by test harness processes:
+- `_prepare()`: this function is called to check preconditions or execute
+  testcase specific preparations. If the system doesn't meet the required
+  preconditions or succeeded the preparations, this function should return
+  non-zero. Then the test logic (`_control()`) will not be executed.
+- `_control()`: decribes main logic of the test case.
+- `_cleanup()`: if there's some side-effect by `_prepare()`, this function
+  is to clean it up.
+- `_check()`: this fucntion can include some post check code, called after
+  `_cleanup()`.
+
+A test case does not always require all of these 4 function to be defined.
+Simple test case may only include `_control()`. Assertion is done by string
+based return code, which is checked to be equal to string specified by
+`EXPECTED_RETURN_CODE`. If a test case have definition of this variable,
+return code is checked in `_check()` phase. See the following example:
+```
+EXPECTED_RETURN_CODE="START CHECK1 END"
+
+_control() {
+    set_return_code START
+    test_logic
+    if [ $? -eq 0 ] ; then
+        set_return_code CHECK1
+    fi
+    ...
+    set_return_code END
+}
+```
+in this case, return code check passes only when you enter the
+if-block (so maybe `test_logic()` succeeded). Defining return code
+as string (array) is helpful to understand/manage expected behaviors.
+
+## Workflow
+
+When you run this test tool by `run.sh`, it runs the testcases listed in
+`work/$RUNNAME/recipelist` one-by-one from the top. The hierarchy in recipe
+files under `cases` is important because each test cases and each directory
+is executed in separate sub-process.  This prevents that some variables
+defined in a testcase affect the behavior of other testcases.
+
+For example, think about the recipe hierarchy like below:
+```
+cases/test1
+cases/dir1/test2
+cases/dir1/dir2/test3
+cases/dir1/test4
+cases/test5
+```
+Then, whole testing workflow is like below:
+```
+main thread
+  |---> sub thread
+  |     run cases/test1
+  |---> sub thread
+  |     (source cases/dir1/config)
+  |       |---> sub thread
+  |       |     run cases/dir1/test2
+  |       |---> sub thread
+  |       |     (source cases/dir1/dir2/config)
+  |       |       |---> sub thread
+  |       |       |     run cases/dir1/dir2/test3
+  |       |     (dir_cleanup() in cases/dir1/dir2/config)
+  |       |---> sub thread
+  |       |     run cases/dir1/test4
+  |      (dir_cleanup() in cases/dir1/config)
+  |---> sub thread
+  |     run cases/test5
+  *
+```
+Not only each testcase is run in a separate sub-process, but also a
+sub-process is created when entering subdirectory. This will be helpful to
+define "directory-wide" environment variables. If you put a file named
+`config` and define environment variables there, they are inherited to all
+testcases under the directory (including subdirectories).  `config` file
+could also include `_prepare()` function and `dir_cleanup()`, which are called
+"just after entering to the directory" or "just before exiting from the
+directory", respectively.
+
+## Tips
+
+### Per-testcase variables
+
+The following variables are defined and available in each testcase:
+- `GTMPD`: set to the path of the root directory of the test project
+  (`work/$RUNNAME`), where some metadata files are stored to control the
+  test project.
+- `RTMPD`: set to the path of the testcase currently running. For example,
+  if you are running testcase `cases/dir1/test2`, then `RTMPD` is set to
+  `RTMPD=work/$RUNNAME/dir1/test2`.
+- `TMPD`: set to the path of the directory storing information per-testcase,
+  separating to subdirectories depending on the "retry round". For example,
+  if current "retry round" is 2nd soft retry and 3rd hard retry, `TMPD` is
+  set to `$RTMPD/2-3`.  Any raw data stored in test logic should be stored
+  under this directory.
+
+The following variables are defined in each testcase and used to affect
+the test harness's behavior:
+- `MAX_REBOOT`: in some reboot-aware testcases, this variable is set to a
+  positive integer to limit the maximum times of system reboots. The default
+  value is 0.
+- `TEST_PRIORITY`: this variable specifies the priority of the testcase.
+  The default is 10. It's used to skip and/or order testcases to be run from
+  user via environment variable `PRIORITY` (defined above).
+- `TEST_TYPE`: defines test type of the testcase.
+
+### Other tips
+
+- If you try to run all testcases, it's recommended to enable some reboot
+  mechanism on kernel panic, for example like giving kernel boot parameter
+  `panic=N` or enabling kdump settings.
+
+# Contact
 
 - Naoya Horiguchi <naoya.horiguchi@nec.com> / <nao.horiguchi@gmail.com>
