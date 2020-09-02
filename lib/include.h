@@ -301,7 +301,8 @@ void pprintf_wait_func(int (*func)(void *), void *arg, char *fmt, ...) {
 		while (pprintf_wait_flag)
 			func(arg);
 	else
-		pause();
+		while (pprintf_wait_flag)
+			usleep(1000);
 
 	ret = sigaction(SIGUSR1, &old, NULL);
 	if (ret == -1)
