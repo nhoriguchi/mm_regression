@@ -232,6 +232,11 @@ directory", respectively.
 ### Per-testcase variables
 
 The following variables are defined and available in each testcase:
+- `TRDIR`: root directory of this test tool.
+- `TCDIR`: directory path of test_core module (`TCDIR=$TRDIR/test_core`).
+- `TDIR`: temporary directory used by individual testcases (`TDIR=$TRDIR/tmp`).
+- `WDIR`: directory path to save information about result/progress of
+  the test projects (`WDIR=$TRDIR/work`).
 - `GTMPD`: set to the path of the root directory of the test project
   (`work/$RUNNAME`), where some metadata files are stored to control the
   test project.
