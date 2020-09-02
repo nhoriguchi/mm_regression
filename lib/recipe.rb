@@ -7,7 +7,7 @@ class RecipeTemplate
   def initialize f
     dirname = File.dirname(f)
     basename = File.basename(f, ".set3")
-    text = File.read(f)
+    text = File.read(f, :encoding => 'UTF-8')
 
     params = []
     tmp = []
@@ -49,7 +49,7 @@ end
 
 class SplitRecipe
   def initialize f
-    @text = File.read(f)
+    @text = File.read(f, :encoding => 'UTF-8')
     parse_rule_sets f
     remove_rule_macro
 
@@ -160,7 +160,7 @@ class RecipeSet
       f.gsub!("#{Dir::pwd}/", '')
       priority = 10
       type = "normal"
-      text = File.read(f).split("\n")
+      text = File.read(f, :encoding => 'UTF-8').split("\n")
       text.each do |line|
         if line =~ /TEST_PRIORITY=(\d+)/
           priority = $1.to_i
