@@ -121,7 +121,6 @@ control_mce_test() {
 				;;
 			"writing affected region")
 				set_return_code ACCESS
-				sleep 0.1
 				kill -SIGUSR1 $pid
 				# need to wait for the process is completely killed.
 				# surprisingly it might take more than 1 sec... :(
