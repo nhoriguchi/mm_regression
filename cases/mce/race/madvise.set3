@@ -13,6 +13,8 @@ THP=true
 KSM=true
 
 ITERATION=16
+DURATION=30
+
 BUFSIZE=8
 BACKENDOPT="-B pagecache -B anonymous -B thp -B hugetlb_anon -B hugetlb_shmem -B hugetlb_file -B ksm -B normal_shmem"
 
@@ -36,7 +38,8 @@ _control() {
 		test_alloc_generic $BACKENDOPT -N $BUFSIZE -w tmp -f testfileD$i -L "$OP_SOFT2" > /dev/null 2>&1 &
 		<% end %>
 	done
-	sleep 3
+
+	sleep $DURATION
 
 	# TODO: still fail with remaining surplus
 	kill_all_subprograms $BASHPID
