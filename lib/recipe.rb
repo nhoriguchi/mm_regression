@@ -8,7 +8,7 @@ class RecipeTemplate
     dirname = File.dirname(f)
     basename = File.basename(f, ".set3")
     text = File.read(f)
-    
+
     params = []
     tmp = []
     text.split("\n").each do |line|
@@ -30,7 +30,7 @@ class RecipeTemplate
     forward_keyword = []
     forward_keyword = ENV['FORWARD_KEYWORD'].split(',') if ENV['FORWARD_KEYWORD']
 
-    params.each do |param|  
+    params.each do |param|
       if param.empty?
         outbase = basename + '.auto3'
       else
@@ -139,7 +139,9 @@ class RecipeSet
     OptionParser.new do |opts|
       opts.banner = "Usage: #{$0} [-h|--help]"
     end.parse! args
+  end
 
+  def split
     Dir.glob("#{Dir::pwd}/cases/**/*.set2") do |f|
       SplitRecipe.new f
     end
@@ -148,8 +150,37 @@ class RecipeSet
       RecipeTemplate.new f
     end
   end
+
+  def list
+    tmp = []
+    Dir.glob("#{Dir::pwd}/cases/**/*").select do |f|
+      File.file?(f)
+    end.each do |f|
+      next if f =~ /(set2|set3)$/
+      f.gsub!("#{Dir::pwd}/", '')
+      priority = 10
+      type = "normal"
+      text = File.read(f).split("\n")
+      text.each do |line|
+        if line =~ /TEST_PRIORITY=(\d+)/
+          priority = $1.to_i
+        end
+        if line =~ /TEST_TYPE=(\w+)/
+          type = $1
+        end
+      end
+      tmp << {:id => f, :priority => priority, :type => type}
+    end
+    tmp.sort! {|a, b| [a[:priority], a[:id]] <=> [b[:priority], b[:id]]}
+    return tmp
+  end
 end
 
 if $0 == __FILE__
-  RecipeSet.new ARGV
+  rs = RecipeSet.new ARGV
+  if ARGV.size == 0
+    rs.split
+  elsif ARGV[0] == "list"
+    rs.list.each {|a| printf("%s\t%d\t%s\n", a[:type], a[:priority], a[:id])}
+  end
 end

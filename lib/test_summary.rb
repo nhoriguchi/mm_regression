@@ -193,7 +193,8 @@ class TestSummary
     if ENV['RECIPEFILES'].nil?
       recipe_list = @full_recipe_list
     else
-      recipe_list = `echo $RECIPEFILES | bash test_core/lib/filter_recipe.sh | cut -f1`.chomp.split("\n").map {|r| r.gsub(/.*cases\//, '')}
+      require './recipe.rb'
+      recipe_list = RecipeSet.new.list.map {|r| r[:id].gsub(/.*cases\//, '')}
     end
     if check_finished recipe_list
       puts "All of given recipes are finished."
