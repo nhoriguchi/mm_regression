@@ -294,23 +294,25 @@ int trigger_memcpy(char *addr)
 	return 0;
 }
 
+static int copyin_fd = -1;
+
 int trigger_copyin(char *addr)
 {
-	int	fd, ret;
+	int	ret;
 	char	filename[] = "/tmp/einj-XXXXXX";
 
-	if ((fd = mkstemp(filename)) == -1) {
+	if ((copyin_fd = mkstemp(filename)) == -1) {
 		fprintf(stderr, "%s: couldn't make temp file\n", progname);
 		return -1;
 	}
 	(void)unlink(filename);
-	if ((ret = write(fd, addr - memcpy_runup, memcpy_size) != memcpy_size)) {
+	if ((ret = write(copyin_fd, addr - memcpy_runup, memcpy_size) != memcpy_size)) {
 		if (ret == -1)
 			fprintf(stderr, "%s: couldn't write temp file (errno=%d)\n", progname, errno);
 		else
 			fprintf(stderr, "%s: short (%d bytes) write to temp file\n", ret, progname);
 	}
-	close(fd);
+
 	return 0;
 }
 
@@ -528,6 +530,11 @@ int main(int argc, char **argv)
 			if (t->flags & F_SIGBUS) {
 				printf("Expected SIGBUS, didn't get one\n");
 			}
+		}
+
+		if (copyin_fd != -1) {
+			close(copyin_fd);
+			copyin_fd = -1;
 		}
 
 		if (pcfile) {
