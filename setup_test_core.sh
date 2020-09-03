@@ -306,19 +306,26 @@ check_testcase_filter() {
 	return 0
 }
 
-# If the current testcase is not stable (so we are sure that the test should
-# not pass on routine testing yet), we can set TEST_TYPE (to devel or debug)
-# in your recipe file.
-# Then, the testcase is executed only when you set environment variable RUN_MODE=devel.
+# If the testcase sets TEST_TYPE to the string other than "normal", you have to
+# explicitly set RUN_MODE to get the testcase to be run. Or if you set RUN_MODE
+# to the string "all", all testcases could be executed irrespective of TEST_TYPE.
+#
 # "return 1" means we run the current testcase. See also sample_test/sample.rc.
 check_test_flag() {
-	if [ ! "$TEST_TYPE" ] || [ "$TEST_TYPE" == stable ] ; then
+	if [ ! "$TEST_TYPE" ] || [ "$TEST_TYPE" == normal ] ; then
 		return 1
 	fi
-	[ "$RUN_MODE" == devel ] && return 1
-	# Didn't match, so we skip the current testcase
-	echo_log "Testcase $TEST_TITLE is skipped because it's not stable yet. If you"
-	echo_log "really want to run the testcase, please set environment variable RUN_MODE=devel"
+
+	if [ "$RUN_MODE" = all ] ; then
+		return 1
+	fi
+
+	if echo "$TEST_TYPE" | grep -q "\b$RUN_MODE\b" ; then
+		return 1
+	fi
+
+	echo_log "Testcase $TEST_TITLE has TEST_TYPE tags \"$TEST_TYPE\", but you don't set RUN_MODE that matches to any of keywords in TEST_TYPE."
+	echo_log "If you really want to run this testcase, please set environment variable RUN_MODE to one in \"$TEST_TYPE\"."
 	count_skipped
 	return 0
 }
