@@ -125,9 +125,9 @@ environment variables.
   to 20 and smaller value means higher priority. This environment variable
   is used to limit the test cases to be run based on priority. You can specify
   this parameter like `PRIORITY=0-10,12,15-18`. The default is `0-10`.
-- `RUN_MODE`: some test cases are not planned to be maintained for long and
-  just used for one-time debugging. Such test cases should not be run on
-  default testing, so you need to  give `RUN_MODE=devel` to run them.
+- `RUN_MODE`: some test cases are tagged with keywords for its purpose, and
+  such testcases are supposed to be skipped by default. In order to run them,
+  you have to set variable `RUN_MODE` to one of the keywords in `TEST_TYPE`.
 - `BACKWARD_KEYWORD`: the expected behavior of a test case might depend on
   the version of kernel or some other components. Such test cases define
   the keyword to switch the expected behavior to choose old one and new one.
@@ -257,7 +257,14 @@ the test harness's behavior:
 - `TEST_PRIORITY`: this variable specifies the priority of the testcase.
   The default is 10. It's used to skip and/or order testcases to be run from
   user via environment variable `PRIORITY` (defined above).
-- `TEST_TYPE`: defines test type of the testcase.
+- `TEST_TYPE`: this variable is used to give the testcase some keywords for
+  its purpose (for example, to show that it's still under development).
+  You can set multiple keywords to this variable with comma-separated string.
+  If `TEST_TYPE` is set to the string other than default one (`normal`),
+  the testcase will be skipped by default. If you like to run it, you need to
+  set environment variable `RUN_MODE` to one of the keywords in `TEST_TYPE`.
+  You can see the list of `TEST_TYPE` of all testcases by running
+  `make recipe_priority` command.
 
 ### Other tips
 
