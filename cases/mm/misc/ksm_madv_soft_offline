@@ -1,0 +1,33 @@
+TEST_PRIORITY=15
+TEST_TYPE=devel
+
+EXPECTED_RETURN_CODE="PASS EXIT"
+
+# Reported issue on developing "soft offline rework" patchset.
+# https://lore.kernel.org/linux-mm/20200922135650.1634-1-osalvador@suse.de/
+
+_prepare() {
+	gcc -o $TRDIR/build/test_ksm_madv_soft $TRDIR/lib/test_ksm_madv_soft.c || exit 1
+
+	echo 0 > /sys/kernel/mm/ksm/sleep_millisecs
+	echo 100000 > /sys/kernel/mm/ksm/pages_to_scan
+	echo 100000 > /sys/kernel/mm/ksm/max_page_sharing
+	echo 1 > /sys/kernel/mm/ksm/run
+}
+
+_cleanup() {
+	echo 20 > /sys/kernel/mm/ksm/sleep_millisecs
+	echo 100 > /sys/kernel/mm/ksm/pages_to_scan
+	echo 256 > /sys/kernel/mm/ksm/max_page_sharing
+	echo 2 > /sys/kernel/mm/ksm/run
+}
+
+_control() {
+	test_ksm_madv_soft
+	if [ $? -eq 0 ] ; then
+		set_return_code PASS
+	else
+		set_return_code FAIL
+	fi
+	set_return_code EXIT
+}
