@@ -1,0 +1,116 @@
+#! {"flavor" => "noop"}
+#! {"flavor" => "simple"}
+#! {"flavor" => "pmd"}
+#! {"flavor" => "fio"}
+#! {"flavor" => "hwpoison_pte"}
+#! {"flavor" => "hwpoison_pte", "access" => true}
+#! {"flavor" => "hwpoison_pmd"}
+
+. $TRDIR/lib/mm.sh
+
+TEST_TYPE=devel
+
+NR_THP=3
+PMEMDIR=/mnt/pmem1
+
+_prepare() {
+	rm -f $PMEMDIR/data
+	true
+}
+
+_cleanup() {
+	rm -f $PMEMDIR/data
+}
+
+<% if param["flavor"] == "noop" %>
+EXPECTED_RETURN_CODE="FSDAX_MAPPING_DONE EXIT"
+_control() {
+	echo "lib/test_dax $PMEMDIR/data 0x2000000 write 0x100000"
+	NO_REPEAT=1 lib/test_dax $PMEMDIR/data 0x2000000 write 0x100000
+	if [ $? -eq 0 ] ; then
+		set_return_code FSDAX_MAPPING_DONE
+	else
+		set_return_code FSDAX_MAPPING_FAIL
+	fi
+
+	set_return_code EXIT
+}
+<% elsif param["flavor"] == "fio" %>
+TEST_TYEP=performance
+_control() {
+	cat <<EOF > $TMPD/fio.job.dax
+[randomwrite]
+ioengine=mmap
+rw=randrw
+refill_buffers=1
+log_avg_msec=1000
+size=256m
+bs=4k
+filename=$PMEMDIR/data
+EOF
+	cat <<EOF > $TMPD/fio.job.fs
+[randomwrite]
+ioengine=mmap
+rw=randrw
+refill_buffers=1
+log_avg_msec=1000
+size=256m
+bs=4k
+filename=$TMPD/data
+EOF
+	fdisk -l /dev/pmem0
+	fio $TMPD/fio.job.dax | tee $TMPD/fio.job.dax.out
+	fio $TMPD/fio.job.fs  | tee $TMPD/fio.job.fs.out
+}
+<% elsif param["flavor"] == "pmd" %>
+EXPECTED_RETURN_CODE="DAX_PMD_FAULT_PASSED"
+_control() {
+	echo 1 > /sys/kernel/debug/tracing/events/fs_dax/enable
+	test_alloc_generic -B pagecache -N $NR_THP -w $PMEMDIR -f data -L 'mmap access munmap'
+	cat /sys/kernel/debug/tracing/trace | tee $TMPD/trace
+	if grep -q dax_pmd_fault $TMPD/trace ; then
+		set_return_code DAX_PMD_FAULT_PASSED
+	fi
+	echo 0 > /sys/kernel/debug/tracing/events/fs_dax/enable
+}
+<% elsif param["flavor"] == "hwpoison_pte" %>
+<% if param["access"] == true %>
+EXPECTED_RETURN_CODE="PROCESS_KILLED DAX_HWPOISON_RECOVERED"
+INJECT_OP="memory_error_injection:error_type=madv_hard:access_after_injection"
+<% else %>
+EXPECTED_RETURN_CODE="PROCESS_NOT_KILLED DAX_HWPOISON_RECOVERED"
+INJECT_OP="memory_error_injection:error_type=madv_hard"
+<% end %>
+_control() {
+	echo test_alloc_generic -B pagecache -n 1 -w $PMEMDIR -f data -L "mmap access $INJECT_OP munmap"
+	test_alloc_generic -B pagecache -n 1 -w $PMEMDIR -f data -L "mmap access $INJECT_OP munmap"
+	if [ $? -eq 0 ] ; then
+		set_return_code PROCESS_NOT_KILLED
+	else
+		set_return_code PROCESS_KILLED
+	fi
+}
+
+_check() {
+	echo "checking error recovery message in dmesg"
+	if grep -q "recovery action for dax page: Recovered" $TMPD/dmesg_diff ; then
+		set_return_code DAX_HWPOISON_RECOVERED
+	fi
+}
+<% elsif param["flavor"] == "hwpoison_pmd" %>
+_control() {
+	echo > /sys/kernel/debug/tracing/trace
+	echo 1 > /sys/kernel/debug/tracing/events/fs_dax/enable
+	test_alloc_generic -B pagecache -N $NR_THP -w $PMEMDIR -f data -L 'mmap access memory_error_injection:error_type=madv_hard munmap'
+	cat /sys/kernel/debug/tracing/trace > $TMPD/trace
+	echo 0 > /sys/kernel/debug/tracing/events/fs_dax/enable
+	set_return_code EXIT
+}
+
+_check() {
+	echo "checking error recovery message in dmesg"
+	if grep -q "recovery action for dax page: Recovered" $TMPD/dmesg_diff ; then
+		set_return_code DAX_HWPOISON_RECOVERED
+	fi
+}
+<% end %>

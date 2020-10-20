@@ -1,0 +1,26 @@
+TEST_TYPE=devel
+
+DEVNAME=
+
+_prepare() {
+	ndctl list -N | jq -r '.[] | select(.mode == "devdax")' > $TMPD/namespace
+	ndctl list -N | jq -r '. | map(select(.mode == "devdax"))[0]' > $TMPD/namespace
+	if [ $? -ne 0 ] ; then
+		echo "No devdax-mode namespace found"
+		return 1
+	fi
+	DEVNAME=/dev/$(jq -r .chardev $TMPD/namespace)
+	echo "dax device is $DEVNAME"
+}
+
+_control() {
+	echo "test_dax $DEVNAME 0x200000 write 0x1000 (MAP_SYNC: ${MAP_SYNC:-false}"
+	REPEATS=1 test_dax $DEVNAME 0x200000 write 0x1000
+	REPEATS=1 test_dax $DEVNAME 0x200000 read 0x1000
+
+	if [ $? -eq 0 ] ; then
+		set_return_code DEVDAX_MAPPING_DONE
+	fi
+
+	set_return_code EXIT
+}

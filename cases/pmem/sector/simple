@@ -1,0 +1,15 @@
+. $TRDIR/lib/mm.sh
+
+EXPECTED_RETURN_CODE="EXIT"
+SECTORDIR=/mnt/sector1
+
+_control() {
+	date > $SECTORDIR/date
+	cat $SECTORDIR/date
+
+	set_return_code EXIT
+}
+
+_check() {
+	true
+}
