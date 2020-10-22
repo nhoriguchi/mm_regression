@@ -1,9 +1,8 @@
 CC=gcc
 OPT=-DDEBUG
-LIBOPT=-lnuma -lpthread # -lcgroup -lpmem
 CFLAGS=-g # -Wall -Wextra
 
-SRC = $(shell find * -type f -name "*.c" -print)
+SRC = $(shell find * -type f -name "*.c" -print | grep -v ^tmp_)
 DST1 = $(patsubst %.c,%,$(SRC))
 DST2 = $(patsubst %,$(DSTDIR)/%,$(notdir $(DST1)))
 DSTDIR = ../build
@@ -18,13 +17,13 @@ cailtest:
 	make -C cailtest
 
 $(DSTDIR)/random: cailtest/random
-	install $< $@
+	install $< $@ || true
 
 $(DSTDIR)/%: %
-	install $< $@
+	install $< $@ || true
 
 %: %.c
-	C_INCLUDE_PATH=.. $(CC) $(CFLAGS) -o $@ $< $(OPT) $(LIBOPT)
+	C_INCLUDE_PATH=.. $(CC) $(CFLAGS) -o $@ $< $(OPT) $(shell bash get_link_options.sh $<) || true
 
 clean:
 	rm $(DST1) $(DST2)
