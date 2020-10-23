@@ -96,3 +96,13 @@ system_health_check() {
 		fi
 	fi
 }
+
+check_binary() {
+	local func="$1"
+
+	if ! which $func ; then
+		echo "binary '$func' not available, test skipped." >&2
+		return 1
+	fi
+	return 0
+}
