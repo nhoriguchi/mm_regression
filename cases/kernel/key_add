@@ -1,0 +1,10 @@
+TEST_DEVEL=devel
+TEST_PRIORITY=20
+
+_prepare() {
+	check_binary test_add_key || return 1
+}
+
+_control() {
+	test_add_key
+}
