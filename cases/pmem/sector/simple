@@ -1,3 +1,5 @@
+TEST_TYPE=devel
+
 . $TRDIR/lib/mm.sh
 
 EXPECTED_RETURN_CODE="EXIT"
