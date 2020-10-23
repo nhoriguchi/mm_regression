@@ -13,7 +13,7 @@ TEST_PROGRAM="test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_ano
 EXPECTED_RETURN_CODE="EXIT"
 
 _prepare() {
-	check_binary mark_idle_all || return 1
+	check_binary test_mark_idle_all || return 1
 
 	prepare_mm_generic || return 1
 	# TODO: Wait?
@@ -39,8 +39,8 @@ _control() {
 		"after_access")
 			get_mm_stats 1 $pid > /dev/null
 
-			echo_log mark_idle_all write
-			mark_idle_all write
+			echo_log test_mark_idle_all write
+			test_mark_idle_all write
 
 			get_pagetypes $pid pagetypes.idle.1 -ra 0x700000000+0x10000000 -b idle_page
 
@@ -49,8 +49,8 @@ _control() {
 		"before_munmap")
 			sleep 1
 
-			echo_log mark_idle_all read
-			mark_idle_all read
+			echo_log test_mark_idle_all read
+			test_mark_idle_all read
 
 			get_pagetypes $pid pagetypes.idle.2 -ra 0x700000000+0x10000000 -b idle_page
 
@@ -65,8 +65,8 @@ _control() {
 		"entering busy loop")
 			sleep 2
 
-			echo_log mark_idle_all read
-			mark_idle_all read
+			echo_log test_mark_idle_all read
+			test_mark_idle_all read
 
 			get_pagetypes $pid pagetypes.idle.3 -ra 0x700000000+0x10000000 -b idle_page
 

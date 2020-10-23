@@ -60,12 +60,12 @@ run_migrate_src() {
 		migratepages $(pgrep -f test_alloc_generic) 1 0 > /dev/null 2>&1
 	done
 	<% elsif param["migtype"] == "move_pages" %>
-	iterate_numa_move_pages 10 $(pgrep -f test_alloc_generic) > /dev/null 2>&1
+	test_iterate_numa_move_pages 10 $(pgrep -f test_alloc_generic) > /dev/null 2>&1
 	<% end %>
 }
 
 _prepare() {
-	check_binary iterate_numa_move_pages || return 1
+	check_binary test_iterate_numa_move_pages || return 1
 }
 
 _control() {

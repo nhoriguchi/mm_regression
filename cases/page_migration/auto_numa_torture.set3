@@ -15,12 +15,12 @@ _control() {
     test_alloc_generic -B anonymous -N $size -L 'mmap busyloop' &
     local pid=$!
     
-    echo numa_move_pages
+    echo test_numa_move_pages
     for i in $(seq 10) ; do
 		echo "current CPU: $(ps -o psr= $pid)"
         echo "expecting numa balance to optimize the situation ..."
-        echo numa_move_pages $size $pid 1 $pct
-        numa_move_pages $size $pid 1 $pct
+        echo test_numa_move_pages $size $pid 1 $pct
+        test_numa_move_pages $size $pid 1 $pct
         taskset -p 0x4 $pid
         grep ^70000000 /proc/$pid/numa_maps
         grep numa /proc/$pid/sched
@@ -29,8 +29,8 @@ _control() {
         grep numa /proc/$pid/sched
         echo ""
 		echo "current CPU: $(ps -o psr= $pid)"
-        echo numa_move_pages $size $pid 0 $pct
-        numa_move_pages $size $pid 0 $pct
+        echo test_numa_move_pages $size $pid 0 $pct
+        test_numa_move_pages $size $pid 0 $pct
         taskset -p 0x1 $pid
         grep ^70000000 /proc/$pid/numa_maps
         grep numa /proc/$pid/sched
@@ -42,6 +42,8 @@ _control() {
 }
 
 _prepare() {
+	check_binary test_numa_move_pages || return 1
+
 	prepare_mm_generic || return 1
 }
 
