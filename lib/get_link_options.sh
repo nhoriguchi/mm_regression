@@ -13,7 +13,7 @@ fi
 if grep -q "^#include <pthread.h>" $FILE ; then
    OPT="$OPT -lpthread"
 fi
-if grep -q "^#include <numa.h>" $FILE ; then
+if grep -q -e "^#include <numa.h>" -e "^#include <numaif.h>" $FILE ; then
    OPT="$OPT -lnuma"
 fi
 
