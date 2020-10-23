@@ -64,6 +64,10 @@ run_migrate_src() {
 	<% end %>
 }
 
+_prepare() {
+	check_binary iterate_numa_move_pages || return 1
+}
+
 _control() {
 	get_mm_stats 1
 	for i in $(seq $ITERATE) ; do

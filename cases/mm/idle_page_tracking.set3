@@ -13,6 +13,8 @@ TEST_PROGRAM="test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_ano
 EXPECTED_RETURN_CODE="EXIT"
 
 _prepare() {
+	check_binary mark_idle_all || return 1
+
 	prepare_mm_generic || return 1
 	# TODO: Wait?
 	echo "test_alloc_generic -B anonymous -n $[$(grep ^MemTotal: /proc/meminfo | awk '{print $2}') * 2 / 4 / 4] -L \"start mmap access busyloop\" &"

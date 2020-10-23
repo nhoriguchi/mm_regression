@@ -7,7 +7,7 @@ EXPECTED_RETURN_CODE="PASS EXIT"
 # https://lore.kernel.org/linux-mm/20200922135650.1634-1-osalvador@suse.de/
 
 _prepare() {
-	gcc -o $TRDIR/build/test_ksm_madv_soft $TRDIR/lib/test_ksm_madv_soft.c || exit 1
+	check_binary test_ksm_madv_soft || return 1
 
 	echo 0 > /sys/kernel/mm/ksm/sleep_millisecs
 	echo 100000 > /sys/kernel/mm/ksm/pages_to_scan

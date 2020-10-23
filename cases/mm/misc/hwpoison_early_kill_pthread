@@ -1,3 +1,7 @@
+_prepare() {
+	check_binary test_early_kill_pthread || return 1
+}
+
 _cleanup() {
 	pkill -9 -f test_early_kill_pthread
 	sysctl vm.memory_failure_early_kill=0

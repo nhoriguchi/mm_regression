@@ -3,6 +3,8 @@ TEST_TYPE=devel
 DEVNAME=
 
 _prepare() {
+	check_binary test_dax || return 1
+
 	ndctl list -N | jq -r '.[] | select(.mode == "devdax")' > $TMPD/namespace
 	ndctl list -N | jq -r '. | map(select(.mode == "devdax"))[0]' > $TMPD/namespace
 	if [ $? -ne 0 ] ; then
