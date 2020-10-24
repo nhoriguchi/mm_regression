@@ -2,7 +2,10 @@
 
 ## Prerequisite
 
-- `gcc`, `ruby`, and `numactl` must be available on your test system.
+- `gcc`
+- `ruby`
+- `numactl`
+- `numactl-devel` (on RHEL/Fedora), `libnuma-dev` (on Ubuntu)
 
 ## Simple usage
 
