@@ -108,6 +108,8 @@ if ! lsmod | grep hwpoison_inject > /dev/null ; then
     modprobe hwpoison_inject
 fi
 
+# <2020-10-24 Sat 22:03> Now mce-inject binary is placed on build/ so we
+# should always skip this check, but keep this code in case.
 if ! which mce-inject > /dev/null || [[ ! -s "$(which mce-inject)" ]] ; then
     echo "No mce-inject installed."
     # http://git.kernel.org/cgit/utils/cpu/mce/mce-inject.git
