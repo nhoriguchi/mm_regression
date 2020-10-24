@@ -29,7 +29,7 @@ HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 
 _prepare() {
 	prepare_mmgeneric || return 1
-	numactl --membind=0 dd if=/dev/zero of=$TDIR/shmem/testfile bs=2M count=$NR_THP
+	test_alloc_generic -B pagecache -N $NR_THP -F -L "set_mempolicy:mode=bind:node=0 open:path=$TDIR/shmem/testfile mmap access:type=syswrite"
 }
 
 _cleanup() {

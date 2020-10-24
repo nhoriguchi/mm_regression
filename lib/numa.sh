@@ -1,4 +1,4 @@
-NUMNODE=$(numactl -H | grep available | cut -f2 -d' ')
+NUMNODE=$(ls -1 /sys/devices/system/node/ | grep node[0-9] | wc -l)
 
 numa_check() {
 	if ! [ "$NUMNODE" -gt 1 ] ; then
