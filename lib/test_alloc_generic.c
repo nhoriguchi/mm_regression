@@ -19,7 +19,7 @@
 
 /* TODO: validation options' combination more */
 static void setup(void) {
-	if (backend_bitmap & BE_PAGECACHE)
+	if (filebase && backend_bitmap & BE_PAGECACHE)
 		create_regular_file();
 
 	if (backend_bitmap & BE_HUGETLB_FILE)
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 
 	signal(SIGUSR1, sig_handle);
 
-	while ((c = getopt(argc, argv, "vp:n:N:B:L:f:w:s")) != -1) {
+	while ((c = getopt(argc, argv, "vp:n:N:B:L:f:Fw:s")) != -1) {
 		switch(c) {
                 case 'v':
                         verbose = 1;
@@ -105,6 +105,9 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'f':
 			filebase = optarg;
+			break;
+		case 'F':
+			filebase = NULL;
 			break;
 		case 'w':
 			workdir = optarg;

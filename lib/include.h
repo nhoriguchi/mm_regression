@@ -382,6 +382,13 @@ static void access_memory(struct mem_chunk *mc, char *type) {
 		read_memory(mc->p, mc->chunk_size);
 	} else if (!strcmp(type, "write")) {
 		memset(mc->p, 'a', mc->chunk_size);
+	} else if (!strcmp(type, "syswrite")) {
+		int i;
+		char buf[PS];
+		memset(buf, 'a', PS);
+		for (i = 0; i < mc->chunk_size; i += PS) {
+			pwrite(fd, buf, PS, i);
+		}
 	}
 }
 
@@ -400,6 +407,22 @@ static int check_memory(struct mem_chunk *mc) {
 		/* printf("flags: %s\n", kpflags); */
 		;;;;
 		break;
+	}
+}
+
+static void do_open(struct op_control *opc) {
+	char *path = opc_get_value(opc, "path");
+
+	if(access(path, F_OK) != -1) {
+		Dprintf("%s: %s already exists.\n", __func__, path);
+		fd = open(path, O_RDWR, 0755);
+		if (fd == -1)
+			err("open");
+	} else {
+		printf("%s: %s not found, now create it.\n", __func__, path);
+		fd = open(path, O_CREAT|O_RDWR, 0755);
+		if (fd == -1)
+			err("open");
 	}
 }
 
@@ -484,7 +507,7 @@ static int do_access(void *ptr) {
 	char *type = opc_get_value(opc, "type");
 	int check = opc_defined(opc, "check");
 
-	if (type && !strcmp(type, "read") && !strcmp(type, "write"))
+	if (type && !strcmp(type, "read") && !strcmp(type, "write") && !strcmp(type, "syswrite"))
 		errmsg("invalid parameter access:type=%s\n", type);
 	for (j = 0; j < nr_mem_types; j++)
 		for (i = 0; i < nr_chunk; i++) {
@@ -1287,10 +1310,29 @@ static void do_prctl(struct op_control *opc) {
 	return;
 }
 
+static void do_set_mempolicy(struct op_control *opc) {
+	char *mode = opc_get_value(opc, "mode");
+	int node;
+	char *tmp = opc_get_value(opc, "node");
+	if (tmp)
+		node = strtoul(tmp, NULL, 0);
+
+	if (!strcmp(mode, "default")) {
+		if (set_mempolicy_node(MPOL_DEFAULT, 0) == -1)
+			err("set_mempolicy");
+	} else if (!strcmp(mode, "bind")) {
+		if (set_mempolicy_node(MPOL_BIND, node) == -1)
+			err("set_mempolicy");
+	} else {
+		errmsg("do_set_mempolicy: invalid mode %s", mode);
+	}
+}
+
 enum {
 	NR_start,
 	NR_noop,
 	NR_exit,
+	NR_open,
 	NR_mmap,
 	NR_mmap_numa,
 	NR_access,
@@ -1323,6 +1365,7 @@ enum {
 	NR_madvise,
 	NR_vm86,
 	NR_prctl,
+	NR_set_mempolicy,
 	NR_OPERATIONS,
 };
 
@@ -1330,6 +1373,7 @@ static const char *operation_name[] = {
 	[NR_start]			= "start",
 	[NR_noop]			= "noop",
 	[NR_exit]			= "exit",
+	[NR_open]			= "open",
 	[NR_mmap]			= "mmap",
 	[NR_mmap_numa]			= "mmap_numa",
 	[NR_access]			= "access",
@@ -1362,6 +1406,7 @@ static const char *operation_name[] = {
 	[NR_madvise]			= "madvise",
 	[NR_vm86]			= "vm86",
 	[NR_prctl]			= "prctl",
+	[NR_set_mempolicy]		= "set_mempolicy",
 };
 
 /*
@@ -1372,6 +1417,7 @@ static const char *op_supported_args[][10] = {
 	[NR_start]			= {},
 	[NR_noop]			= {},
 	[NR_exit]			= {},
+	[NR_open]			= {"path"},
 	[NR_mmap]			= {},
 	[NR_mmap_numa]			= {"preferred_cpu_node", "preferred_mem_node"},
 	[NR_access]			= {"type", "check"},
@@ -1404,6 +1450,7 @@ static const char *op_supported_args[][10] = {
 	[NR_madvise]			= {"advice", "size", "hp_partial", "offset", "length", "step"},
 	[NR_vm86]			= {},
 	[NR_prctl]			= {"early_kill", "late_kill"},
+	[NR_set_mempolicy]		= {"mode", "node"},
 };
 
 static int get_op_index(struct op_control *opc) {
@@ -1543,6 +1590,8 @@ static void do_operation_loop(void) {
 			;
 		} else if (!strcmp(opc.name, "exit")) {
 			;
+		} else if (!strcmp(opc.name, "open")) {
+			do_open(&opc);
 		} else if (!strcmp(opc.name, "mmap")) {
 			do_mmap(&opc);
 		} else if (!strcmp(opc.name, "mmap_numa")) {
@@ -1608,6 +1657,8 @@ static void do_operation_loop(void) {
 			do_vm86(&opc);
 		} else if (!strcmp(opc.name, "prctl")) {
 			do_prctl(&opc);
+		} else if (!strcmp(opc.name, "set_mempolicy")) {
+			do_set_mempolicy(&opc);
 		} else
 			errmsg("unsupported op_string: %s\n", opc.name);
 
