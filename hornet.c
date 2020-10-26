@@ -196,7 +196,7 @@ again:
 		}
 		goto again;
 	}
-	*phys = ((pinfo & 0x007ffffffffffffful) << 12) + (a & (pagesize - 1));
+	*phys = ((pinfo & 0x007ffffffffffffful) * pagesize) + (a & (pagesize - 1));
 	return a;
 fail:
 	close(fd);

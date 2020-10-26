@@ -50,7 +50,7 @@ unsigned long long vtop(unsigned long long addr)
 		printf("page not present\n");
 		exit(1);
 	}
-	return ((pinfo & 0x007fffffffffffffull) << 12) + (addr & (pagesize - 1));
+	return ((pinfo & 0x007fffffffffffffull) * pagesize) + (addr & (pagesize - 1));
 }
 
 /*
