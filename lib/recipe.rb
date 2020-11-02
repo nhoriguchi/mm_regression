@@ -181,6 +181,9 @@ if $0 == __FILE__
   if ARGV.size == 0
     rs.split
   elsif ARGV[0] == "list"
-    rs.list.each {|a| printf("%s\t%d\t%s\n", a[:type], a[:priority], a[:id])}
+    rs.list.each do |a|
+      next if a[:id] =~ /\/config$/
+      printf("%s\t%d\t%s\n", a[:type], a[:priority], a[:id])
+    end
   end
 end
