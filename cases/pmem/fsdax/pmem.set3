@@ -14,6 +14,12 @@ NR_THP=3
 PMEMDIR=/mnt/pmem1
 
 _prepare() {
+	<% if param["flavor"] == "fio" %>
+	if ! which fio > /dev/null ; then
+		echo "fio is not available, skipped." >&2
+		return 1
+	fi
+	<% end %>
 	rm -f $PMEMDIR/data
 	true
 }
