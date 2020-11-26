@@ -23,7 +23,7 @@ check_environment() {
 	fi
 
 	if [ -s "$ENVDIR/hostname" ] && [ "$(cat $ENVDIR/hostname)" != "$(hostname)" ] ; then
-		echo "Testing host ($(hostnamer)) might not be the one you originally intended ($(awk '{print $3}' $ENVDIR/hostname))."
+		echo "Testing host ($(hostname)) might not be the one you originally intended ($(awk '{print $3}' $ENVDIR/hostname))."
 		exit 1
 	fi
 }
