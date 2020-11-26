@@ -31,7 +31,7 @@ _control() {
 	pid=$!
 	sleep 0.1
 
-	ps H -o 'pid tid cmd' | grep "$pid " | grep test_early_kill_pthread > $TMPD/ps
+	ps ax -o 'pid tid cmd'| grep "$pid " | grep test_early_kill_pthread > $TMPD/ps
 	local tid="$(tail -1 $TMPD/ps | awk '{print $2}')"
 	if [ ! "$tid" ] ; then
 		return 1
