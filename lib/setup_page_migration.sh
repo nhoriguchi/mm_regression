@@ -115,6 +115,7 @@ check_migration_done() {
 	else
 		set_return_code MIGRATION_FAILED
 	fi
+	echo "check_migration_hugeness $before $after"
 	check_migration_hugeness $before $after
 	local ret=$?
 	if [ "$ret" == 0 ] ; then

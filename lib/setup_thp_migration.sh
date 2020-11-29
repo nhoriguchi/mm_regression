@@ -34,8 +34,8 @@ _control() {
 
 			if [ "$SHMEM_DIR" ] ; then
 				# '-f' provides some file metadata, so need to filter with '___'
-				echo page-types -f $SHMEM_DIR/testfile -rlN
-				page-types -f $SHMEM_DIR/testfile -rlN
+				# echo page-types -f $SHMEM_DIR/testfile -rlN
+				# page-types -f $SHMEM_DIR/testfile -rlN
 				page-types -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.3
 			fi
 
@@ -53,8 +53,8 @@ _control() {
 			get_mm_stats 2 $pid $(pgrep -P $pid) > /dev/null
 
 			if [ "$SHMEM_DIR" ] ; then
-				echo page-types -f $SHMEM_DIR/testfile -rlN
-				page-types -f $SHMEM_DIR/testfile -rlN
+				# echo page-types -f $SHMEM_DIR/testfile -rlN
+				# page-types -f $SHMEM_DIR/testfile -rlN | head
 				page-types -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.2
 			fi
 
@@ -102,4 +102,87 @@ _control() {
 
 _check() {
 	true
+}
+
+check_thp_migration() {
+	local before=$1
+	local after=$2
+
+	grep _t_ $before | cut -f1,2 > $TMPD/.pagetypes.huge.before
+	grep _t_ $after  | cut -f1,2 > $TMPD/.pagetypes.huge.after
+
+	if [ -s $TMPD/.pagetypes.huge.before ] ; then # thp exists before migration
+		if diff -q $TMPD/.pagetypes.huge.before $TMPD/.pagetypes.huge.after > /dev/null ; then
+			set_return_code HUGEPAGE_NOT_MIGRATED
+		elif [ -s $TMPD/.pagetypes.huge.after ] ; then
+			set_return_code HUGEPAGE_MIGRATED
+		else
+			set_return_code HUGEPAGE_SPLIT
+		fi
+	else
+		if diff -q <(cut -f1,2 $before) <(cut -f1,2 $after) > /dev/null ; then
+			set_return_code PAGE_NOT_MIGRATED
+		elif [ -s $TMPD/.pagetypes.huge.after ] ; then
+			set_return_code HUGEPAGE_CREATED
+		else
+			set_return_code PAGE_MIGRATED
+		fi
+	fi
+}
+
+control_split_retry() {
+	local pid=$1
+
+	pgrep -f test_alloc_generic > $TMPD/pids
+
+	if read -t60 line <> $TMPD/.tmp_pipe ; then
+		echo "1 after_access"
+
+		kill -SIGUSR1 $pid
+	else
+		return 1
+	fi
+
+	echo "FORK: [$FORK]"
+
+	if [ "$FORK" ] ; then
+		if read -t60 line <> $TMPD/.tmp_pipe ; then
+			echo "1.5 after_fork"
+
+			pgrep -f test_alloc_generic > $TMPD/pids
+
+			kill -SIGUSR1 $pid
+		else
+			return 1
+		fi
+	fi
+
+	echo "PIDs: $(cat $TMPD/pids | tr '\n' ' ')"
+
+	if read -t60 line <> $TMPD/.tmp_pipe ; then
+		echo "2 after_noop"
+
+		for p in $(cat $TMPD/pids) ; do
+			page-types -p $p -rlN -a 0x700000000+0x10000000 | grep -v offset > $TMPD/pagetypes.2.$p
+		done
+
+		kill -SIGUSR1 $pid
+	else
+		return 1
+	fi
+
+	if read -t60 line <> $TMPD/.tmp_pipe ; then
+		echo "3 after_munmap"
+
+		for p in $(cat $TMPD/pids) ; do
+			page-types -p $p -rlN -a 0x700000000+0x10000000 | grep -v offset > $TMPD/pagetypes.3.$p
+			check_thp_migration $TMPD/pagetypes.2.$p $TMPD/pagetypes.3.$p
+		done
+
+		kill -SIGUSR1 $pid
+	else
+		return 1
+	fi
+
+	set_return_code EXIT
 }
