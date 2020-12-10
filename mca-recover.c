@@ -78,7 +78,7 @@ void recover(int sig, siginfo_t *si, void *v)
 
 	tried_recovery = 1;
 	printf("recover: sig=%d si=%p v=%p\n", sig, si, v);
-	printf("Platform memory error at 0x%p\n", si->si_addr);
+	printf("Platform memory error at %p\n", si->si_addr);
 	printf("addr = %p lsb=%d\n", m->addr, m->lsb);
 
 	newbuf = mmap(buf, pagesize, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_FIXED|MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
@@ -94,13 +94,18 @@ void recover(int sig, siginfo_t *si, void *v)
 	memset(buf, '*', pagesize);
 	phys = vtop((unsigned long long)buf);
 
-	printf("Recovery allocated new page at physical %llx\n", phys);
+	printf("Recovery allocated new page at physical 0x%llx\n", phys);
 }
 
 struct sigaction recover_act = {
 	.sa_sigaction = recover,
 	.sa_flags = SA_SIGINFO,
 };
+
+int consume_poison(void)
+{
+	return *(volatile char *)buf;
+}
 
 int main(int argc, char **argv)
 {
@@ -127,7 +132,7 @@ int main(int argc, char **argv)
 
 	fgets(reply, sizeof reply, stdin);
 
-	i = buf[0];
+	i = consume_poison();
 
 	if (tried_recovery == 0) {
 		fprintf(stderr, "%s: didn't trigger error\n", argv[0]);
