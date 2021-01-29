@@ -32,6 +32,7 @@ static char *progname;
 static int nsockets, ncpus, lcpus_persocket;
 static int force_flag;
 static int all_flag;
+static int Sflag;
 static long pagesize;
 static int *apicmap;
 #define	CACHE_LINE_SIZE	64
@@ -59,8 +60,14 @@ static void wfile(char *file, unsigned long long val)
 	}
 }
 
-static void inject_uc(unsigned long long addr, int notrigger)
+static void inject_uc(unsigned long long addr, void *vaddr, int notrigger)
 {
+	if (Sflag) {
+		vaddr = (void *)((long)vaddr & ~(pagesize - 1));
+		madvise(vaddr, pagesize, MADV_HWPOISON);
+		return;
+	}
+
 	wfile(EINJ_ETYPE, 0x10);
 	wfile(EINJ_ADDR, addr);
 	wfile(EINJ_MASK, ~0x0ul);
@@ -69,7 +76,7 @@ static void inject_uc(unsigned long long addr, int notrigger)
 	wfile(EINJ_DOIT, 1);
 }
 
-static void inject_llc(unsigned long long addr, int notrigger)
+static void inject_llc(unsigned long long addr, void *vaddr, int notrigger)
 {
 	unsigned cpu;
 
@@ -362,7 +369,7 @@ struct test {
 	char	*testname;
 	char	*testhelp;
 	void	*(*alloc)(void);
-	void	(*inject)(unsigned long long, int);
+	void	(*inject)(unsigned long long, void *, int);
 	int	notrigger;
 	int	(*trigger)(char *);
 	int	flags;
@@ -477,7 +484,7 @@ int main(int argc, char **argv)
 	progname = argv[0];
 	pagesize = getpagesize();
 
-	while ((c = getopt(argc, argv, "ac:d:fhm:")) != -1) switch (c) {
+	while ((c = getopt(argc, argv, "ac:d:fhm:S")) != -1) switch (c) {
 	case 'a':
 		all_flag = 1;
 		break;
@@ -492,6 +499,9 @@ int main(int argc, char **argv)
 		break;
 	case 'm':
 		parse_memcpy(optarg);
+		break;
+	case 'S':
+		Sflag = 1;
 		break;
 	case 'h': case '?':
 		show_help();
@@ -525,7 +535,7 @@ int main(int argc, char **argv)
 				printf("Unexpected SIGBUS\n");
 			}
 		} else {
-			t->inject(paddr, t->notrigger);
+			t->inject(paddr, vaddr, t->notrigger);
 			t->trigger(vaddr);
 			if (t->flags & F_SIGBUS) {
 				printf("Expected SIGBUS, didn't get one\n");
@@ -557,7 +567,7 @@ int main(int argc, char **argv)
 			printf("Big surprise ... still running. Thought that would be fatal\n");
 		}
 
-		if (t->flags & F_MCE) {
+		if (Sflag == 0 && (t->flags & F_MCE)) {
 			if (a_mce == b_mce) {
 				printf("Expected MCE, but none seen\n");
 			} else if (a_mce == b_mce + 1) {
@@ -573,7 +583,7 @@ int main(int argc, char **argv)
 			}
 		}
 
-		if (t->flags & F_CMCI) {
+		if (Sflag == 0 && (t->flags & F_CMCI)) {
 			while (a_cmci < b_cmci + lcpus_persocket) {
 				if (cmci_wait_count > 1000) {
 					break;
