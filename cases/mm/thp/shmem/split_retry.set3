@@ -4,10 +4,14 @@
 #! {"thp" => "pmd_split"}
 #! {"thp" => "thp_split"}
 
+TEST_TYPE=debug
+
 <% if param["thp"] == "shared_thp" %>
 FORK=fork:wait_after=1000000
 EXPECTED_RETURN_CODE="HUGEPAGE_MIGRATED HUGEPAGE_MIGRATED EXIT"
 <% elsif param["thp"] == "double_mapping" %>
+# shmem thp doesn't support pmd split for now, so the pass of this testcase
+# might not mean what we really want to test.
 FORK=fork:wait_after=1000000
 SPLIT_THP="split_thp:only_pmd access"
 EXPECTED_RETURN_CODE="HUGEPAGE_MIGRATED HUGEPAGE_MIGRATED EXIT"

@@ -23,13 +23,14 @@ SPLIT_THP="split_thp:only_pmd access"
 <% elsif param["thp"] == "pmd_split" %>
 SPLIT_THP="split_thp:only_pmd access"
 <% elsif param["thp"] == "thp_split" %>
+TEST_TYPE=devel
 SPLIT_THP="split_thp access"
 HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 <% end %>
 
 _prepare() {
 	prepare_mmgeneric || return 1
-	test_alloc_generic -B pagecache -N $NR_THP -F -L "set_mempolicy:mode=bind:node=0 open:path=$TDIR/shmem/testfile mmap access:type=syswrite"
+	test_alloc_generic -B pagecache -N $NR_THP -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite"
 }
 
 _cleanup() {
