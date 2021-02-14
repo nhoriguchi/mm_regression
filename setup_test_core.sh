@@ -10,7 +10,7 @@ __dmesg_filter2() {
 	grep -v "\(MCE\|Unpoison\): Software-unpoisoned "
 }
 __dmesg_filter3() {
-	grep -v "Soft offlining page"
+	grep -v -e "Soft offlining page" -e "drop_caches: 3"
 }
 
 DMESG_FILTER_SWITCH=on
@@ -23,7 +23,7 @@ dmesg_filter() {
 }
 
 get_kernel_message_diff() {
-	diff $TMPD/.dmesg_before $TMPD/.dmesg_after 2> /dev/null | grep -v '^< ' | \
+	diff $TMPD/.dmesg_before $TMPD/.dmesg_after 2> /dev/null | grep '^> ' | \
 		dmesg_filter > $TMPD/dmesg_diff
 	# expecting environment format DMESG_DIFF_LIMIT is like "head -n10" or "tail -20"
 	if [ -s $TMPD/dmesg_diff ] ; then
