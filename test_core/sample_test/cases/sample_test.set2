@@ -1,0 +1,11 @@
+#!1 KEY1: v1-1 v12
+#!1 KEY2: v21 v22
+
+A1=__STR_KEY1
+A2=__STR_KEY2
+
+#if __MARK_KEY1 == __MARK_KEY1_v1_1
+echo "A1 is $A1, and A2 is $A2"
+#elif __MARK_KEY1 == __MARK_KEY1_v12
+echo "A1 is $A1, and A2 is $A2"
+#endif

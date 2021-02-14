@@ -1,0 +1,7 @@
+# We don't rely on git tracking
+# **
+**/tmp*
+**/Trash*
+**/test_core
+
+!.gitignore

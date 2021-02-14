@@ -1,0 +1,11 @@
+# We don't rely on git tracking
+# **
+**/tmp*
+**/Trash*
+**/work*
+**/results*
+**/*.auto
+**/*.auto2
+**/*.auto3
+
+!.gitignore

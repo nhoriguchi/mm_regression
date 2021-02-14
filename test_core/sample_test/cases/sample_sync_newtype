@@ -1,0 +1,24 @@
+TEST_PROGRAM="lib/test_sample -m private -n 1"
+EXPECTED_RETURN_CODE="CHECK1 EXIT"
+
+_control() {
+	local pid="$1"
+	local line="$2"
+
+	echo_log "$line"
+	case "$line" in
+		"busy loop to check pageflags")
+		    cat /proc/${pid}/numa_maps
+			set_return_code CHECK1
+		    kill -SIGUSR1 ${pid}
+		    ;;
+		"lib/test_sample exit")
+		    kill -SIGUSR1 ${pid}
+		    set_return_code "EXIT"
+		    return 0
+		    ;;
+		*)
+		    ;;
+	esac
+	return 1
+}

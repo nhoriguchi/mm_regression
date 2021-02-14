@@ -1,0 +1,26 @@
+MAX_REBOOT=1
+
+TEST_PRIORITY=20
+TEST_TYPE=devel
+
+_prepare() {
+	if [ ! "$TEST_RUN_MODE" ] ; then
+		echo "reboot test is only available when running in background mode, please set environment variable BACKGROUND=true to run this testcase."
+		return 1
+	fi
+
+	echo prepared
+}
+
+_control() {
+	local rcount=$(cat $RTMPD/reboot_count)
+
+	if [ "$rcount" -eq 0 ] ; then
+		echo "reboot count is 0, so let's reboot"
+		sync
+		reboot
+	else
+		echo "reboot count is $rcount"
+	fi
+}
+

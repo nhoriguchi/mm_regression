@@ -1,0 +1,17 @@
+SKIP_THIS_TEST=true
+
+_control() {
+	echo_log "control"
+}
+
+_prepare() {
+	echo_log "prepare"
+}
+
+_cleanup() {
+	echo_log "cleanup"
+}
+
+_check() {
+	echo_log "check"
+}

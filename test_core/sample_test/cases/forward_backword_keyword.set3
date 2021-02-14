@@ -1,0 +1,7 @@
+<% if backward_keyword.include? "sample_keyword" %>
+_control() { echo "before 'sample_keyword' is applied."; }
+<% elsif forward_keyword.include? "sample_keyword" %>
+_control() { echo "development version for 'sample_keyword'"; }
+<% else %>
+_control() { echo "current upstream with 'sample_keyword' applied"; }
+<% end %>

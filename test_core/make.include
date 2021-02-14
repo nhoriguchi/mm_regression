@@ -1,0 +1,58 @@
+# assume that this extension is imported from a ../Makefile
+
+split_recipes:
+	@ruby test_core/lib/recipe.rb > /dev/null
+	@true
+
+cleanup_recipes:
+	@find cases -type f -name *.auto -o -name *.auto2 -o -name *.auto3 | xargs -r rm > /dev/null
+	@true
+
+update_recipes:
+	@make cleanup_recipes > /dev/null 2>&1 || true
+	@make split_recipes > /dev/null || true
+	@true
+
+# Prepare result directory under work/<RUNNAME>.
+#
+# NOTE: remove any result directories of non-existent recipes, so be careful
+# not to delete important test result data when you change recipe name.
+#
+# TODO: get RUNNAME
+prepare_result_directory:
+	@if [ $(RUNNAME) ] ; then \
+		bash test_core/lib/setup_result_directory.sh $(RUNNAME); \
+	else \
+		echo No RUNNAME= given; \
+		@false ; \
+	fi
+
+summary:
+	@ruby test_core/lib/test_summary.rb -l
+	@true
+
+coverage:
+	@ruby test_core/lib/test_summary.rb -lP
+	@true
+
+version:
+	@git --no-pager log -n1 --pretty="Test version: format:%H %s"
+	@git --no-pager --git-dir test_core/.git log -n1 --pretty="Test Core version: format:%H %s"
+	@true
+
+allrecipes:
+	@ruby test_core/lib/recipe.rb list | cut -f3
+	@true
+
+recipe_priority:
+	@ruby test_core/lib/recipe.rb list
+	@true
+
+# You need give RUNNAME
+waiting_recipes:
+	@make --no-print-directory update_recipes RUNNAME=$(RUNNAME)
+	@ruby test_core/lib/test_summary.rb -p work/${RUNNAME} | grep "\-\-\-\-" | cut -f2 -d ' ' | sed -e 's/^/cases\//' 2> /dev/null
+
+prepare:
+	@make --no-print-directory update_recipes
+	@make --no-print-directory prepare_result_directory RUNNAME=$(RUNNAME)

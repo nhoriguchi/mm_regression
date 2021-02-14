@@ -1,0 +1,23 @@
+_control() {
+	echo_log "control"
+}
+
+_prepare() {
+	echo_log "prepare"
+}
+
+_cleanup() {
+	echo_log "cleanup"
+}
+
+_check() {
+	echo_log "check"
+	echo_verbose "verbose message"
+
+	count_testcount "testcase $(basename $BASH_SOURCE)"
+	count_success pass
+	FALSENEGATIVE=true
+	count_testcount "testcase $(basename $BASH_SOURCE)_2"
+	count_failure fail
+	FALSENEGATIVE=false
+}

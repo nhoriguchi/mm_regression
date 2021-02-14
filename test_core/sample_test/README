@@ -1,0 +1,9 @@
+Tips
+====
+
+If you know your testcase is only development version and never pass on
+any current public trees, you can add TEST_TYPE=devel (or debug) on the testcase.
+Then the test will not be run on normal 'make test' operation.
+If you are working on developing kernel, you just enable 'devel' testcase,
+by simply setting environment variable RUN_MODE like 'RUN_MODE=devel make
+test'.

@@ -1,0 +1,12 @@
+TEST_CONTROLLER=control_sample_async
+TEST_CHECKER=check_sample_async
+EXPECTED_RETURN_CODE="SOME_TEST_CODE"
+
+. $TRDIR/lib/setup_sample_test.sh
+
+# Define your own hooks
+#
+# TEST_PREPARE=prepare_$TEST_TITLE
+# TEST_CLEANUP=cleanup_$TEST_TITLE
+# TEST_CONTROLLER=control_$TEST_TITLE
+# TEST_CHECKER=check_$TEST_TITLE
