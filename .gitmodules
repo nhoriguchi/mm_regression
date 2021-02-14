@@ -1,6 +1,3 @@
-[submodule "test_core"]
-	path = test_core
-	url = https://github.com/Naoya-Horiguchi/test_core
 [submodule "lib/cailtest"]
 	path = lib/cailtest
 	url = https://github.com/cailca/linux-mm
