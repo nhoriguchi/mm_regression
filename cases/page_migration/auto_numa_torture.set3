@@ -1,6 +1,6 @@
 ##!1 BACKEND: anonymous thp
 
-. $TRDIR/lib/setup_page_migration.sh
+. $TRDIR/lib/mm.sh
 
 NUMA_NODE=2
 
