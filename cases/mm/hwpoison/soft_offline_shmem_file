@@ -1,0 +1,50 @@
+EXPECTED_RETURN_CODE="INJECTION_SUUCEEDED"
+
+TEST_TYPE=debug
+SHMEM_DIR=$TDIR/shmem
+
+_prepare() {
+	rm -rf $SHMEM_DIR/* > /dev/null 2>&1
+	umount -f $SHMEM_DIR > /dev/null 2>&1
+	mkdir -p $SHMEM_DIR > /dev/null 2>&1
+	mount -t tmpfs tmpfs $SHMEM_DIR || return 1
+
+	test_alloc_generic -B pagecache -n 3 -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite"
+}
+
+_cleanup() {
+	rm -rf $SHMEM_DIR/* > /dev/null 2>&1
+	umount -f $SHMEM_DIR > /dev/null 2>&1
+	rm -rf $SHMEM_DIR > /dev/null 2>&1
+}
+
+_control() {
+	page-types -f $SHMEM_DIR/testfile -Nrl | grep -v -e offset -e ^Modify: -e ^Access: > $TMPD/pagetypes.1
+	# dd if=/dev/zero of=$TDIR/file bs=4k count=4
+	# page-types -f $TDIR/file -Nrl | grep -v -e offset -e ^Modify: -e ^Access: > $TMPD/pagetypes.1
+	local pfn="0x$(sed -n 2p $TMPD/pagetypes.1 | cut -f2)"
+	set -x
+	# trace-cmd record -p function_graph -g soft_offline_page_store bash -c "echo ${pfn}000 > /sys/devices/system/memory/soft_offline_page"
+	echo ${pfn}000 > /sys/devices/system/memory/soft_offline_page
+	if [ $? -eq 0 ] ; then
+		set_return_code INJECTION_SUCCEEDED
+	else
+		set_return_code INJECTION_FAILED
+	fi
+
+	local bsize=0x$(cat /sys/devices/system/memory/block_size_bytes)
+	local mblock=$[pfn*4096/bsize]
+	if [ ! -d "/sys/devices/system/memory/memory$mblock" ] ; then
+		echo "memory block not found $mblock"
+	else
+		echo offline > "/sys/devices/system/memory/memory$mblock/online"
+		if [ $? -eq 0 ] ; then
+			echo "Successfully offlined memory block $mblock"
+			echo online > "/sys/devices/system/memory/memory$mblock/online"
+		else
+			echo "Failed to offline memory block $mblock"
+		fi
+	fi
+
+	page-types -f $SHMEM_DIR/testfile -Nrl | grep -v -e offset -e ^Modify: -e ^Access: > $TMPD/pagetypes.2
+}
