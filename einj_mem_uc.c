@@ -313,11 +313,11 @@ int trigger_copyin(char *addr)
 		return -1;
 	}
 	(void)unlink(filename);
-	if ((ret = write(copyin_fd, addr - memcpy_runup, memcpy_size) != memcpy_size)) {
+	if ((ret = write(copyin_fd, addr - memcpy_runup, memcpy_size)) != memcpy_size) {
 		if (ret == -1)
 			fprintf(stderr, "%s: couldn't write temp file (errno=%d)\n", progname, errno);
 		else
-			fprintf(stderr, "%s: short (%d bytes) write to temp file\n", ret, progname);
+			fprintf(stderr, "%s: short (%d bytes) write to temp file\n", progname, ret);
 	}
 
 	return 0;
