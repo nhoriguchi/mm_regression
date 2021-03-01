@@ -31,6 +31,5 @@ pj/hack/utilities
 
 !.gitignore
 
-test_core
 work
 result
