@@ -21,6 +21,8 @@
 #define __USE_GNU 1
 #include <sched.h>
 #include <errno.h>
+#include <sys/syscall.h>
+#include <linux/futex.h>
 
 extern long long vtop(long long);
 extern void proc_cpuinfo(int *nsockets, int *ncpus, char *model, int **apicmap);
@@ -359,6 +361,25 @@ int trigger_instr(char *addr)
 	return ret;
 }
 
+static int futex(int *uaddr, int futex_op, int val,
+		 const struct timespec *timeout, int *uaddr2, int val3)
+{
+	return syscall(SYS_futex, uaddr, futex_op, val, timeout, uaddr, val3);
+}
+
+int trigger_futex(char *addr)
+{
+	int ret;
+
+	ret = futex((int *)addr, FUTEX_WAIT, 0, NULL, NULL, 0);
+	if (ret == -1)
+		printf("futex returned with errno=%d\n", errno);
+	else
+		printf("futex return %d\n", ret);
+
+	return ret;
+}
+
 /* attributes of the test and which events will follow our trigger */
 #define	F_MCE		1
 #define	F_CMCI		2
@@ -412,11 +433,15 @@ struct test {
 	},
 	{
 		"copyin", "Kernel copies data from user. Probably fatal",
-		data_alloc, inject_uc, 1, trigger_copyin, F_MCE|F_CMCI|F_SIGBUS|F_FATAL,
+		data_alloc, inject_uc, 1, trigger_copyin, F_MCE|F_CMCI|F_FATAL,
 	},
 	{
 		"copyout", "Kernel copies data to user. Probably fatal",
 		page_cache_alloc, inject_uc, 1, trigger_copyout, F_MCE|F_CMCI|F_SIGBUS|F_FATAL,
+	},
+	{
+		"futex", "Kernel access to futex(2). Probably fatal",
+		data_alloc, inject_uc, 1, trigger_futex, F_MCE|F_CMCI|F_FATAL,
 	},
 	{
 		"mlock", "mlock target page then inject/read to generates SRAR machine check",
