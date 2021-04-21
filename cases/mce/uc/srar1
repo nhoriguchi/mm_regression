@@ -1,13 +1,11 @@
 _prepare() {
 	check_binary test_mce-srar || return 1
 
-    # TODO: need generic way to get debugfs mount point
-    echo 1 > $DEBUGFSDIR/mce/fake_panic
+	echo 1 > $DEBUGFSDIR/mce/fake_panic
 }
 
 _cleanup() {
-    # TODO: need generic way to get debugfs mount point
-    echo 0 > $DEBUGFSDIR/mce/fake_panic
+	echo 0 > $DEBUGFSDIR/mce/fake_panic
 }
 
 _check() {

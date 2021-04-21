@@ -1,0 +1,71 @@
+#! {"type" => "0"}
+#! {"type" => "1"}
+#! {"type" => "2"}
+#! {"type" => "3"}
+#! {"type" => "4"}
+
+ERROR_TYPE=<%= param["type"] %>
+
+TEST_TYPE=debug
+SHMEM_DIR=$TDIR/shmem
+EXPECTED_RETURN_CODE="PASS"
+
+<% if forward_keyword.include? "srar_multiple_mappings" %>
+if [ "$ERROR_TYPE" -eq 0 ] || [ "$ERROR_TYPE" -eq 1 ] ; then
+	EXPECTED_RETURN_CODE="FAIL"
+fi
+<% end %>
+
+_prepare() {
+	date
+	check_binary test_multiple_mappings_srar || return 1
+
+	echo 1 > $DEBUGFSDIR/mce/fake_panic
+
+	if [ "$ERROR_TYPE" -eq 3 ] ; then # shmem thp
+		mkdir -p $SHMEM_DIR > /dev/null 2>&1
+		mount -t tmpfs -o huge=always tmpfs $SHMEM_DIR
+	fi
+
+	if [ "$ERROR_TYPE" -eq 4 ] ; then # 1GB hugetlb
+		if [ ! -f /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages ] ; then
+			return 1
+		fi
+		echo 1 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
+		# cleanup existing shared memory for preparation.
+		shmids="$(ipcs -m | grep 1073741824 | awk '{print $2}')"
+		if [ "$shmids" ] ; then
+			echo "ipcrm shm $shmids"
+			ipcrm shm $shmids
+		fi
+	fi
+}
+
+_cleanup() {
+	if [ "$ERROR_TYPE" -eq 3 ] ; then # shmem thp
+		rm -rf $SHMEM_DIR/* > /dev/null 2>&1
+		umount -f $SHMEM_DIR > /dev/null 2>&1
+		rm -rf $SHMEM_DIR > /dev/null 2>&1
+	fi
+
+	if [ "$ERROR_TYPE" -eq 4 ] ; then # 1GB hugetlb
+		# cleanup existing shared memory for preparation.
+		shmids="$(ipcs -m | grep 1073741824 | awk '{print $2}')"
+		if [ "$shmids" ] ; then
+			echo ipcrm shm $shmids
+			ipcrm shm $shmids
+		fi
+		echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
+	fi
+
+	echo 0 > $DEBUGFSDIR/mce/fake_panic
+	echo 0 > /sys/kernel/mm/ksm/run
+}
+
+_control() {
+	if test_multiple_mappings_srar $ERROR_TYPE ; then
+		set_return_code PASS
+	else
+		set_return_code FAIL
+	fi
+}
