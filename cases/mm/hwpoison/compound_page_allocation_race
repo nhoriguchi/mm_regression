@@ -1,0 +1,99 @@
+# testing the race issue reported in the following thread:
+# https://lore.kernel.org/linux-mm/20210421060259.67554-1-songmuchun@bytedance.com/T/#u
+
+TEST_TYPE=debug
+
+_prepare() {
+	sysctl vm.nr_overcommit_hugepages=1
+
+	if [ ! -s "$RTMPD/stap.stp" ] ; then
+		cat <<EOF > $RTMPD/stap.stp
+#!/usr/bin/stap
+
+%{
+#include <linux/mm.h>
+#include <linux/mmdebug.h>
+%}
+
+function sleep (sec:long, page:long) %{
+	unsigned long sec = (unsigned long)STAP_ARG_sec;
+	struct page *page = (struct page *)STAP_ARG_page;
+
+	if (page) {
+		_stp_printf("PageHuge %d\n", PageHuge(page));
+		_stp_printf("pfn 0x%lx\n", page_to_pfn(page));
+		dump_page(page, "test stapA");
+	}
+	msleep(sec);
+%}
+
+function page_to_pfn:long (val:long) %{
+	STAP_RETVALUE = (long)page_to_pfn((struct page *)STAP_ARG_val);
+%}
+
+probe kernel.function("alloc_surplus_huge_page").return {
+	page = returnval();
+	pfn = page_to_pfn(page);
+	system(sprintf("echo pfn 0x%lx >> $TMPD/stap.xyz", pfn));
+	sleep(300, 0);
+}
+
+global pfn;
+probe kernel.function("memory_failure") {
+	pfn = register("rdi");
+}
+
+probe kernel.function("__get_hwpoison_page").return {
+	printf("get_hwpoison_page (pfn:%lx) returns %lx\n", pfn, returnval());
+	sleep(500, 0);
+	exit();
+}
+EOF
+	fi
+
+	if [ -d "$STAPBINDIR" ] ; then
+		export PATH=$STAPBINDIR:$PATH
+	else
+		echo "If you run this testcase on latest development kernel, you might have to install latest version of systemtap on the test system. Please set SYSBINDIR to stap binary path."
+	fi
+	export KBUILD_OUTPUT=/lib/modules/$(uname -r)/build
+
+	if ! stap --version ; then
+		echo "systemtap not installed in this system." >&2
+		return 1
+	fi
+
+	cd $RTMPD
+	stap -p4 -g -m stap_hwpoison $RTMPD/stap.stp || return 1
+	cd -
+}
+
+_cleanup() {
+	sysctl vm.nr_overcommit_hugepages=0
+}
+
+_control() {
+	staprun -w -o $TMPD/stap_hwpoison.out -D -T 10 $RTMPD/stap_hwpoison.ko
+	echo "run stap ..."
+	(
+		sleep 0.5
+		# allocate surplus page, triggering the race.
+		test_alloc_generic -B hugetlb_anon -N 1 -L 'mmap access:wait_after'
+	) &
+	echo "run test_alloc_generic ..."
+	touch $TMPD/stap.xyz
+	tail -n0 -f $TMPD/stap.xyz | while read line ; do
+		if echo "$line" | grep -q ^pfn ; then
+			pfn=$(echo "$line" | cut -f2 -d' ')
+			page-types -a $pfn
+			echo "hard-offlining pfn $pfn ..."
+			echo ${pfn}000 > /sys/devices/system/memory/hard_offline_page
+			break
+		elif echo "$line" | grep -q ^get_hwpoison_page ; then
+			echo "| $line"
+			break
+		fi
+	done
+	sleep 1
+	return 0
+}
