@@ -2,32 +2,43 @@
 #! {"type" => "1"}
 #! {"type" => "2"}
 #! {"type" => "3"}
-#! {"type" => "4"}
+##! {"type" => "4"}  // test for 1GB hugetlb not implemented yet.
+
+# the return value of memory_failure() for already poisoned case will be changed
+# by the patch suggested by
+# https://lore.kernel.org/linux-mm/20210521030156.2612074-1-nao.horiguchi@gmail.com/T/#u
 
 ERROR_TYPE=<%= param["type"] %>
 
 TEST_TYPE=debug
+HUGETLB_DIR=$TDIR/hugetlbfs
 SHMEM_DIR=$TDIR/shmem
-EXPECTED_RETURN_CODE="PASS"
 
 <% if forward_keyword.include? "srar_multiple_mappings" %>
-if [ "$ERROR_TYPE" -eq 0 ] || [ "$ERROR_TYPE" -eq 1 ] ; then
-	EXPECTED_RETURN_CODE="FAIL"
-fi
+EXPECTED_RETURN_CODE="PASS"
+<% else %>
+EXPECTED_RETURN_CODE="BAD_ERROR_ADDRESS"
 <% end %>
 
 _prepare() {
-	date
 	check_binary test_multiple_mappings_srar || return 1
 
+	echo 0 > /proc/sys/vm/memory_failure_early_kill
+	echo 'always' > /sys/kernel/mm/transparent_hugepage/enabled
 	echo 1 > $DEBUGFSDIR/mce/fake_panic
+
+	if [ "$ERROR_TYPE" -eq 2 ] ; then # hugetlb file
+		sysctl vm.nr_hugepages=10
+		mkdir -p $HUGETLB_DIR > /dev/null 2>&1
+		mount -t hugetlbfs none $HUGETLB_DIR || return 1
+	fi
 
 	if [ "$ERROR_TYPE" -eq 3 ] ; then # shmem thp
 		mkdir -p $SHMEM_DIR > /dev/null 2>&1
-		mount -t tmpfs -o huge=always tmpfs $SHMEM_DIR
+		mount -t tmpfs -o huge=always tmpfs $SHMEM_DIR || return 1
 	fi
 
-	if [ "$ERROR_TYPE" -eq 4 ] ; then # 1GB hugetlb
+	if [ "$ERROR_TYPE" -eq 4 ] ; then # 1GB hugetlb file
 		if [ ! -f /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages ] ; then
 			return 1
 		fi
@@ -42,13 +53,20 @@ _prepare() {
 }
 
 _cleanup() {
+	if [ "$ERROR_TYPE" -eq 2 ] ; then # hugetlb file
+		sysctl vm.nr_hugepages=0
+		rm -rf $HUGETLB_DIR/* > /dev/null 2>&1
+		umount -f $HUGETLB_DIR
+		rm -rf $HUGETLB_DIR > /dev/null 2>&1
+	fi
+
 	if [ "$ERROR_TYPE" -eq 3 ] ; then # shmem thp
 		rm -rf $SHMEM_DIR/* > /dev/null 2>&1
 		umount -f $SHMEM_DIR > /dev/null 2>&1
 		rm -rf $SHMEM_DIR > /dev/null 2>&1
 	fi
 
-	if [ "$ERROR_TYPE" -eq 4 ] ; then # 1GB hugetlb
+	if [ "$ERROR_TYPE" -eq 4 ] ; then # 1GB hugetlb file
 		# cleanup existing shared memory for preparation.
 		shmids="$(ipcs -m | grep 1073741824 | awk '{print $2}')"
 		if [ "$shmids" ] ; then
@@ -63,8 +81,15 @@ _cleanup() {
 }
 
 _control() {
-	if test_multiple_mappings_srar $ERROR_TYPE ; then
+	test_multiple_mappings_srar $ERROR_TYPE
+	local ret=$?
+
+	if [ "$ret" -eq 0 ] ; then
 		set_return_code PASS
+	elif [ "$ret" -eq 1 ] ; then
+		set_return_code BAD_ERROR_ADDRESS
+	elif [ "$ret" -eq 2 ] ; then
+		set_return_code NO_ERROR_ADDRESS
 	else
 		set_return_code FAIL
 	fi

@@ -16,6 +16,7 @@
 #include <sys/shm.h>
 
 #define PS 4096
+#define HPS 0x200000
 #define MADV_HWPOISON 100
 #define ADDR_INPUT 0x700000000000
 #define SHM_HUGE_SHIFT       26
@@ -384,7 +385,7 @@ void init_mce(struct mce *m)
 
 #define ADDR_INPUT 0x700000000000
 
-char *sigbusvaddr = 0;
+unsigned long *sigbusvaddr = 0;
 
 void sig_handle(int signo) { printf("SIGBUS %d\n", signo); }
 void sigbus_action(int signo, siginfo_t *si, void *args)
@@ -479,32 +480,36 @@ int main(int ac, char **av)
 		fd = open("tmp/testfile", O_RDWR|O_CREAT, 0666);
 		if (fd == -1)
 			err("open");
-		memset(array, 'a', PS);
-		pwrite(fd, array, PS, 0);
-		ptr = mmap((void *)ADDR_INPUT, PS, PROT_READ|PROT_WRITE, mmapflag, fd, 0);
+		size = PS;
+		memset(array, 'a', size);
+		pwrite(fd, array, size, 0);
+		ptr = mmap((void *)ADDR_INPUT, size, PROT_READ|PROT_WRITE, mmapflag, fd, 0);
 		if (ptr == MAP_FAILED)
 			err("mmap");
-		ptr2 = mmap((void *)(ADDR_INPUT + PS), PS, PROT_READ|PROT_WRITE, mmapflag, fd, 0);
+		ptr2 = mmap((void *)(ADDR_INPUT + size), size, PROT_READ|PROT_WRITE, mmapflag, fd, 0);
 		if (ptr2 == MAP_FAILED)
 			err("mmap");
 		ptr[0] = 'x';
 		ptr2[0] = 'y';
-	} else if (mode == 2) { // anonymous thp
-		size = 0x200000;
-		ptr = mmap((void *)ADDR_INPUT, size, PROT_READ | PROT_WRITE,
-			   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-		printf("ptr %p\n", ptr);
+	} else if (mode == 2) { // hugetlb file
+		char buf[HPS];
+		size = HPS;
+		fd = open("tmp/hugetlbfs/testfile", O_RDWR|O_CREAT, 0666);
+		if (fd == -1)
+			err("open");
+		memset(buf, 'a', size);
+		pwrite(fd, buf, size, 0);
+		ptr = mmap((void *)ADDR_INPUT, size, PROT_READ|PROT_WRITE, mmapflag, fd, 0);
 		if (ptr == MAP_FAILED)
 			err("mmap");
-		ptr2 = mmap((void *)(ADDR_INPUT + size), size, PROT_READ | PROT_WRITE,
-			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		ptr2 = mmap((void *)(ADDR_INPUT + size), size, PROT_READ|PROT_WRITE, mmapflag, fd, 0);
 		if (ptr2 == MAP_FAILED)
 			err("mmap");
 		memset(ptr, 'a', size);
 		memset(ptr2, 'a', size);
 	} else if (mode == 3) { // shmem thp
-		char buf[0x200000];
-		size = 0x200000;
+		char buf[HPS];
+		size = HPS;
 		fd = open("tmp/shmem/testfile", O_RDWR|O_CREAT, 0666);
 		if (fd == -1)
 			err("open");
@@ -513,8 +518,12 @@ int main(int ac, char **av)
 		ptr = mmap((void *)ADDR_INPUT, size, PROT_READ|PROT_WRITE, mmapflag, fd, 0);
 		if (ptr == MAP_FAILED)
 			err("mmap");
+		ptr2 = mmap((void *)(ADDR_INPUT + size), size, PROT_READ|PROT_WRITE, mmapflag, fd, 0);
+		if (ptr2 == MAP_FAILED)
+			err("mmap");
 		memset(ptr, 'a', size);
-	} else if (mode == 4) { // 1gb hugetlb
+		memset(ptr2, 'a', size);
+	} else if (mode == 4) { // 1gb hugetlb file
 		int shm_id;
 		/* char buf[0x200000]; */
 		size = 1024*1024*1024;
@@ -533,7 +542,7 @@ int main(int ac, char **av)
 
 	sprintf(path, "/proc/%d/pagemap", getpid());
 	pmfd = open(path, O_RDONLY);
-	i = pread(pmfd, (void *)&entry, 8, 0x700000000UL*8);
+	i = pread(pmfd, (void *)&entry, 8, (0x700000000UL + size/PS)*8);
 	pfn = entry & 0xfffffffffff;
 	printf("vaddr: %p, pfn; 0x%lx\n", ptr, pfn);
 
@@ -557,8 +566,10 @@ int main(int ac, char **av)
 	printf("inject done\n");
 
 	printf("sigbusvaddr: %p\n", sigbusvaddr);
-	if (sigbusvaddr)
+	if ((unsigned long)sigbusvaddr == (ADDR_INPUT + size))
 		return 0;
-	else
+	else if (sigbusvaddr)
 		return 1;
+	else
+		return 2;
 }
