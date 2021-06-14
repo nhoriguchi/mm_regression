@@ -872,6 +872,23 @@ static void do_mlock(struct op_control *opc) {
 	do_work_memory(__mlock_chunk, opc);
 }
 
+static int __munlock_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
+	int i;
+	struct op_control *opc = (struct op_control *)args;
+
+	if (opc_defined(opc, "hp_partial")) {
+		for (i = 0; i < (size - 1) / HPS + 1; i++)
+			munlock(p + i * HPS, PS);
+	} else
+		munlock(p, size);
+}
+
+static void do_munlock(struct op_control *opc) {
+	do_work_memory(__munlock_chunk, opc);
+}
+
 /* only true for x86_64 */
 #define __NR_mlock2 325
 
@@ -1052,6 +1069,28 @@ static void do_iterate_mapping(struct op_control *opc) {
 		do_mmap(opc);
 		do_access(opc);
 		do_munmap(opc);
+	}
+}
+
+static int __sync_file_range_chunk(struct mem_chunk *mc, void *args) {
+	char *p = mc->p;
+	int size = mc->chunk_size;
+
+	/* TODO: need to reliably calculate the offset */
+	sync_file_range(fd, (off64_t)p - ADDR_INPUT, size, SYNC_FILE_RANGE_WRITE);
+}
+
+static void do_fsync_file_range(struct op_control *opc) {
+	do_work_memory(__sync_file_range_chunk, opc);
+}
+
+static void do_iterate_mlock(struct op_control *opc) {
+	opc_set_value(opc, "type", "syswrite");
+	while (flag) {
+		do_mlock(opc);
+		do_access(opc);
+		do_fsync_file_range(opc);
+		do_munlock(opc);
 	}
 }
 
@@ -1357,6 +1396,7 @@ enum {
 	NR_madv_soft,
 	NR_iterate_mapping,
 	NR_iterate_fault_dontneed,
+	NR_iterate_mlock,
 	NR_mremap,
 	NR_mremap_stress,
 	NR_hotremove,
@@ -1398,6 +1438,7 @@ static const char *operation_name[] = {
 	[NR_madv_soft]			= "madv_soft",
 	[NR_iterate_mapping]		= "iterate_mapping",
 	[NR_iterate_fault_dontneed]	= "iterate_fault_dontneed",
+	[NR_iterate_mlock]		= "iterate_mlock",
 	[NR_mremap]			= "mremap",
 	[NR_mremap_stress]		= "mremap_stress",
 	[NR_hotremove]			= "hotremove",
@@ -1442,6 +1483,7 @@ static const char *op_supported_args[][10] = {
 	[NR_madv_soft]			= {},
 	[NR_iterate_mapping]		= {},
 	[NR_iterate_fault_dontneed]	= {},
+	[NR_iterate_mlock]		= {},
 	[NR_mremap]			= {},
 	[NR_mremap_stress]		= {},
 	[NR_hotremove]			= {"busyloop", "pageflags"},
@@ -1636,6 +1678,8 @@ static void do_operation_loop(void) {
 			do_iterate_mapping(&opc);
 		} else if (!strcmp(opc.name, "iterate_fault_dontneed")) {
 			do_iterate_fault_dontneed(&opc);
+		} else if (!strcmp(opc.name, "iterate_mlock")) {
+			do_iterate_mlock(&opc);
 		} else if (!strcmp(opc.name, "mremap")) {
 			do_mremap(&opc);
 		} else if (!strcmp(opc.name, "mremap_stress")) {
