@@ -37,18 +37,33 @@ reonline_memblocks() {
 
 enable_auto_numa() {
 	echo 1 > /proc/sys/kernel/numa_balancing
-	echo 1 > /proc/sys/kernel/numa_balancing_scan_delay_ms
-	echo 100 > /proc/sys/kernel/numa_balancing_scan_period_max_ms
-	echo 100 > /proc/sys/kernel/numa_balancing_scan_period_min_ms
-	echo 1024 > /proc/sys/kernel/numa_balancing_scan_size_mb
+	# before v5.12-rc2-56-g8a99b6833c88
+	if [ -d /sys/kernel/debug/sched/numa_balancing ] ; then
+		echo 1    > /sys/kernel/debug/sched/numa_balancing/scan_delay_ms
+		echo 100  > /sys/kernel/debug/sched/numa_balancing/scan_period_max_ms
+		echo 100  > /sys/kernel/debug/sched/numa_balancing/scan_period_min_ms
+		echo 1024 > /sys/kernel/debug/sched/numa_balancing/scan_size_mb
+	else # since v5.12-rc2-56-g8a99b6833c88
+		echo 1    > /proc/sys/kernel/numa_balancing_scan_delay_ms
+		echo 100  > /proc/sys/kernel/numa_balancing_scan_period_max_ms
+		echo 100  > /proc/sys/kernel/numa_balancing_scan_period_min_ms
+		echo 1024 > /proc/sys/kernel/numa_balancing_scan_size_mb
+	fi
 }
 
 disable_auto_numa() {
 	echo 0 > /proc/sys/kernel/numa_balancing
-	echo 1000 > /proc/sys/kernel/numa_balancing_scan_delay_ms
-	echo 60000 > /proc/sys/kernel/numa_balancing_scan_period_max_ms
-	echo 1000 > /proc/sys/kernel/numa_balancing_scan_period_min_ms
-	echo 256 > /proc/sys/kernel/numa_balancing_scan_size_mb
+	if [ -d /sys/kernel/debug/sched/numa_balancing ] ; then
+		echo 1000  > /sys/kernel/debug/sched/numa_balancing/scan_delay_ms
+		echo 60000 > /sys/kernel/debug/sched/numa_balancing/scan_period_max_ms
+		echo 1000  > /sys/kernel/debug/sched/numa_balancing/scan_period_min_ms
+		echo 256   > /sys/kernel/debug/sched/numa_balancing/scan_size_mb
+	else
+		echo 1000  > /proc/sys/kernel/numa_balancing_scan_delay_ms
+		echo 60000 > /proc/sys/kernel/numa_balancing_scan_period_max_ms
+		echo 1000  > /proc/sys/kernel/numa_balancing_scan_period_min_ms
+		echo 256   > /proc/sys/kernel/numa_balancing_scan_size_mb
+	fi
 }
 
 get_numa_maps_node_stat() {
