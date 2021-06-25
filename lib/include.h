@@ -1176,6 +1176,23 @@ static void do_split_thp(struct op_control *opc) {
 	}
 }
 
+static pid_t do_fork_pmd_split(struct op_control *opc) {
+	pid_t pid = fork();
+
+	if (!pid) { /* child */
+		opc->name = "access";
+		opc->wait_after = 1;
+		opc_set_value(opc, "type", "read");
+		testpipe = NULL;
+		do_access(opc);
+		do_work_memory(__do_split_thp_chunk, opc);
+		do_access(opc);
+		return 0;
+	}
+
+	return pid;
+}
+
 struct madvise_arg {
 	int advice;
 	int size;
@@ -1411,6 +1428,7 @@ enum {
 	NR_mbind_fuzz,
 	NR_fork,
 	NR_split_thp,
+	NR_fork_pmd_split,
 	NR_madvise,
 	NR_vm86,
 	NR_prctl,
@@ -1453,6 +1471,7 @@ static const char *operation_name[] = {
 	[NR_mbind_fuzz]			= "mbind_fuzz",
 	[NR_fork]			= "fork",
 	[NR_split_thp]			= "split_thp",
+	[NR_fork_pmd_split]	       	= "fork_pmd_split",
 	[NR_madvise]			= "madvise",
 	[NR_vm86]			= "vm86",
 	[NR_prctl]			= "prctl",
@@ -1498,6 +1517,7 @@ static const char *op_supported_args[][10] = {
 	[NR_mbind_fuzz]			= {},
 	[NR_fork]			= {},
 	[NR_split_thp]			= {"only_pmd"},
+	[NR_fork_pmd_split]		= {},
 	[NR_madvise]			= {"advice", "size", "hp_partial", "offset", "length", "step"},
 	[NR_vm86]			= {},
 	[NR_prctl]			= {"early_kill", "late_kill"},
@@ -1704,6 +1724,8 @@ static void do_operation_loop(void) {
 			do_fork(&opc);
 		} else if (!strcmp(opc.name, "split_thp")) {
 			do_split_thp(&opc);
+		} else if (!strcmp(opc.name, "fork_pmd_split")) {
+			do_fork_pmd_split(&opc);
 		} else if (!strcmp(opc.name, "madvise")) {
 			do_madvise(&opc);
 		} else if (!strcmp(opc.name, "vm86")) {
