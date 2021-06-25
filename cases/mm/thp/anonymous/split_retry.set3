@@ -3,6 +3,7 @@
 #! {"thp" => "double_mapping"}
 #! {"thp" => "pmd_split"}
 #! {"thp" => "thp_split"}
+#! {"thp" => "fork_pmd_split"}
 
 . $TRDIR/lib/setup_thp_migration.sh
 
@@ -23,6 +24,10 @@ EXPECTED_RETURN_CODE="HUGEPAGE_MIGRATED EXIT"
 <% elsif param["thp"] == "thp_split" %>
 SPLIT_THP="split_thp access"
 EXPECTED_RETURN_CODE="PAGE_MIGRATED EXIT"
+<% elsif param["thp"] == "fork_pmd_split" %>
+FORK=fork_pmd_split:wait_after=1000000
+SPLIT_THP=""
+EXPECTED_RETURN_CODE="HUGEPAGE_SPLIT HUGEPAGE_MIGRATED EXIT"
 <% else %>
 EXPECTED_RETURN_CODE="HUGEPAGE_MIGRATED EXIT"
 <% end %>
@@ -38,8 +43,9 @@ _prepare() {
 }
 
 _control() {
-	echo "test_alloc_generic -B thp -N 1 -F -L 'set_mempolicy:mode=bind:node=0 mmap access:wait_after set_mempolicy:mode=default $FORK $SPLIT_THP noop:wait_after mbind:flags=move_all access munmap:wait_before exit:wait_before' -p $TMPD/.tmp_pipe"
+	set -x
 	test_alloc_generic -B thp -N 1 -F -L "set_mempolicy:mode=bind:node=0 mmap access:wait_after set_mempolicy:mode=default $FORK $SPLIT_THP noop:wait_after mbind:flags=move_all access munmap:wait_before exit:wait_before" -p $TMPD/.tmp_pipe &
+	set +x
 	local pid=$!
 
 	control_split_retry $pid

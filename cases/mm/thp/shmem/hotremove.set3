@@ -31,12 +31,14 @@ SPLIT_THP="split_thp:only_pmd access"
 SPLIT_THP="split_thp:only_pmd access"
 <% elsif param["thp"] == "thp_split" %>
 SPLIT_THP="split_thp access"
+HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 ACTION=hotremove:busyloop:pageflags=$(get_backend_pageflags thp_shmem_split)
 <% end %>
 
 _prepare() {
 	echo "THP=$THP"
 	echo "THP_ALLOCATED=$THP_ALLOCATED"
+	echo 1 > /proc/sys/vm/panic_on_oom
 	prepare_mmgeneric || return 1
 	set -x
 	test_alloc_generic -B pagecache -N $THP -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite"
@@ -45,6 +47,7 @@ _prepare() {
 
 _cleanup() {
 	cleanup_mmgeneric || return 1
+	echo 0 > /proc/sys/vm/panic_on_oom
 }
 
 TEST_PROGRAM="test_alloc_generic -B pagecache -N $THP_ALLOCATED -w $SHMEM_DIR -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
