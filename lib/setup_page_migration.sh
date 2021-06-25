@@ -187,7 +187,7 @@ control_hugepage_migration() {
 				get_mm_stats 1 $pid
 
 				# TODO: better condition check
-				if [ "$RACE_SRC" == "race_with_gup" ] && [ "$MIGRATE_SRC" == "migratepages" ] ; then
+				if [ "$RACE_SRC" == "gup" ] && [ "$MIGRATE_SRC" == "migratepages" ] ; then
 					( for i in $(seq 10) ; do
 						  migratepages $pid 0 1 > /dev/null 2>&1
 						  migratepages $pid 1 0 > /dev/null 2>&1
@@ -195,7 +195,7 @@ control_hugepage_migration() {
 				fi
 
 				# TODO: better condition check
-				if [ "$RACE_SRC" == "race_with_fork" ] ; then
+				if [ "$RACE_SRC" == "fork" ] ; then
 					page-types -p $pid -r -b thp,compound_head=thp,compound_head
 					page-types -p $pid -r -b anon | grep total
 					ps ax | grep thp
