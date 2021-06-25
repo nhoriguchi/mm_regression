@@ -43,7 +43,7 @@ probe kernel.function("memory_failure") {
 	pfn = register("rdi");
 }
 
-probe kernel.function("__get_hwpoison_page").return {
+probe kernel.function("get_hwpoison_page").return {
 	printf("get_hwpoison_page (pfn:%lx) returns %lx\n", pfn, returnval());
 	sleep(500, 0);
 	exit();
@@ -64,7 +64,7 @@ EOF
 	fi
 
 	cd $RTMPD
-	stap -p4 -g -m stap_hwpoison $RTMPD/stap.stp || return 1
+	stap -p4 -vv -g -m stap_hwpoison $RTMPD/stap.stp || return 1
 	cd -
 }
 
@@ -73,7 +73,7 @@ _cleanup() {
 }
 
 _control() {
-	staprun -w -o $TMPD/stap_hwpoison.out -D -T 10 $RTMPD/stap_hwpoison.ko
+	staprun -w -vv -o $TMPD/stap_hwpoison.out -D -T 10 $RTMPD/stap_hwpoison.ko || return 1
 	echo "run stap ..."
 	(
 		sleep 0.5
