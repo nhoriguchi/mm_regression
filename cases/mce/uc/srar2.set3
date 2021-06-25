@@ -17,7 +17,13 @@ SHMEM_DIR=$TDIR/shmem
 <% if forward_keyword.include? "srar_multiple_mappings" %>
 EXPECTED_RETURN_CODE="PASS"
 <% else %>
+  # page table is removed during shmem thp split so "NO_ERROR_ADDRESS" is the
+  # current expected behavior, which could change in the future.
+  <% if param["type"] == "3" %>
+EXPECTED_RETURN_CODE="NO_ERROR_ADDRESS"
+  <% else %>
 EXPECTED_RETURN_CODE="BAD_ERROR_ADDRESS"
+  <% end %>
 <% end %>
 
 _prepare() {
