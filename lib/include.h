@@ -52,6 +52,7 @@ struct mem_chunk {
 	int chunk_size;
 	char *p;
 	int shmkey;
+	unsigned long offset;	/* file offset */
 };
 
 struct mem_chunk *chunkset;
@@ -301,6 +302,8 @@ static void prepare_memory(struct mem_chunk *mc, void *baseaddr,
 			     unsigned long offset) {
 	int dev_mem_fd;
 
+	mc->offset = offset;
+
 	switch (mc->mem_type) {
 	case PAGECACHE:
 		mc->p = checked_mmap(baseaddr, mc->chunk_size, protflag,
@@ -383,11 +386,11 @@ static void access_memory(struct mem_chunk *mc, char *type) {
 	} else if (!strcmp(type, "write")) {
 		memset(mc->p, 'a', mc->chunk_size);
 	} else if (!strcmp(type, "syswrite")) {
-		int i;
+		unsigned long i;
 		char buf[PS];
 		memset(buf, 'a', PS);
-		for (i = 0; i < mc->chunk_size; i += PS) {
-			pwrite(fd, buf, PS, i);
+		for (i = 0UL; i < mc->chunk_size; i += PS) {
+			pwrite(fd, buf, PS, mc->offset + i);
 		}
 	}
 }
@@ -750,9 +753,10 @@ static int memblock_check(void) {
 					matched++;
 			}
 		}
-		pprintf("memblock:%d, readret:%d matched:%d (%d%), 1:%lx, 2:%lx\n",
-		       i, ret, matched, matched*100/_memblk_size,
-		       pageflags[0], pageflags[1]);
+		if (matched > 0)
+			pprintf("memblock:%d, readret:%d matched:%d (%d%), 1:%lx, 2:%lx\n",
+				i, ret, matched, matched*100/_memblk_size,
+				pageflags[0], pageflags[1]);
 		if (max_matched_pages < matched) {
 			max_matched_pages = matched;
 			pmemblk = i;

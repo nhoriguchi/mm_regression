@@ -26,15 +26,10 @@ if [ "$FAILRETRY" ] ; then
 	make --no-print-directory test
 	exit 0
 elif [[ "$1" =~ cases/ ]] ; then
-	if [ "$RUNNAME" == debug ] ; then
-		make prepare
-		grep $1 work/$RUNNAME/full_recipe_list > work/$RUNNAME/recipelist
-	else
-		make prepare
-		export FILTER="$1"
-	fi
+	make prepare
+	export FILTER="$1"
 	if [ ! -s work/$RUNNAME/recipelist ] ; then
-		echo "no recipe matched to $1" >&2
+		echo "no recipe matched to $1 in work/$RUNNAME/recipelist" >&2
 		exit 1
 	fi
 	make -s build

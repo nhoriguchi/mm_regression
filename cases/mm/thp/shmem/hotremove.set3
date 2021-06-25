@@ -1,8 +1,13 @@
+# thp split for shmem is fixed by the patchset of the thread:
+# https://lore.kernel.org/linux-mm/d645fe4c-2f9e-19fc-c6b0-c6d785854423@google.com/T/#m9a4539887639cc2ae00d80f03d0558e15b76a4fb
+
 #! {"thp" => "base"}
 #! {"thp" => "shared_thp"}
 #! {"thp" => "double_mapping"}
 #! {"thp" => "pmd_split"}
 #! {"thp" => "thp_split"}
+
+. $TRDIR/lib/setup_thp_migration.sh
 
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
@@ -11,7 +16,7 @@ HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
 ACTION=hotremove:busyloop:pageflags=$(get_backend_pageflags thp_shmem)
 ACTION=hotremove:pageflags=$(get_backend_pageflags thp_shmem)
 
-PIPETIMEOUT=60
+PIPETIMEOUT=300 # for large memory system
 
 HUGEPAGESIZE=2048
 THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
@@ -26,19 +31,16 @@ SPLIT_THP="split_thp:only_pmd access"
 SPLIT_THP="split_thp:only_pmd access"
 <% elsif param["thp"] == "thp_split" %>
 SPLIT_THP="split_thp access"
-HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 ACTION=hotremove:busyloop:pageflags=$(get_backend_pageflags thp_shmem_split)
 <% end %>
 
-# TODO: low-priority known issue
-
-<% if param["op"] == "hwpoison" %>
-SKIP_THIS_TEST=true
-<% end %>
-
 _prepare() {
+	echo "THP=$THP"
+	echo "THP_ALLOCATED=$THP_ALLOCATED"
 	prepare_mmgeneric || return 1
-	test_alloc_generic -B pagecache -N $NR_THP -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite"
+	set -x
+	test_alloc_generic -B pagecache -N $THP -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite"
+	set +x
 }
 
 _cleanup() {
@@ -46,4 +48,4 @@ _cleanup() {
 }
 
 TEST_PROGRAM="test_alloc_generic -B pagecache -N $THP_ALLOCATED -w $SHMEM_DIR -L '$MAPTYPE access:wait_after $FORK $SPLIT_THP noop:wait_after $ACTION munmap:wait_before exit:wait_before'"
-EXPECTED_RETURN_CODE="MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
+EXPECTED_RETURN_CODE="OFFLINE_SUCCEEDED MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"

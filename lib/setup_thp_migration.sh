@@ -92,6 +92,11 @@ _control() {
 			echo_log "echo offline > /sys/devices/system/memory/memory$targetmemblk/state"
 
 			echo offline > /sys/devices/system/memory/memory$targetmemblk/state
+			if [ $? -eq 0 ] ; then
+				set_return_code OFFLINE_SUCCEEDED
+			else
+				set_return_code OFFLINE_FAILED
+			fi
 			kill -SIGUSR1 $pid
 			;;
         *)

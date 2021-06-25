@@ -36,9 +36,10 @@ _prepare() {
 }
 
 _control() {
-	echo "test_alloc_generic -B pagecache -N 1 -F -L 'set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite:wait_after access set_mempolicy:mode=default $FORK $SPLIT_THP noop:wait_after mbind:flags=move_all access munmap:wait_before exit:wait_before' -p $TMPD/.tmp_pipe"
+	set -x
 	test_alloc_generic -B pagecache -N 1 -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite:wait_after access set_mempolicy:mode=default $FORK $SPLIT_THP noop:wait_after mbind:flags=move_all access munmap:wait_before exit:wait_before" -p $TMPD/.tmp_pipe &
 	local pid=$!
+	set +x
 
 	control_split_retry $pid
 }

@@ -126,10 +126,18 @@ check_return_code() {
 	fi
 }
 
-# Return false if AGAIN is true, so this testcase will run anyway. If AGAIN is
-# not true, then return true only when current testcase does not finish yet.
+# Determine whether a testcase is skipped or not.
+# Return true when we do skip the testcase, return false otherwise.
 check_testcase_already_run() {
-	[ "$AGAIN" == true ] && return 1
+	if [ "$AGAIN" == true ] ; then
+		if [ "$SKIP_PASSED" ] ; then
+			if grep -q "^TESTCASE_RESULT: .*: PASS$" $RTMPD/result ; then
+				echo "SKIP_PASSED is set, so skip passed testcase."
+				return 0
+			fi
+		fi
+		return 1
+	fi
 	[ ! -s "$RTMPD/run_status" ] && return 1
 
 	[ "$(cat $RTMPD/run_status)" == FINISHED ] && return 0

@@ -74,13 +74,14 @@ run_recipe() {
 	export RTMPD=$GTMPD/$recipe_relpath
 	export TMPF=$TMPD
 
+	# recipe run status check
+	check_testcase_already_run && return
+
 	if [ -d $RTMPD ] && [ "$AGAIN" == true ] ; then
 		rm -rf $RTMPD/* > /dev/null 2>&1
 	fi
 	mkdir -p $RTMPD > /dev/null 2>&1
 
-	# recipe run status check
-	check_testcase_already_run && return
 	check_remove_suffix $RECIPE_FILE || return
 
 	system_health_check || return

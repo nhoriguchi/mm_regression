@@ -116,6 +116,8 @@ environment variables.
   ```
   AGAIN=true bash run.sh
   ```
+- `SKIP_PASSED`: when part of testcases in your test project didn't pass,
+  you might want to rerun only failed cases. Setting this variable does it.
 - `LOGLEVEL`: controlling log level (default: 1). If you set this 2 (0),
   more (less) log messages will be printed out.
 - `SOFT_RETRY`: default is 3. You consider a test case as passed when
