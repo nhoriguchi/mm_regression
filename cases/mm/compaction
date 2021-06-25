@@ -1,5 +1,8 @@
 # NEED: khugepaged focused setting
 
+TEST_TYPE=devel
+# TODO: support proactiveness
+
 . $TRDIR/lib/setup_mmgeneric.sh
 
 TEST_PROGRAM="test_alloc_generic -L 'start:wait_after memory_compaction exit:wait_before'"
