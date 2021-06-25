@@ -97,7 +97,7 @@ system_health_check() {
 		fi
 	fi
 
-	systemctl status -q test
+	systemctl status -q test 2> /dev/null
 	if [ "$?" -eq 1 ] ; then
 		echo "WARNING: systemd (PID 1) caught some signal and got frozen."
 		if [ "$TEST_RUN_MODE" ] ; then
