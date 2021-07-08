@@ -1,6 +1,7 @@
 # We don't rely on git tracking
 # **
 **/tmp*
+**/*.tmp
 **/Trash*
 **/*.auto
 **/*.auto2
