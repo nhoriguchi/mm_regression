@@ -18,6 +18,13 @@
 #include <limits.h>
 #include <libpmem.h>
 #include <sys/prctl.h>
+#include <sys/types.h>
+#include <sys/syscall.h>
+#include <linux/stat.h>
+#include <sys/xattr.h>
+#include <sys/ioctl.h>
+#include <sys/ioctl.h>
+#include <linux/fs.h>
 
 #define GB      0x40000000UL
 
@@ -31,6 +38,14 @@
 #define HPS             0x200000
 
 #define MADV_HWPOISON   100
+
+#define AT_EMPTY_PATH	0x1000
+#define AT_STATX_SYNC_TYPE      0x6000
+#define AT_STATX_SYNC_AS_STAT   0x0000
+#define AT_STATX_FORCE_SYNC     0x2000
+#define AT_STATX_DONT_SYNC      0x4000
+#define AT_EMPTY_PATH	0x1000
+#define STATX_ALL	0x00000fffU
 
 char *path;
 
@@ -68,6 +83,7 @@ int main(int argc, char **argv)
 	int nr_mmaps;
 	struct sigaction act;
 	struct stat filestat;
+	struct statx filestatx;
 	long repeat = 0;
 	unsigned long mapsync = 0;
 	unsigned long nowarmup = 0;
@@ -114,6 +130,22 @@ int main(int argc, char **argv)
 	if (mapsync)
 		mmapflag |= MAP_SYNC;
 
+	if (getenv("SET_STATX_ATTR_DAX")) {
+		int attr;
+
+		ret = ioctl(fd, FS_IOC_GETFLAGS, &attr);
+		if (ret < 0) {
+			perror ("ioctl(FS_IOC_GETFLAGS)");
+			exit(EXIT_FAILURE);
+		}
+		attr |= FS_DAX_FL;
+		ret = ioctl(fd, FS_IOC_SETFLAGS, &attr);
+		if (ret < 0) {
+			perror ("ioctl(FS_IOC_SETFLAGS)");
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	addr = malloc(sizeof(char *) * nr_mmaps);
 	if (!addr) {
 		fprintf(stderr, "Failed to malloc.");
@@ -130,7 +162,12 @@ int main(int argc, char **argv)
 		}
 	}
 
-	printf("size: 0x%lx, iosize: 0x%lx, iotype:%s, nr_mmaps:0x%lx, repeat:%d, mmapflag:%lx\n", size, iosize, iotype, nr_mmaps, repeat, mmapflag);
+	if (syscall(SYS_statx, fd, path, AT_STATX_FORCE_SYNC|AT_EMPTY_PATH, STATX_ALL, &filestatx)) {
+		perror ("statx");
+		exit(EXIT_FAILURE);
+	}
+
+	printf("size: 0x%lx, iosize: 0x%lx, iotype:%s, nr_mmaps:0x%lx, repeat:%d, mmapflag:%lx, xattr:%lx\n", size, iosize, iotype, nr_mmaps, repeat, mmapflag, filestatx.stx_attributes);
 	if (!strcmp(iotype, "write")
 	    || !strcmp(iotype, "read")
 	    || !strcmp(iotype, "pmem_memset_write")
