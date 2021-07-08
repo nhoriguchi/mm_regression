@@ -1,0 +1,82 @@
+TEST_TYPE=devel
+[ ! "$ERROR_TYPE" ] && ERROR_TYPE=hard_offline
+
+# 0x0000000000000080      slab
+# 0x0000000000008080      slab,compound_head
+# 0x0000000000010080      slab,compound_tail
+
+# 0x0000000004000000      pgtable
+
+background_pid=
+
+_prepare() {
+	true
+}
+
+# make sure that kernel panic not happen when unpoisoned pages are reused
+# by forcibly causing OOM.
+_cleanup() {
+	local freemem="$(grep MemAvailable: /proc/meminfo | awk '{print $2}')"
+	freemem=$[freemem * 1024 / 4]  # free pages in page size
+
+	# test_alloc_generic -B anonymous -n $[freemem] -L 'mmap access'
+}
+
+do_unpoison() {
+	local pid=$1
+	local targetpfn=$2
+
+	echo "----- targetpfn:$targetpfn" | tee /dev/kmsg
+
+	page-types -a 0x$targetpfn -Nrl
+
+	echo "ERROR_TYPE: $ERROR_TYPE"
+	if [ "$ERROR_TYPE" = hard_offline ] ; then
+		echo 0x${targetpfn}000 > /sys/devices/system/memory/hard_offline_page
+	elif [ "$ERROR_TYPE" = soft_offline ] ; then
+		echo 0x${targetpfn}000 > /sys/devices/system/memory/soft_offline_page
+	fi
+
+	kill -9 $pid
+	sleep 0.2
+
+	page-types -a 0x$targetpfn -Nrl
+	echo 0x${targetpfn} > /sys/kernel/debug/hwpoison/unpoison-pfn
+	sync
+	sleep 1
+	page-types -a 0x$targetpfn -Nrl
+}
+
+_control() {
+	page-types -b pgtable -Nrl > $TMPD/page-types.pgtable.1
+	test_alloc_generic -B anonymous -N 100 -L 'mmap access:wait_after' &
+	local pid=$!
+	sleep 0.2
+	page-types -b pgtable -Nrl > $TMPD/page-types.pgtable.2
+
+	local targetpfn=$(diff -U0 $TMPD/page-types.pgtable.1 $TMPD/page-types.pgtable.2 | grep ^+  | grep -v ^+++ | tail -n1 | cut -f1 | cut -c2-)
+	if [ "$targetpfn" ] ; then
+		echo "Target pfn is 0x$targetpfn"
+	else
+		echo "Target page not found" >&2
+		return 1
+	fi
+
+	do_unpoison $pid $targetpfn
+
+	return 0
+	
+	i=0
+	cat -n $TMPD/page-types
+	if [ "$FILTERFLAGS" ] ; then
+		do_flag $FILTERFLAGS
+	else
+		for flags in $(cat $TMPD/page-types | cut -f1) ; do
+			i=$[i+1]
+			if [ "$NRLINE" ] && [ "$i" -ne $NRLINE ] ; then
+				continue
+			fi
+			do_flag $flags
+		done
+	fi
+}

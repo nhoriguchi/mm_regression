@@ -1,0 +1,142 @@
+TEST_TYPE=devel
+[ ! "$ERROR_TYPE" ] && ERROR_TYPE=hard_offline
+
+# 0x0000000000000000
+# 0x0000000000000028      uptodate,lru
+# 0x000000000000002c      referenced,uptodate,lru
+# 0x0000000000000068      uptodate,lru,active
+# 0x000000000000006c      referenced,uptodate,lru,active
+# 0x0000000000000080      slab
+# 0x0000000000000400      buddy
+# 0x0000000000000828      uptodate,lru,mmap
+# 0x000000000000082c      referenced,uptodate,lru,mmap
+# 0x0000000000004038      uptodate,dirty,lru,swapbacked
+# 0x000000000000403c      referenced,uptodate,dirty,lru,swapbacked
+# 0x0000000000004078      uptodate,dirty,lru,active,swapbacked
+# 0x000000000000407c      referenced,uptodate,dirty,lru,active,swapbacked
+# 0x0000000000004838      uptodate,dirty,lru,mmap,swapbacked
+# 0x000000000000483c      referenced,uptodate,dirty,lru,mmap,swapbacked
+# 0x000000000000487c      referenced,uptodate,dirty,lru,active,mmap,swapbacked
+# 0x0000000000005808      uptodate,mmap,anonymous,swapbacked
+# 0x0000000000005828      uptodate,lru,mmap,anonymous,swapbacked
+# 0x000000000000582c      referenced,uptodate,lru,mmap,anonymous,swapbacked
+# 0x0000000000005838      uptodate,dirty,lru,mmap,anonymous,swapbacked
+# 0x000000000000583c      referenced,uptodate,dirty,lru,mmap,anonymous,swapbacked
+# 0x0000000000005848      uptodate,active,mmap,anonymous,swapbacked
+# 0x0000000000005868      uptodate,lru,active,mmap,anonymous,swapbacked
+# 0x000000000000586c      referenced,uptodate,lru,active,mmap,anonymous,swapbacked
+# 0x000000000000587c      referenced,uptodate,dirty,lru,active,mmap,anonymous,swapbacked
+# 0x0000000000008000      compound_head
+# 0x0000000000008080      slab,compound_head
+# 0x0000000000010000      compound_tail
+# 0x0000000000010080      slab,compound_tail
+# 0x0000000000100000      nopage
+# 0x000000000040d828      uptodate,lru,mmap,anonymous,swapbacked,compound_head,thp
+# 0x000000000040d838      uptodate,dirty,lru,mmap,anonymous,swapbacked,compound_head,thp
+# 0x0000000000411800      mmap,anonymous,compound_tail,thp
+# 0x0000000001408000      compound_head,thp,zero_page
+# 0x0000000001410000      compound_tail,thp,zero_page
+# 0x0000000004000000      pgtable
+# 0x0000000100000000      reserved
+# 0x0000000100000800      mmap,reserved
+# 0x0000000101000000      zero_page,reserved
+# 0x0000000400000028      uptodate,lru,mappedtodisk
+# 0x000000040000002c      referenced,uptodate,lru,mappedtodisk
+# 0x0000000400000068      uptodate,lru,active,mappedtodisk
+# 0x000000040000006c      referenced,uptodate,lru,active,mappedtodisk
+# 0x0000000400000808      uptodate,mmap,mappedtodisk
+# 0x0000000400000828      uptodate,lru,mmap,mappedtodisk
+# 0x000000040000082c      referenced,uptodate,lru,mmap,mappedtodisk
+# 0x0000000400000868      uptodate,lru,active,mmap,mappedtodisk
+# 0x000000040000086c      referenced,uptodate,lru,active,mmap,mappedtodisk
+# 0x0000000800000028      uptodate,lru,private
+# 0x000000080000002c      referenced,uptodate,lru,private
+# 0x0000000800000060      lru,active,private
+# 0x0000000800000064      referenced,lru,active,private
+# 0x0000000800000068      uptodate,lru,active,private
+# 0x000000080000006c      referenced,uptodate,lru,active,private
+# 0x0000000800000074      referenced,dirty,lru,active,private
+# 0x0000000800000828      uptodate,lru,mmap,private
+# 0x000000080000082c      referenced,uptodate,lru,mmap,private
+# 0x0000000800000868      uptodate,lru,active,mmap,private
+# 0x000000080000086c      referenced,uptodate,lru,active,mmap,private
+# 0x0000000900000000      reserved,private
+# 0x0000000c0000002c      referenced,uptodate,lru,mappedtodisk,private
+# 0x0000000c00000068      uptodate,lru,active,mappedtodisk,private
+# 0x0000000c0000006c      referenced,uptodate,lru,active,mappedtodisk,private
+# 0x0000000c0000007c      referenced,uptodate,dirty,lru,active,mappedtodisk,private
+# 0x0000000c00000828      uptodate,lru,mmap,mappedtodisk,private
+# 0x0000000c0000082c      referenced,uptodate,lru,mmap,mappedtodisk,private
+# 0x0000000c00000868      uptodate,lru,active,mmap,mappedtodisk,private
+# 0x0000000c0000086c      referenced,uptodate,lru,active,mmap,mappedtodisk,private
+# 0x0001000000000028      uptodate,lru,readahead
+# 0x0001000400000028      uptodate,lru,mappedtodisk,readahead
+#
+# 0x0000000000030800      mmap,compound_tail,huge
+# 0x0000000000028818      uptodate,dirty,mmap,compound_head,huge
+
+HUGETLB_DIR=$TDIR/hugetlbfs
+background_pid=
+
+_prepare() {
+	sysctl vm.nr_hugepages=10
+
+	mkdir -p $HUGETLB_DIR
+	mount -t hugetlbfs none $HUGETLB_DIR || return 1
+	test_alloc_generic -B hugetlb_file -w $HUGETLB_DIR -f base1 -N 8 -L 'mmap access:wait_after' &
+	background_pid=$!
+	echo "background: $backround_pid"
+}
+
+# make sure that kernel panic not happen when unpoisoned pages are reused
+# by forcibly causing OOM.
+_cleanup() {
+	local freemem="$(grep MemAvailable: /proc/meminfo | awk '{print $2}')"
+	freemem=$[freemem * 1024 / 4]  # free pages in page size
+
+	kill $background_pid
+	rm -rf $HUGETLB_DIR/*
+	umount $HUGETLB_DIR
+	test_alloc_generic -B anonymous -n $[freemem] -L 'mmap access'
+
+	sysctl vm.nr_hugepages=0
+}
+
+do_flag() {
+	local flags=$1
+	local targetpfn=$(page-types -b $flags=$flags -Nrl | grep -v ^offset | tail -n1 | cut -f1)
+	if [ "$targetpfn" ] ; then
+		echo "ERROR_TYPE: $ERROR_TYPE"
+		if [ "$ERROR_TYPE" = hard_offline ] ; then
+			echo 0x${targetpfn}000 > /sys/devices/system/memory/hard_offline_page
+		elif [ "$ERROR_TYPE" = soft_offline ] ; then
+			echo 0x${targetpfn}000 > /sys/devices/system/memory/soft_offline_page
+		fi
+	else
+		echo "no page in given flag $flags"
+		return 1
+	fi
+	echo "----- $flags" | tee /dev/kmsg
+	page-types -a 0x$targetpfn -Nrl
+	echo 0x${targetpfn} > /sys/kernel/debug/hwpoison/unpoison-pfn
+	sync
+	sleep 1
+	page-types -a 0x$targetpfn -Nrl
+}
+
+_control() {
+	page-types | grep ^0x | cut -f 1,3 > $TMPD/page-types
+	i=0
+	cat -n $TMPD/page-types
+	if [ "$FILTERFLAGS" ] ; then
+		do_flag $FILTERFLAGS
+	else
+		for flags in $(cat $TMPD/page-types | cut -f1) ; do
+			i=$[i+1]
+			if [ "$NRLINE" ] && [ "$i" -ne $NRLINE ] ; then
+				continue
+			fi
+			do_flag $flags
+		done
+	fi
+}
