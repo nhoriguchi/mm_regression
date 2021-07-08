@@ -1,0 +1,92 @@
+TEST_PRIORITY=13
+
+HUGETLB=100
+BGPID=
+ITERATIONS=10
+
+_prepare() {
+	rm -rf ${TDIR:?not found}/*
+	sysctl vm.nr_hugepages=$HUGETLB
+	echo 'madvise' > /sys/kernel/mm/transparent_hugepage/enabled
+	test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -N 4 -L 'mmap access busyloop' &
+	BGPID=$!
+	sleep 1
+	if ! kill -0 $BGPID 2> /dev/null ; then
+		echo process test_alloc_generic not exist >&2
+		return 1
+	fi
+}
+
+_cleanup() {
+	sysctl vm.nr_hugepages=0
+	echo 'always' > /sys/kernel/mm/transparent_hugepage/enabled
+}
+
+hard_offline() {
+	local addr=$1
+
+	echo $addr > /sys/devices/system/memory/hard_offline_page
+}
+
+sync_hard_offline() {
+	local addr=$1
+	local file=$2
+
+	while true ; do
+		[ ! -s "$file" ] && break
+	done
+
+	# echo $(date +%s.%N) hard_offline $addr
+	hard_offline $addr
+}
+
+combination1() {
+	local type=$1
+	local pages=$(grep $type $TMPD/.pagetypes | wc -l)
+
+	touch $TMPD/lockfile
+
+	for i in $(seq 8) ; do
+		(
+			local addr=0x$(sed -n $[RANDOM % pages + 1]p $TMPD/.pagetypes | cut -f2)
+			sync_hard_offline ${addr}000 $TMPD/lockfile
+		) &
+	done
+
+	sleep 0.01
+	rm -f $TMPD/lockfile
+
+	sleep 0.2
+}
+
+combination2() {
+	local type=$1
+	local pages=$(grep $type $TMPD/.pagetypes | wc -l)
+
+	touch $TMPD/lockfile
+
+	local addr=0x$(sed -n $[RANDOM % pages + 1]p $TMPD/.pagetypes | cut -f2)
+
+	for i in $(seq 8) ; do
+		(
+			sync_hard_offline ${addr}000 $TMPD/lockfile
+		) &
+	done
+
+	sleep 0.01
+	rm -f $TMPD/lockfile
+
+	sleep 0.2
+}
+
+_control() {
+	for i in $(seq $ITERATIONS) ; do
+		page-types -p $BGPID -r > $TMPD/pagetypes.summary
+		page-types -p $BGPID -NLr | grep -v offset > $TMPD/.pagetypes
+
+		combination2 "___UDl_____M__________________P____f____F_1"  # file
+		combination2 "___________Ma___T_____t____________f______1"  # thp tail
+		combination2 "___________Ma___TG_________________f______1"  # hugetlb
+		combination2 "___U_l_____Ma_b____________________f______1"  # anon
+	done
+}
