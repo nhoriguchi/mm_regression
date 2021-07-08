@@ -1,0 +1,6 @@
+# pmempool create --layout pmemkv obj ./pmemkv.poolset
+
+PMEMPOOLSET
+2G /mnt/pmem1/pmemkvB
+2G /mnt/pmem2/pmemkvB
+2G /mnt/pmem3/pmemkvB
