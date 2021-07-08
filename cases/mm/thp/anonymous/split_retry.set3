@@ -17,7 +17,7 @@ FORK=fork:wait_after=1000000
 SPLIT_THP="split_thp:only_pmd access"
 # parent process has pte mapping and child process has pmd mapping, so if
 # we call mbind on parent process, pages are migrated as raw pages.
-EXPECTED_RETURN_CODE="PAGE_MIGRATED HUGEPAGE_NOT_MIGRATED HUGEPAGE_MIGRATED EXIT"
+EXPECTED_RETURN_CODE="PAGE_MIGRATED HUGEPAGE_NOT_MIGRATED EXIT"
 <% elsif param["thp"] == "pmd_split" %>
 SPLIT_THP="split_thp:only_pmd access"
 EXPECTED_RETURN_CODE="HUGEPAGE_MIGRATED EXIT"
