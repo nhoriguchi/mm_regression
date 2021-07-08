@@ -1,0 +1,32 @@
+TEST_TYPE=devel
+
+_prepare() {
+	set -x
+	# echo 1 > /sys/kernel/debug/hwpoison/corrupt-filter-enable
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-memcg
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-flags-value
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-flags-mask
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-dev-minor
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-dev-major
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-enable
+	set +x
+}
+
+_cleanup() {
+	echo 0 > /sys/kernel/debug/hwpoison/corrupt-filter-enable
+	echo 0 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-mask
+}
+
+_control() {
+
+	# # dirty,lru,mmap,anonymous,swapbacked
+	# echo 0x0000000000005830 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-mask
+	# echo 0x0000000000005830 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-value
+	# page-types -a 0x1140 -X
+	
+	echo 0x0000000000000080 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-mask
+	echo 0x0000000000000080 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-value
+	page-types -a 0x200 -Nrl
+	page-types -a 0x200 -Nrl -X
+	page-types -a 0x200 -Nrl
+}
