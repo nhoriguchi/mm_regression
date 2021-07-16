@@ -7,7 +7,7 @@ check_dax() {
 			local start=$(cat $regdir/resource)
 			local size=$(cat $regdir/size)
 
-			# echo "start:$start, size=$size, pfn:$pfn, $BASH_LINENO"
+			# echo "start:$start, size=$size, pfn:$pfn"
 			if [ "$[start]" -gt "$[pfn]" ] ; then
 				# echo "$[start] > $[pfn]"
 				continue
@@ -16,8 +16,10 @@ check_dax() {
 				# echo "$[start + size] <= $[pfn]"
 				continue
 			fi
+			printf "pfn:%lx is on pmem (start:%lx, size=%lx)" $[pfn>>12] $start $size
 			return 0
 		done
+		printf "pfn:%lx is not on pmem\n" $[pfn>>12]
 	fi
 	return 1
 }

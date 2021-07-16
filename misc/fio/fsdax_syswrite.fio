@@ -1,0 +1,46 @@
+[global]
+bs=${BSIZE}
+size=${FILESIZE}
+ioengine=psync
+# norandommap
+time_based
+runtime=${RUNTIME}
+
+group_reporting
+disable_lat=1
+disable_slat=1
+disable_clat=1
+clat_percentiles=0
+
+# numa_cpu_nodes=0
+# numa_mem_policy=bind:0
+cpus_allowed_policy=split
+
+iodepth=1
+direct=1
+thread
+numjobs=${NUMJOBS}
+unlink=0
+filename=${FILENAME}
+#filename=/pmem1/fio-test,4096,1024   <path>,bsize,fsizemb
+
+[randwrite]
+rw=randwrite
+stonewall
+
+[randread]
+rw=randread
+stonewall
+
+[seqwrite]
+rw=write
+stonewall
+
+[seqread]
+rw=read
+stonewall
+#
+# We're done, so unlink the file:
+#
+unlink=1
+

@@ -1,3 +1,4 @@
+#! {"type" => "fs"}
 #! {"type" => "directory"}
 #! {"type" => "file"}
 
@@ -5,17 +6,17 @@
 
 TEST_TYPE=devel
 
-PMEMDIR=/mnt/pmemxfs
+PMEMDIR=/mnt/pmemext4
 NAMESPACE=
 DEVNAME=
 
-<% if param["type"] == "directory" %>
-REFLINK=<%= param["reflink"] %>
-EXPECTED_RETURN_CODE="MOUNT_PASS DAX"
-<% elsif param["type"] == "file" %>
-REFLINK=<%= param["reflink"] %>
-EXPECTED_RETURN_CODE="MOUNT_PASS DAX"
+<% if param["type"] == "fs" %>
+DAXOPT="-o dax"
+<% else %>
+# DAXOPT="-o dax=inode"
 <% end %>
+
+EXPECTED_RETURN_CODE="MOUNT_PASS DAX"
 
 _prepare() {
 	NAMESPACE=$(ndctl list | jq '.[] | select(.name == "$RECIPE_FILE") | .dev')
@@ -27,7 +28,6 @@ _prepare() {
 	DEVNAME="$(jq -r '.blockdev' $TMPD/ns)"
 
 	mkdir -p $PMEMDIR
-	mkfs.xfs -f -m reflink=0 -d su=2m,sw=1 /dev/$DEVNAME || return 1
 }
 
 _cleanup() {
@@ -37,15 +37,13 @@ _cleanup() {
 }
 
 _control() {
-	echo "mount /dev/$DEVNAME $PMEMDIR"
-	mount /dev/$DEVNAME $PMEMDIR
+	mkfs.ext4 /dev/$DEVNAME || return 1
+	mount $DAXOPT /dev/$DEVNAME $PMEMDIR
 	if [ "$?" -ne 0 ] ; then
 		set_return_code MOUNT_FAIL
-		return 0
+		return 1
 	fi
-
 	set_return_code MOUNT_PASS
-	mount | grep $DEVNAME
 
 	<% if param["type"] == "directory" %>
 	xfs_io -c "chattr +x" $PMEMDIR
@@ -56,14 +54,15 @@ _control() {
 	./lib/test_dax $PMEMDIR/test 0x200000 write > $TMPD/out &
 	local pid=$!
 	sleep 1
-	mount | grep pmemxfs | tee $TMPD/mount
+	mount | grep $PMEMDIR > $TMPD/mount
 	getfattr -d $PMEMDIR/test
 	cp /proc/$pid/smaps $TMPD/smaps
 	cp /proc/$pid/numa_maps $TMPD/numa_maps
 	page-types -p $pid -Nrl > $TMPD/pagemap
 	kill -9 $pid
 
-	umount /dev/$DEVNAME
+	lsof | grep $DEVNAME
+	umount -f /dev/$DEVNAME
 
 	local pfn=$(grep ^700000000 $TMPD/pagemap | cut -f2)
 
