@@ -25,7 +25,7 @@
 #include <linux/futex.h>
 
 extern long long vtop(long long);
-extern void proc_cpuinfo(int *nsockets, int *ncpus, char *model, int **apicmap);
+extern void proc_cpuinfo(int *nsockets, int *ncpus, char *model, int *modelnum, int **apicmap);
 extern void proc_interrupts(long *nmce, long *ncmci);
 extern void do_memcpy(void *dst, void *src, int cnt);
 static void show_help(void);
@@ -92,8 +92,13 @@ static void inject_llc(unsigned long long addr, void *vaddr, int notrigger)
 	wfile(EINJ_DOIT, 1);
 }
 
-static int is_advanced_ras(char *model)
+static int is_advanced_ras(char *model, int modelnum)
 {
+	switch (modelnum) {
+	case 108: /* Ice Lake Xeon */
+		return 1;
+	}
+
 	if (strstr(model, "E7-"))
 		return 1;
 	if (strstr(model, "Platinum"))
@@ -106,6 +111,7 @@ static int is_advanced_ras(char *model)
 static void check_configuration(void)
 {
 	char	model[512];
+	int	modelnum;
 
 	if (getuid() != 0) {
 		fprintf(stderr, "%s: must be root to run error injection tests\n", progname);
@@ -120,7 +126,7 @@ static void check_configuration(void)
 		exit(1);
 	}
 	model[0] = '\0';
-	proc_cpuinfo(&nsockets, &ncpus, model, &apicmap);
+	proc_cpuinfo(&nsockets, &ncpus, model, &modelnum, &apicmap);
 	if (nsockets == 0 || ncpus == 0) {
 		fprintf(stderr, "%s: could not find number of sockets/cpus\n", progname);
 		exit(1);
@@ -130,7 +136,7 @@ static void check_configuration(void)
 		exit(1);
 	}
 	lcpus_persocket = ncpus / nsockets;
-	if (!force_flag && !is_advanced_ras(model)) {
+	if (!force_flag && !is_advanced_ras(model, modelnum)) {
 		fprintf(stderr, "%s: warning: cpu may not support recovery\n", progname);
 		exit(1);
 	}

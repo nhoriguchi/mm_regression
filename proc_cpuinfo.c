@@ -19,7 +19,7 @@
  * 3) Model name of the cpu
  * 4) Logical cpu# to apicd mappings
  */
-void proc_cpuinfo(int *nsockets, int *ncpus, char *model, int **apicmap)
+void proc_cpuinfo(int *nsockets, int *ncpus, char *model, int *modelnum, int **apicmap)
 {
 	FILE	*fp = fopen("/proc/cpuinfo", "r");
 	char	*p, line[4096];
@@ -39,6 +39,9 @@ void proc_cpuinfo(int *nsockets, int *ncpus, char *model, int **apicmap)
 			while (isspace(*++p))
 				;
 			strcpy(model, p);
+		} else if (strncmp(line, "model\t", 6) == 0) {
+			p = strchr(&line[6], ':');
+			*modelnum = atoi(p);
 		} else if (strncmp(line, "physical id", 11) == 0) {
 			(*ncpus)++;
 			p = strchr(&line[10], ':');
