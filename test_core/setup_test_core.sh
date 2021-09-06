@@ -602,6 +602,8 @@ EOF
 }
 
 cancel_systemd_service() {
+	systemctl status test.service
+	[ $? -eq 4 ] && return
 	systemctl stop test.service
 	systemctl disable test.service
 }
