@@ -4,33 +4,26 @@ TEST_TYPE=devel
 
 PMEMDIR=/mnt/pmem
 NAMESPACE=
-DEVNAME=
 DAXOPT="-o dax"
 EXPECTED_RETURN_CODE="EXIT"
 
 _prepare() {
-	NAMESPACE=$(ndctl list | jq '.[] | select(.name == "$RECIPE_FILE") | .dev')
-	if [ ! "$NAMESPACE" ] ; then
-		ndctl create-namespace -f -m fsdax -s 24G -n "$RECIPE_FILE" > $TMPD/ns || return 1
-	fi
-
-	NAMESPACE="$(jq -r '.dev' $TMPD/ns)"
-	DEVNAME="$(jq -r '.blockdev' $TMPD/ns)"
-
+	umount -f $PMEMDIR
+	local oldpmemdir=$(mount | grep "^/dev/$PMEMDEV " | cut -f3 -d' ')
+	[ "$oldpmemdir" ] && umount -f $oldpmemdir
 	mkdir -p $PMEMDIR
-	mkfs.ext4 /dev/$DEVNAME || return 1
-	mount $DAXOPT /dev/$DEVNAME $PMEMDIR || return
+	mkfs.ext4 /dev/$PMEMDEV || return 1
+	mount $DAXOPT /dev/$PMEMDEV $PMEMDIR || return
 }
 
 _cleanup() {
 	rm -rf $PMEMDIR/*
 	umount -f $PMEMDIR
-	ndctl destroy-namespace $NAMESPACE --force
 	rm -rf $PMEMDIR/
 }
 
 _control() {
-	echo "test_dax $DEVNAME 0x200000 write 0x200000 (MAP_SYNC: ${MAP_SYNC:-false})"
+	echo "test_dax $PMEMDEV 0x200000 write 0x200000 (MAP_SYNC: ${MAP_SYNC:-false})"
 	export REPEATS=1
 	test_dax $PMEMDIR/testfile 0x200000 syswrite 0x200000
 	if [ $? -ne 0 ] ; then

@@ -8,10 +8,15 @@
 
 . $TRDIR/lib/mm.sh
 
+<% if param["flavor"] == "fio" %>
+TEST_TYPE=performance
+<% else %>
 TEST_TYPE=devel
+<% end %>
 
 NR_THP=3
-PMEMDIR=/mnt/pmem1
+
+PMEMDIR=/mnt/pmem
 
 _prepare() {
 	<% if param["flavor"] == "fio" %>
@@ -20,18 +25,25 @@ _prepare() {
 		return 1
 	fi
 	<% end %>
-	rm -f $PMEMDIR/data
-	true
+
+	umount -f $PMEMDIR
+	local oldpmemdir=$(mount | grep "^/dev/$PMEMDEV " | cut -f3 -d' ')
+	[ "$oldpmemdir" ] && umount -f $oldpmemdir
+
+	mkfs.ext4 /dev/$PMEMDEV || return 1
+	mkdir -p $PMEMDIR
+	mount -t ext4 -o dax /dev/$PMEMDEV $PMEMDIR || return 1
 }
 
 _cleanup() {
-	rm -f $PMEMDIR/data
+	rm -f $PMEMDIR/*
+	umount -f $PMEMDIR
+	rm -rf $PMEMDIR/
 }
 
 <% if param["flavor"] == "noop" %>
 EXPECTED_RETURN_CODE="FSDAX_MAPPING_DONE EXIT"
 _control() {
-	echo "lib/test_dax $PMEMDIR/data 0x2000000 write 0x100000"
 	NO_REPEAT=1 lib/test_dax $PMEMDIR/data 0x2000000 write 0x100000
 	if [ $? -eq 0 ] ; then
 		set_return_code FSDAX_MAPPING_DONE

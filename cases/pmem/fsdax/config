@@ -1,1 +1,6 @@
-[ ! "$PMEMDIR" ] && echo "PMEMDIR is not set, skipped this test group." && exit 1
+[ ! "$PMEMDEV" ] && echo "PMEMDEV is not set, skipped this test group." && return 1
+[ ! -e "/dev/$PMEMDEV" ] && echo "device file /dev/$PMEMDEV not exists, skipped this test group." && return 1
+
+dir_cleanup() {
+	true
+}

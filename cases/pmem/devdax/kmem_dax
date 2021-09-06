@@ -2,39 +2,20 @@ TEST_TYPE=debug
 
 TEST_PRIORITY=18
 
-DEVNAME=
-MAP=mem # dev
-SIZE=24G
-
 EXPECTED_RETURN_CODE=EXIT
 
 _prepare() {
 	check_binary test_dax || return 1
-
-	ndctl list | jq ".[] | select(.name == \"$RECIPE_FILE\")" | tee $TMPD/namespace
-	for ns in $(jq -r .dev $TMPD/namespace) ; do
-		ndctl destroy-namespace -f $ns
-	done
-	ndctl create-namespace -f -m devdax --map=$MAP -s $SIZE -n "$RECIPE_FILE" | tee $TMPD/ns || return 1
-	ndctl list | jq ".[] | select(.name == \"$RECIPE_FILE\")" | tee $TMPD/namespace
-	NAMESPACE=$(jq -r .dev $TMPD/namespace)
-    DEVNAME=$(jq -r .chardev $TMPD/namespace)
-
-	echo "dax device is $NAMESPACE, $DEVNAME"
-}
-
-_cleanup() {
-	ndctl destroy-namespace $NAMESPACE --force
 }
 
 _control() {
 	# daxctl migrate-device-model
 	daxctl list
 	
-	daxctl reconfigure-device $DEVNAME --mode=system-ram || return 1
+	daxctl reconfigure-device /dev/$DAXDEV --mode=system-ram || return 1
 	daxctl list
 	lsmem
-	daxctl reconfigure-device $DEVNAME --mode=devdax --force
+	daxctl reconfigure-device /dev/$DAXDEV --mode=devdax --force
 	echo 'TODO'
 
 	set_return_code EXIT

@@ -6,9 +6,8 @@
 
 TEST_TYPE=devel
 
-PMEMDIR=/mnt/pmemext4
+PMEMDIR=/mnt/pmem
 NAMESPACE=
-DEVNAME=
 
 <% if param["type"] == "fs" %>
 DAXOPT="-o dax"
@@ -19,26 +18,21 @@ DAXOPT="-o dax"
 EXPECTED_RETURN_CODE="MOUNT_PASS DAX"
 
 _prepare() {
-	NAMESPACE=$(ndctl list | jq '.[] | select(.name == "$RECIPE_FILE") | .dev')
-	if [ ! "$NAMESPACE" ] ; then
-		ndctl create-namespace -f -m fsdax -s 6G -n "$RECIPE_FILE" > $TMPD/ns || return 1
-	fi
-
-	NAMESPACE="$(jq -r '.dev' $TMPD/ns)"
-	DEVNAME="$(jq -r '.blockdev' $TMPD/ns)"
-
+	umount -f $PMEMDIR
+	local oldpmemdir=$(mount | grep "^/dev/$PMEMDEV " | cut -f3 -d' ')
+	[ "$oldpmemdir" ] && umount -f $oldpmemdir
 	mkdir -p $PMEMDIR
 }
 
 _cleanup() {
 	rm -rf $PMEMDIR/*
-	ndctl destroy-namespace $NAMESPACE --force
+	umount -f $PMEMDIR
 	rm -rf $PMEMDIR/
 }
 
 _control() {
-	mkfs.ext4 /dev/$DEVNAME || return 1
-	mount $DAXOPT /dev/$DEVNAME $PMEMDIR
+	mkfs.ext4 /dev/$PMEMDEV || return 1
+	mount $DAXOPT /dev/$PMEMDEV $PMEMDIR
 	if [ "$?" -ne 0 ] ; then
 		set_return_code MOUNT_FAIL
 		return 1
@@ -63,8 +57,8 @@ _control() {
 	page-types -p $pid -Nrl > $TMPD/pagemap
 	kill -9 $pid
 
-	lsof | grep $DEVNAME
-	umount -f /dev/$DEVNAME
+	lsof | grep $PMEMDEV
+	umount -f /dev/$PMEMDEV
 
 	local pfn=$(grep ^700000000 $TMPD/pagemap | cut -f2)
 

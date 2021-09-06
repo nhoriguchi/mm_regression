@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DEVEL_MODE=
+# DEVEL_MODE might be set as an environment variable
 # LOGLEVEL might be set as an environment variable
 # RECIPELIST might be set as an environment variable
 # TESTCASE_FILTER might be set as an environment variable
@@ -30,6 +30,8 @@ export LC_ALL=C
 export TCDIR=$(dirname $(readlink -f $BASH_SOURCE))
 # Assuming that current directory is the root directory of the current test.
 export TRDIR=$PWD
+
+[ "$VERBOSE" ] && set -x
 
 . $TCDIR/setup_generic.sh
 . $TCDIR/setup_test_core.sh
@@ -165,10 +167,11 @@ run_recipes() {
 	if [ -f "$basedir/config" ] ; then
 		# TODO: this is a hack for dir_cleanup, to be simplified.
 		local tmp="$(echo $basedir | sed 's|cases|work/'${RUNNAME:=debug}'|')"
+		mkdir -p $tmp
 		echo $BASHPID > $tmp/BASHPID
 		. "$basedir/config"
 		if [ "$?" -ne 0 ] ; then
-			echo "skip this directory due to the failure in $basedir/config" >&2
+			echo "skip this directory due to the failure in $basedir/config"
 			return 1
 		fi
 	fi
@@ -201,6 +204,7 @@ run_recipes() {
 			echo_verbose "$FUNCNAME (new recipe $dir: $basedir/$elm): $$/$BASHPID -> $pid"
 			wait $pid
 		else # dir
+			# echo "--- $keepdir"
 			if [ "$keepdir" != "$dir" ] ; then # new dir
 				if [ "$keepdir" ] ; then # end of previous dir
 					# echo "--- 1: run_recipes \"$linerecipe\""

@@ -1,9 +1,0 @@
-TEST_TYPE=devel
-
-PMEMDIR=/mnt/pmem1
-
-_control() {
-	date > $TMPD/date
-	$TRDIR/lib/pmem/simple_copy $TMPD/date $PMEMDIR/date
-	file $PMEMDIR/date
-}

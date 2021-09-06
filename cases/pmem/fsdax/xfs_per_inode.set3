@@ -5,7 +5,7 @@
 
 TEST_TYPE=devel
 
-PMEMDIR=/mnt/pmemxfs
+PMEMDIR=/mnt/pmem
 NAMESPACE=
 DEVNAME=
 
@@ -18,34 +18,29 @@ EXPECTED_RETURN_CODE="MOUNT_PASS DAX"
 <% end %>
 
 _prepare() {
-	NAMESPACE=$(ndctl list | jq '.[] | select(.name == "$RECIPE_FILE") | .dev')
-	if [ ! "$NAMESPACE" ] ; then
-		ndctl create-namespace -f -m fsdax -s 6G -n "$RECIPE_FILE" > $TMPD/ns || return 1
-	fi
-
-	NAMESPACE="$(jq -r '.dev' $TMPD/ns)"
-	DEVNAME="$(jq -r '.blockdev' $TMPD/ns)"
-
+	umount -f $PMEMDIR
+	local oldpmemdir=$(mount | grep "^/dev/$PMEMDEV " | cut -f3 -d' ')
+	[ "$oldpmemdir" ] && umount -f $oldpmemdir
 	mkdir -p $PMEMDIR
-	mkfs.xfs -f -m reflink=0 -d su=2m,sw=1 /dev/$DEVNAME || return 1
+	mkfs.xfs -f -m reflink=0 -d su=2m,sw=1 /dev/$PMEMDEV || return 1
 }
 
 _cleanup() {
 	rm -rf $PMEMDIR/*
-	ndctl destroy-namespace $NAMESPACE --force
+	umount -f $PMEMDIR
 	rm -rf $PMEMDIR/
 }
 
 _control() {
-	echo "mount /dev/$DEVNAME $PMEMDIR"
-	mount /dev/$DEVNAME $PMEMDIR
+	echo "mount /dev/$PMEMDEV $PMEMDIR"
+	mount /dev/$PMEMDEV $PMEMDIR
 	if [ "$?" -ne 0 ] ; then
 		set_return_code MOUNT_FAIL
 		return 0
 	fi
 
 	set_return_code MOUNT_PASS
-	mount | grep $DEVNAME
+	mount | grep $PMEMDEV
 
 	<% if param["type"] == "directory" %>
 	xfs_io -c "chattr +x" $PMEMDIR
@@ -63,7 +58,7 @@ _control() {
 	page-types -p $pid -Nrl > $TMPD/pagemap
 	kill -9 $pid
 
-	umount /dev/$DEVNAME
+	umount /dev/$PMEMDEV
 
 	local pfn=$(grep ^700000000 $TMPD/pagemap | cut -f2)
 
