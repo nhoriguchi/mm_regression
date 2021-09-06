@@ -328,12 +328,29 @@ check_test_flag() {
 		return 1
 	fi
 
-	if echo "$TEST_TYPE" | grep -q "\b$RUN_MODE\b" ; then
+	local a=
+	local b=
+	local c=
+	local d=true
+	for a in $(echo $TEST_TYPE | tr ',' ' ') ; do
+		c=false
+		for b in $(echo $RUN_MODE | tr ',' ' ') ; do
+			if [ "$a" = "$b" ] ; then
+				c=true
+			fi
+		done
+		if [ "$c" = false ] ; then
+			d=false
+			break
+		fi
+	done
+
+	if [ "$d" = true ] ; then
 		return 1
 	fi
 
-	echo_log "Testcase $TEST_TITLE has TEST_TYPE tags \"$TEST_TYPE\", but you don't set RUN_MODE that matches to any of keywords in TEST_TYPE."
-	echo_log "If you really want to run this testcase, please set environment variable RUN_MODE to one in \"$TEST_TYPE\"."
+	echo_log "Testcase $TEST_TITLE has TEST_TYPE tags \"$TEST_TYPE\", but RUN_MODE does not contain all of keywords in TEST_TYPE."
+	echo_log "If you really want to run this testcase, please set environment variable RUN_MODE to contain \"$TEST_TYPE\", OR simply set to \"all\"."
 	count_skipped
 	return 0
 }
