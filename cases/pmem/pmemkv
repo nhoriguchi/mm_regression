@@ -1,0 +1,44 @@
+TEST_TYPE=performance
+
+PMEMDIR=/mnt/pmemfio
+
+_prepare() {
+	if ! which fio > /dev/null ; then
+		echo "fio is not available, skipped." >&2
+		return 1
+	fi
+
+	umount -f /dev/pmem*
+	ndctl destroy-namespace -f all
+
+	NAMESPACE=$(ndctl list | jq '.[] | select(.name == "$RECIPE_FILE") | .dev')
+	if [ ! "$NAMESPACE" ] ; then
+		# specifying region0 to allocate namespace from numa node 0
+		ndctl create-namespace -f -m fsdax -s 108G -r region0 -n "$RECIPE_FILE" > $TMPD/ns || return 1
+	fi
+
+	NAMESPACE="$(jq -r '.dev' $TMPD/ns)"
+	DEVNAME="$(jq -r '.blockdev' $TMPD/ns)"
+
+	mkdir -p $PMEMDIR
+	mkfs.xfs -f -m reflink=0 -d su=2m,sw=1 /dev/$DEVNAME || return 1
+	mount -o dax /dev/$DEVNAME $PMEMDIR
+	rm -f $PMEMDIR/*
+
+	cd lib
+	# build pmemkv-bench
+
+	true
+}
+
+_cleanup() {
+	umount /dev/$DEVNAME
+	rm -rf $PMEMDIR/*
+	ndctl destroy-namespace $NAMESPACE --force
+	rm -rf $PMEMDIR/
+}
+
+_control() {
+	cd lib/pmemkv-bench/
+    true
+}

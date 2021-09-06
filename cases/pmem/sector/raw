@@ -1,0 +1,22 @@
+TEST_TYPE=devel
+
+_control() {
+	NAMESPACE=$(ndctl list | jq '.[] | select(.name == "$RECIPE_FILE") | .dev')
+	if [ ! "$NAMESPACE" ] ; then
+		ndctl create-namespace -f -m sector -s 6G -n "$RECIPE_FILE" > $TMPD/ns || return 1
+	fi
+
+	NAMESPACE="$(jq -r '.dev' $TMPD/ns)"
+	DEVNAME="$(jq -r '.blockdev' $TMPD/ns)"
+
+	for i in $(seq 100) ; do
+		date >> $TMPD/.a
+	done
+
+	dd if=$TMPD/.a of=/dev/$DEVNAME bs=4k count=4
+	head -c 100 /dev/$DEVNAME
+	ret=$?
+
+	ndctl destroy-namespace $NAMESPACE --force 
+	return $ret
+}

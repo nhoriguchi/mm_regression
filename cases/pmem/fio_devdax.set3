@@ -1,0 +1,73 @@
+#! {"type" => "nrjobdependency"}
+#! {"type" => "bsdepenency"}
+
+. $TRDIR/lib/mm.sh
+
+TEST_TYPE=performance
+
+PMEMDIR=/mnt/pmemfio
+DEVNAME=
+
+NSMODE=devdax
+
+_prepare() {
+	if ! which fio > /dev/null ; then
+		echo "fio is not available, skipped." >&2
+		return 1
+	fi
+
+	umount -f /dev/pmem*
+	ndctl destroy-namespace -f all
+
+	NAMESPACE=$(ndctl list | jq ".[] | select(.name == \"$RECIPE_FILE\") | .dev")
+	if [ ! "$NAMESPACE" ] ; then
+		# specifying region0 to allocate namespace from numa node 0
+		ndctl create-namespace -f -m $NSMODE -s 108G -r region0 -n "$RECIPE_FILE" > $TMPD/ns || return 1
+	fi
+
+	NAMESPACE=$(ndctl list | jq -r ".[] | select(.name == \"$RECIPE_FILE\") | .dev")
+	DEVNAME=$(ndctl list | jq -r ".[] | select(.name == \"$RECIPE_FILE\") | .chardev")
+	echo "NAMESPACE: $NAMESPACE, DEVNAME: $DEVNAME"
+}
+
+_cleanup() {
+	return 0 # for devdax
+}
+
+_control() {
+	local cpus="1 2 4 8 12 16 24 32 64"
+	local bsizes="4k 2m"
+	local fsizes="16g" # 32g 64g
+	local rtimes=30
+
+	<% if param["type"] == "nrjobdependency" %>
+	cpus="1 2 4 8 12 16 24 32"
+	bsizes="2m"
+	<% elsif param["type"] == "bsdependency" %>
+	cpus="8"
+	bsizes="64 128 256 512 1k 2k 4k 8k 32k 256k 2m 8m"
+	<% end %>
+
+	local fiotypes="dev-dax"
+	export FILENAME=/dev/$DEVNAME
+
+	for fsize in $fsizes ; do
+	for rtime in $rtimes ; do
+	for cpu in $cpus ; do
+	for bsize in $bsizes ; do
+	for fiotype in $fiotypes ; do
+		local tmp2=$TMPD/c${cpu}_bs${bsize}
+		mkdir -p $tmp2
+
+		export NUMJOBS=$cpu
+		export BSIZE=$bsize
+		export FILESIZE=$fsize
+		export RUNTIME=$rtime
+		# todo: directory mode (libpmem)
+		fio --output=$tmp2/${fiotype}.json --output-format=json misc/fio/${fiotype}.fio
+	done
+	done
+	done
+	done
+	done
+}

@@ -1,0 +1,168 @@
+#! {"fs" => "ext4", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "true" , "sync" => "true" }
+#! {"fs" => "ext4", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "true" , "sync" => "false"}
+#! {"fs" => "ext4", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "false", "sync" => "true" }
+#! {"fs" => "ext4", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "false", "sync" => "false"}
+#! {"fs" => "ext4", "type" => "nrjobdependency", "mode" => "pmemblk"}
+#! {"fs" => "ext4", "type" => "nrjobdependency", "mode" => "fsdax"}
+#! {"fs" => "xfs", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "true" , "sync" => "true" }
+#! {"fs" => "xfs", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "true" , "sync" => "false"}
+#! {"fs" => "xfs", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "false", "sync" => "true" }
+#! {"fs" => "xfs", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "false", "sync" => "false"}
+#! {"fs" => "xfs", "type" => "nrjobdependency", "mode" => "pmemblk"}
+#! {"fs" => "xfs", "type" => "nrjobdependency", "mode" => "fsdax"}
+
+#! {"fs" => "ext4", "type" => "bsdependency", "mode" => "libpmem", "nt" => "true" , "sync" => "true" }
+#! {"fs" => "ext4", "type" => "bsdependency", "mode" => "libpmem", "nt" => "false", "sync" => "true" }
+#! {"fs" => "ext4", "type" => "bsdependency", "mode" => "pmemblk"}
+#! {"fs" => "ext4", "type" => "bsdependency", "mode" => "fsdax"}
+
+#! {"dm" => "stripe", "fs" => "ext4", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "true" , "sync" => "true" }
+#! {"dm" => "stripe", "fs" => "ext4", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "false" , "sync" => "true" }
+#! {"dm" => "stripe", "fs" => "ext4", "type" => "nrjobdependency", "mode" => "pmemblk"}
+#! {"dm" => "stripe", "fs" => "ext4", "type" => "nrjobdependency", "mode" => "fsdax"}
+#! {"dm" => "stripe", "fs" => "xfs", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "true" , "sync" => "true" }
+#! {"dm" => "stripe", "fs" => "xfs", "type" => "nrjobdependency", "mode" => "libpmem", "nt" => "false" , "sync" => "true" }
+#! {"dm" => "stripe", "fs" => "xfs", "type" => "nrjobdependency", "mode" => "pmemblk"}
+#! {"dm" => "stripe", "fs" => "xfs", "type" => "nrjobdependency", "mode" => "fsdax"}
+
+. $TRDIR/lib/mm.sh
+
+TEST_TYPE=performance
+
+PMEMDIR=/mnt/pmemfio
+DEVNAME=
+
+NSMODE=fsdax
+<% if param["dm"] == "stripe" %>
+NUMA_NODE=2
+<% end %>
+
+RECIPEHASH=$(md5sum $RECIPE_FILE | cut -c-16)
+
+_prepare() {
+	if ! which fio > /dev/null ; then
+		echo "fio is not available, skipped." >&2
+		return 1
+	fi
+
+	# <1% if param["dm"] == "stripe" %>
+	umount /dev/mapper/striped-pmem
+	dmsetup remove --force /dev/mapper/striped-pmem
+	# <1% end %>
+	umount -f /dev/pmem*
+	ndctl destroy-namespace -f all
+
+	NAMESPACE=$(ndctl list | jq ".[] | select(.name == \"$RECIPEHASH\") | .dev")
+	if [ ! "$NAMESPACE" ] ; then
+		<% if param["dm"] == "stripe" %>
+		ndctl create-namespace -f -m $NSMODE -s 108G -r region0 -n "$RECIPEHASH" || return 1
+		ndctl create-namespace -f -m $NSMODE -s 108G -r region1 -n "$RECIPEHASH" || return 1
+		<% else %>
+		# specifying region0 to allocate namespace from numa node 0
+		ndctl create-namespace -f -m $NSMODE -s 108G -r region0 -n "$RECIPEHASH" || return 1
+		<% end %>
+	fi
+
+	NAMESPACE=$(ndctl list | jq -r ".[] | select(.name == \"$RECIPEHASH\") | .dev")
+	DEVNAME=($(ndctl list | jq -r ".[] | select(.name == \"$RECIPEHASH\") | .blockdev"))
+
+	local dev1=${DEVNAME[0]}
+	local dev2=${DEVNAME[1]}
+
+	<% if param["dm"] == "stripe" %>
+	local devsize0=$(blockdev --getsz /dev/$dev1)
+	local devsize1=$(blockdev --getsz /dev/$dev2)
+
+	echo -e "0 $[$devsize0 + $devsize1] striped 2 4096 /dev/$dev1 0 /dev/$dev2 0" | sudo dmsetup create striped-pmem
+	lsblk /dev/mapper/striped-pmem
+	dmsetup info striped-pmem
+	DEVNAME=mapper/striped-pmem
+	<% end %>
+
+	mkdir -p $PMEMDIR
+
+	<% if param["dm"] == "stripe" %>
+		<% if param["fs"] == "xfs" %>
+		mkfs.xfs -f -m reflink=0 -d su=2m,sw=2 /dev/$DEVNAME || return 1
+		<% elsif param["fs"] == "ext4" %>
+		# TODO: check proper setting for ext4.
+		mkfs.ext4 -b 4096 -E stride=512 -F /dev/$DEVNAME || return 1
+		<% end %>
+	<% else %>
+		<% if param["fs"] == "xfs" %>
+		mkfs.xfs -f -m reflink=0 -d su=2m,sw=1 /dev/$DEVNAME || return 1
+		<% elsif param["fs"] == "ext4" %>
+		mkfs.ext4 -b 4096 -E stride=512 -F /dev/$DEVNAME || return 1
+		<% end %>
+	<% end %>
+
+	mount -o dax /dev/$DEVNAME $PMEMDIR || return 1
+	rm -rf $PMEMDIR/*
+
+	echo "NAMESPACE: $NAMESPACE, DEVNAME: $DEVNAME"
+}
+
+_cleanup() {
+	umount /dev/$DEVNAME
+	dmsetup remove --force /dev/mapper/striped-pmem
+	rm -rf $PMEMDIR/*
+	ndctl destroy-namespace $NAMESPACE --force
+	rm -rf $PMEMDIR/
+}
+
+_control() {
+	local cpus="1 2 4 8 12 16 24 32 64"
+	local bsizes="4k 2m"
+	local fsizes="16g" # 32g 64g
+	local rtimes=30
+
+	<% if param["type"] == "nrjobdependency" %>
+	cpus="1 2 4 8 12 16 24 32"
+	bsizes="2m"
+	<% elsif param["type"] == "bsdependency" %>
+	cpus="8"
+	bsizes="64 128 256 512 1k 2k 4k 8k 32k 256k 2m 8m"
+	<% end %>
+
+	export FILENAME=$PMEMDIR/testfile
+
+	<% if param["mode"] == "pmemblk" %>
+	local fiotypes="pmemblk"
+	<% elsif param["mode"] == "libpmem" %>
+	local fiotypes="libpmem"
+	<% elsif param["mode"] == "fsdax" %>
+	local fiotypes="fsdax_mmap fsdax_syswrite"
+	<% end %>
+
+	<% if param["nt"] == "true" %>
+	export DIRECT=1
+	<% elsif param["nt"] == "false" %>
+	export DIRECT=0
+	<% end %>
+
+	<% if param["sync"] == "true" %>
+	export SYNC=1
+	<% elsif param["sync"] == "false" %>
+	export SYNC=0
+	<% end %>
+
+	for fsize in $fsizes ; do
+	for rtime in $rtimes ; do
+	for cpu in $cpus ; do
+	for bsize in $bsizes ; do
+	for fiotype in $fiotypes ; do
+		local tmp2=$TMPD/c${cpu}_bs${bsize}
+		mkdir -p $tmp2
+
+		export NUMJOBS=$cpu
+		export BSIZE=$bsize
+		export FILESIZE=$fsize
+		export RUNTIME=$rtime
+		# todo: directory mode (libpmem)
+		fio --output=$tmp2/${fiotype}.json --output-format=json misc/fio/${fiotype}.fio
+	done
+	done
+	done
+	done
+	done
+}

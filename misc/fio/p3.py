@@ -25,15 +25,22 @@ bsizes = ["4k", "2m"]
 pltypes = ["fsdax_mmap","fsdax_syswrite", "libpmem_nt_drain", "libpmem_nt_nodrain", "libpmem_t_drain", "libpmem_t_nodrain", "pmemblk", "dev-dax"]
 
 plottypes = {
-    'fsdax_mmap':           ("210714_fio8", "fio_type-fsdax.auto3", "fsdax_mmap"),
-    'fsdax_syswrite':       ("210714_fio8", "fio_type-fsdax.auto3", "fsdax_syswrite"),
-    'dev-dax':              ("210714_fio8", "fio_type-dev-dax.auto3", "dev-dax"),
-    'pmemblk':              ("210714_fio8", "fio_type-pmemblk.auto3", "pmemblk"),
-    'libpmem_nt_drain':     ("210714_fio8", "fio_type-libpmem_nt-true_sync-true.auto3", "libpmem"),
-    'libpmem_nt_nodrain':   ("210714_fio8", "fio_type-libpmem_nt-true_sync-false.auto3", "libpmem"),
-    'libpmem_t_drain':      ("210714_fio8", "fio_type-libpmem_nt-false_sync-true.auto3", "libpmem"),
-    'libpmem_t_nodrain':    ("210714_fio8", "fio_type-libpmem_nt-false_sync-false.auto3", "libpmem"),
-    'pmemblk_striped_pmem': ("210716_fio2", "fio_dm_type-pmemblk.auto3", "pmemblk"),
+    'fsdax_mmap':             ("210714_fio8", "fio_type-fsdax.auto3", "fsdax_mmap", "XFS"),
+    'fsdax_syswrite':         ("210714_fio8", "fio_type-fsdax.auto3", "fsdax_syswrite", "XFS"),
+    'dev-dax':                ("210714_fio8", "fio_type-dev-dax.auto3", "dev-dax", ""),
+    'pmemblk':                ("210714_fio8", "fio_type-pmemblk.auto3", "pmemblk", "XFS"),
+    'libpmem_ntstore_sfence': ("210714_fio8", "fio_type-libpmem_nt-true_sync-true.auto3", "libpmem", "XFS"),
+    'libpmem_ntstore':        ("210714_fio8", "fio_type-libpmem_nt-true_sync-false.auto3", "libpmem", "XFS"),
+    'libpmem_clwb_sfence':    ("210714_fio8", "fio_type-libpmem_nt-false_sync-true.auto3", "libpmem", "XFS"),
+    'libpmem_clwb':           ("210714_fio8", "fio_type-libpmem_nt-false_sync-false.auto3", "libpmem", "XFS"),
+    'pmemblk_striped_pmem':   ("210716_fio2", "fio_dm_type-pmemblk.auto3", "pmemblk", "XFS"),
+    'libpmem_striped_pmem':   ("210716_fio2", "fio_dm_type-libpmem_nt-true_sync-true.auto3", "libpmem", "XFS"),
+    'fsdax_mmap_striped_pmem':     ("210716_fio2", "fio_dm_type-fsdax.auto3", "fsdax_mmap", "XFS"),
+    'fsdax_syswrite_striped_pmem': ("210716_fio2", "fio_dm_type-fsdax.auto3", "fsdax_syswrite", "XFS"),
+    'pmemblk_ext4':           ("210716_fio3", "fio_ext4_type-pmemblk.auto3", "pmemblk", "ext4"),
+    'libpmem_ext4':           ("210716_fio3", "fio_ext4_type-libpmem_nt-true_sync-true.auto3", "libpmem", "ext4"),
+    'fsdax_mmap_ext4':        ("210716_fio3", "fio_ext4_type-fsdax.auto3", "fsdax_mmap", "ext4"),
+    'fsdax_syswrite_ext4':    ("210716_fio3", "fio_ext4_type-fsdax.auto3", "fsdax_syswrite", "ext4"),
 }
 
 for cpu in cpus:
@@ -44,6 +51,7 @@ for cpu in cpus:
             datadict[key] = {}
             if not os.path.exists(datafile):
                 continue
+            # print("-- %s" % datafile)
             tmp = json.load(open(datafile, 'r'))
             datadict[key]["global options"] = tmp["global options"]
             datadict[key]["jobs"] = {}
@@ -55,7 +63,7 @@ for cpu in cpus:
 # print(datadict["1-fsdax_mmap"]["jobs"].keys())
 # sys.exit()
 
-def plotA(pltype, bsize):
+def plotA(pltype, bsize, outdir):
     plotdata = []
     plotdataerr = []
     randreads = []
@@ -67,8 +75,12 @@ def plotA(pltype, bsize):
     seqreadserr = []
     seqwriteserr = []
 
+    print("-- %s" % pltype)
     for cpu in cpus:
         label = getkey(plottypes[plottype], cpu, bsize)
+        print(label)
+        if not datadict[label]:
+            continue
         rrbw_mean = round(datadict[label]["jobs"]["randread"]["read"]["bw_mean"]   / 1024) / 1024.0
         rrbw_dev  = round(datadict[label]["jobs"]["randread"]["read"]["bw_dev"]    / 1024) / 1024.0
         rwbw_mean = round(datadict[label]["jobs"]["randwrite"]["write"]["bw_mean"] / 1024) / 1024.0
@@ -88,6 +100,15 @@ def plotA(pltype, bsize):
         plotdata.append([rrbw_mean, rwbw_mean, srbw_mean, swbw_mean])
         plotdataerr.append([rrbw_dev, rwbw_dev, srbw_dev, swbw_dev])
 
+    if len(randreads) != len(cpus):
+        return
+    if len(randwrites) != len(cpus):
+        return
+    if len(seqreads) != len(cpus):
+        return
+    if len(seqwrites) != len(cpus):
+        return
+    
     plotdata2 = pd.DataFrame({"RandRead": randreads, "RandWrite": randwrites, "SeqRead": seqreads, "SeqWrite":seqwrites}, index=cpus)
     bar = plotdata2.plot.bar(rot=0, yerr={"RandRead": randreadserr, "RandWrite": randwriteserr, "SeqRead": seqreadserr, "SeqWrite":seqwriteserr})
     bar.set_xlabel('NumJobs')
@@ -95,9 +116,9 @@ def plotA(pltype, bsize):
     bar.set_ylim(0, ymax)
     bar.set_title("%s bs=%s" % (plottype, bsize))
     fig = bar.get_figure()
-    fig.savefig("/tmp/fio/figure-%s.png" % pltype)
+    fig.savefig("%s/figure-%s.png" % (outdir, pltype))
 
-def plotB(pltype, bsize):
+def plotB(pltype, bsize, outdir):
     plotdata = []
     plotdataerr = []
     randreads = []
@@ -128,9 +149,13 @@ def plotB(pltype, bsize):
     bar.set_ylim(0, ymax)
     bar.set_title("%s bs=%s" % (plottype, bsize))
     fig = bar.get_figure()
-    fig.savefig("/tmp/fio/figure-%s.png" % pltype)
+    fig.savefig("%s/figure-%s.png" % (outdir, pltype))
 
 ymax = 35
-bsize = "2m"
-for plottype in plottypes:
-    plotA(plottype, bsize)
+for bs in bsizes:
+    bsize = bs
+    outdir = "./%s/%s" % (projname, bsize)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    for plottype in plottypes:
+        plotA(plottype, bsize, outdir)

@@ -48,7 +48,9 @@ _control() {
 	<% if param["type"] == "directory" %>
 	xfs_io -c "chattr +x" $PMEMDIR
 	<% elsif param["type"] == "file" %>
+	set -x
 	touch $PMEMDIR/test
+	# chattr in older e2fsprogs might not support "+x" flags
 	xfs_io -c "chattr +x" $PMEMDIR/test
 	<% end %>
 	./lib/test_dax $PMEMDIR/test 0x200000 write > $TMPD/out &

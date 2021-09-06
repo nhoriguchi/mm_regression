@@ -1,11 +1,1 @@
-bash $TRDIR/lib/pmem/get_namespace_layout.sh || exit 1
-
-if df | grep -q "/mnt/pmem8$" ; then
-	true
-else
-	bash $TRDIR/lib/pmem/basic_namespace_layout.sh autoyes || exit 1
-fi
-
-dir_cleanup() {
-	true
-}
+[ ! "$PMEMDIR" ] && echo "PMEMDIR is not set, skipped this test group." && exit 1

@@ -1,0 +1,110 @@
+. $TRDIR/lib/mm.sh
+
+TEST_TYPE=devel
+
+NR_THP=3
+PMEMDIR=/mnt/pmem1
+
+_prepare() {
+	if ! which fio > /dev/null ; then
+		echo "fio is not available, skipped." >&2
+		return 1
+	fi
+
+	rm -f $PMEMDIR/data
+	true
+}
+
+_cleanup() {
+	rm -f $PMEMDIR/data
+}
+
+TEST_TYEP=performance
+_control() {
+	for i in 1 2 4 8 16 32 64 ; do
+	for fsize in 10g ; do # 32g 64g
+	for rtime in 60 ; do # 120 300
+	for fiotype in pmemblk ; do
+	# for fiotype in libpmem fsdax_mmap fsdax_syswrite pmemblk ; do
+		local tmp2=$TMPD/cpu-$i
+		export NUMJOBS=$i
+		export FILESIZE=$fsize
+		export RUNTIME=$rtime
+		export FILENAME=$PMEMDIR/testfile
+		mkdir -p $tmp2
+		# todo: directory mode (libpmem)
+		# todo: direct? sync?
+		fio --output=$tmp2/${fiotype}.json --output-format=json misc/fio/${fiotype}.fio
+	done
+	done
+	done
+	done
+	return 0
+
+		# FILENAME=$PMEMDIR/testfile fio --output=$tmp2/fsdax_mmap.json --output-format=json misc/fio/fsdax_mmap.fio
+		# FILENAME=$PMEMDIR/testfile fio --output=$tmp2/fsdax_syswrite.json --output-format=json misc/fio/fsdax_syswrite.fio
+		# IODEPTH=16 FILENAME=$PMEMDIR/testfile fio --output=$tmp2/fsdax_aio.json --output-format=json misc/fio/fsdax_aio.fio
+
+	for i in 8 ; do
+		for fsize in 10g 32g ; do
+			local tmp2=$TMPD/cpu-$i-fs$fsize
+			export NUMJOBS=$i
+			mkdir -p $tmp2
+			FILESIZE=$fsize RUNTIME=60 FILENAME=$PMEMDIR/testfile fio --section=randwrite --output=$tmp2/fsdax_libpmem.json --output-format=json misc/fio/libpmem.fio
+		done
+	done
+	return 0
+
+	for i in 8 ; do
+		for rtime in 30 120 ; do
+			local tmp2=$TMPD/cpu-$i-r$rtime
+			export NUMJOBS=$i
+			mkdir -p $tmp2
+			RUNTIME=$rtime FILENAME=$PMEMDIR/testfile fio --output=$tmp2/fsdax_libpmem.json --output-format=json misc/fio/libpmem.fio
+		done
+	done
+	return 0
+
+	cat <<EOF > $TMPD/fio.job.dax
+[randomwrite]
+ioengine=mmap
+rw=randrw
+refill_buffers=1
+log_avg_msec=1000
+size=256m
+bs=4k
+filename=$PMEMDIR/data
+EOF
+	cat <<EOF > $TMPD/fio.job.fs
+[randomwrite]
+ioengine=mmap
+rw=randrw
+refill_buffers=1
+log_avg_msec=1000
+size=256m
+bs=4k
+filename=tmp/data
+EOF
+	fdisk -l /dev/pmem0
+	# fio $TMPD/fio.job.dax | tee $TMPD/fio.job.dax.out
+	# fio $TMPD/fio.job.fs  | tee $TMPD/fio.job.fs.out
+	cat <<EOF > $TMPD/fio.job.fs
+[randomwrite]
+ioengine=libpmem
+rw=randrw
+size=256m
+bs=4k
+filename=$PMEMDIR/data
+EOF
+	# fio --output-format=terse $TMPD/fio.job.fs
+	cat <<EOF > $TMPD/fio.job.fs
+[randomwrite]
+ioengine=libpmem
+rw=randrw
+size=1g
+bs=2m
+filename=$PMEMDIR/data
+EOF
+	DIRECTORY=$PMEMDIR/ fio --output=$TMPD/a.json --output-format=json $TMPD/fio.job.fs
+	# fio --output-format=terse $TMPD/fio.job.fs
+}
