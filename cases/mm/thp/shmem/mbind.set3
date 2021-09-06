@@ -25,7 +25,7 @@ SPLIT_THP="split_thp:only_pmd access"
 <% elsif param["thp"] == "thp_split" %>
 TEST_TYPE=devel
 SPLIT_THP="split_thp access"
-HUGEPAGE_CHECKCODE=HUGEPAGE_MIGRATED
+HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 <% end %>
 
 _prepare() {

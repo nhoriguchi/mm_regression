@@ -1,0 +1,82 @@
+#! {"thp" => "base"}
+#! {"thp" => "shared_thp"}
+#! {"thp" => "double_mapping"}
+#! {"thp" => "pmd_split"}
+#! {"thp" => "thp_split"}
+
+. $TRDIR/lib/setup_mmgeneric.sh
+. $TRDIR/lib/thp.sh
+
+NR_THP=2
+
+MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
+FORK=
+SPLIT_THP=
+HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_MIGRATED
+ACTION=memory_error_injection:error_type=soft-offline
+ERROR_TYPE=soft-offline
+ERROR_OFFSET=513 # first 512 pages are not thp
+
+<% if param["thp"] == "shared_thp" %>
+FORK=fork:wait_after
+<% elsif param["thp"] == "double_mapping" %>
+FORK=fork:wait_after
+SPLIT_THP="split_thp:only_pmd access"
+<% elsif param["thp"] == "pmd_split" %>
+SPLIT_THP="split_thp:only_pmd access"
+<% elsif param["thp"] == "thp_split" %>
+SPLIT_THP="split_thp access access"
+HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
+<% end %>
+
+SHMEM_DIR=$TDIR/shmem
+
+_prepare() {
+	khpd_off
+	prepare_mmgeneric || return 1
+
+	rm -rf $SHMEM_DIR/* > /dev/null 2>&1
+	umount -f $SHMEM_DIR > /dev/null 2>&1
+	rm -rf $SHMEM_DIR > /dev/null 2>&1
+	mkdir -p $SHMEM_DIR > /dev/null 2>&1
+	mount -t tmpfs -o huge=always tmpfs $SHMEM_DIR || return 1
+
+	echo "test_alloc_generic -B pagecache -N $NR_THP -F -L \"set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite\""
+}
+
+_cleanup() {
+	rm -rf $SHMEM_DIR/* > /dev/null 2>&1
+	umount -f $SHMEM_DIR > /dev/null 2>&1
+	rm -rf $SHMEM_DIR > /dev/null 2>&1
+	cleanup_mmgeneric || return 1
+	khpd_on
+}
+
+EXPECTED_RETURN_CODE="INJECT MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
+
+_control() {
+	set -x
+	test_alloc_generic -B pagecache -N $NR_THP -w $SHMEM_DIR -L "$MAPTYPE access $FORK $SPLIT_THP noop:wait_after access munmap:wait_before exit" -p $PIPE &
+	local pid=$!
+
+	read -t${PIPETIMEOUT} line <> $PIPE || return 1
+	[ "$line" != "after_noop" ] && return
+
+	page-types -p $pid -a 0x700000000+10 -Nrl
+	page-types -f $SHMEM_DIR/testfile -Nrl | tee $TMPD/testfile_pagetype
+
+	local targetpfn=0x$(grep -P '^0\t' $TMPD/testfile_pagetype | cut -f2)
+	[ "$targetpfn" == 0x ] && return 1
+	echo ${targetpfn}000 > /sys/devices/system/memory/hard_offline_page
+
+	page-types -p $pid -a 0x700000000+10 -Nrl
+	kill -SIGUSR1 $pid
+
+	read -t${PIPETIMEOUT} line <> $TMPD/.pipe || return 1
+	[ "$line" != "before_munmap" ] && return
+
+	page-types -p $pid -a 0x700000000 -Nrl
+	page-types -f $SHMEM_DIR/testfile -Nrl
+
+	kill -SIGUSR1 $pid
+}

@@ -19,7 +19,7 @@ ACTION=hotremove:pageflags=$(get_backend_pageflags thp_shmem)
 PIPETIMEOUT=300 # for large memory system
 
 HUGEPAGESIZE=2048
-THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
+THP=$[$MEMTOTAL/$HUGEPAGESIZE/3]
 THP_ALLOCATED=$[THP*4/5]
 
 <% if param["thp"] == "shared_thp" %>
