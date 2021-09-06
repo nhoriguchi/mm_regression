@@ -9,6 +9,7 @@ collect_environment_info() {
 	lsmod > $ENVDIR/lsmod
 	lsmem > $ENVDIR/lsmem
 	virsh list --all > $ENVDIR/virsh-list
+	env > $ENVDIR/env
 	true
 }
 
