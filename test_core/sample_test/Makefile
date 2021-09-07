@@ -1,15 +1,14 @@
-TESTCASE_FILTER=
-# TODO: some default values
-
 build:
+	@bash install.sh
 	@make --no-print-directory -C lib build
 
-all: build
+clean:
+	@make --no-print-directory -C lib clean
 
-test: all
+test: build
 	@bash test_core/run-test.sh
 
-list: get_test_core
+list:
 	@bash test_core/display_testcases.sh -a
 
 -include test_core/make.include

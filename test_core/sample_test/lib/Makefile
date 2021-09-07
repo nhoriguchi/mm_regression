@@ -13,3 +13,6 @@ build: $(exe)
 
 %: %.c
 	C_INCLUDE_PATH=.. $(CC) $(CFLAGS) -o $@ $^ $(OPT) $(LIBOPT)
+
+clean:
+	rm $(exe)
