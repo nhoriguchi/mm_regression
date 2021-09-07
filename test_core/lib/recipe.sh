@@ -73,7 +73,7 @@ check_remove_suffix() {
 	fi
 
 	if [[ "$recipe" =~ \.devel$ ]] ; then
-		echo "$recipe: developing recipe. If you really want to run this testcase, please give environment variable DEVEL=true from calling make. If this recipe is ready to regular running, please remove the suffix."
+		echo "$recipe: developing recipe. If you really want to run this testcase, please give environment variable DEVEL_MODE=true from calling make. If this recipe is ready to regular running, please remove the suffix."
 		[ "$DEVEL_MODE" != true ] && return 1
 	fi
 

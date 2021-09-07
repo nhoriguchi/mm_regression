@@ -2,7 +2,7 @@
 
 export TSTAMP=`date +%y%m%d_%H%M%S`
 
-[ ! "$TESTNAME" ] && TESTNAME=$TSTAMP
+[ ! "$RUNNAME" ] && RUNNAME=$TSTAMP
 
 export TDIR=${TRDIR}/tmp
 [ ! -d "$TDIR" ] && mkdir -p $TDIR
@@ -13,7 +13,7 @@ export WDIR=$TRDIR/work
 DEBUGFSDIR=$(mount | grep debugfs | head -n1 | cut -f3 -d' ')
 [ ! "${DEBUGFSDIR}" ] && echo "no debugfs" && exit 1
 
-export GTMPD=$WDIR/$TESTNAME
+export GTMPD=$WDIR/$RUNNAME
 [ ! -d "$GTMPD" ] && mkdir -p $GTMPD
 
 echo -n 0 > $GTMPD/__testcount
@@ -168,7 +168,7 @@ show_fail_summary() {
 }
 
 show_summary() {
-    echo_log "$TESTNAME:"
+    echo_log "$RUNNAME:"
     echo_log "$(cat $GTMPD/__testcount) checks: $(cat $GTMPD/__success) passes, $(cat $GTMPD/__failure) fails, $(cat $GTMPD/__warning) warns, $(cat $GTMPD/__later) laters."
     show_fail_summary
     if [ "$(cat $GTMPD/__skipped)" -ne 0 ] ; then

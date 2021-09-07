@@ -1,25 +1,19 @@
 #!/bin/bash
 
-# DEVEL_MODE might be set as an environment variable
-# LOGLEVEL might be set as an environment variable
-# RECIPELIST might be set as an environment variable
-# TESTCASE_FILTER might be set as an environment variable
+# Accepted environment variables:
+#   - DEVEL_MODE
+#   - LOGLEVEL
+#   - TESTCASE_FILTER
+#   - PRIORITY
 SHOW_TEST_VERSION=
-# PRIORITY might be set as an environment variable
-RUN_ALL_WAITING=
-
-while getopts v:s:t:f:Sp:DVw OPT ; do
-    case $OPT in
-        v) export LOGLEVEL="$OPTARG" ;;
-        s) KERNEL_SRC="$OPTARG" ;;
-        t) TESTNAME="$OPTARG" ;;
-        f) TESTCASE_FILTER="$TESTCASE_FILTER $OPTARG" ;;
-        S) SCRIPT=true ;;
+while getopts v:s:p:DV OPT ; do
+	case $OPT in
+		v) export LOGLEVEL="$OPTARG" ;;
+		s) KERNEL_SRC="$OPTARG" ;;
 		p) PRIORITY=$OPTARG ;;
 		D) DEVEL_MODE=true ;;
 		V) SHOW_TEST_VERSION=true ;;
-		w) RUN_ALL_WAITING=true ;;
-    esac
+	esac
 done
 
 shift $[OPTIND-1]
@@ -39,7 +33,7 @@ export TRDIR=$PWD
 # record current revision of test suite and test_core tool
 if [ "$SHOW_TEST_VERSION" ] ; then
 	echo "Current test: $(basename $TRDIR)"
-	echo "TESTNAME/RUNNAME: $TESTNAME"
+	echo "RUNNAME: $RUNNAME"
 	( cd $TRDIR ; echo "Test version: $(git log -n1 --pretty="format:%H %s")" )
 	( cd $TCDIR ; echo "Test Core version: $(git log -n1 --pretty="format:%H %s")" )
 	exit 0
@@ -240,38 +234,41 @@ run_recipes() {
 }
 
 generate_recipelist() {
-	if [ -f "$RECIPELIST" ] ; then # RECIPELIST is given by caller
-		cp $RECIPELIST $GTMPD/recipelist
-	elif [ ! -f "$GTMPD/recipelist" ] ; then
-		if [ -f "$GTMPD/full_recipe_list" ] ; then
-			cp $GTMPD/full_recipe_list $GTMPD/recipelist
-		else
-			make --no-print-directory allrecipes | grep ^cases | sort > $GTMPD/recipelist
-		fi
+	if [ ! -f "$GTMPD/full_recipe_list" ] ; then
+		make --no-print-directory allrecipes | grep ^cases | sort > $GTMPD/full_recipe_list
+	fi
+
+	if [ ! -f "$GTMPD/recipelist" ] ; then
+		cp $GTMPD/full_recipe_list $GTMPD/recipelist
 	fi
 
 	# recipe control, need to have separate function for this
 	if [ "$AGAIN" == true ] ; then
 		rm -f $GTMPD/finished_testcase 2> /dev/null
 	fi
-	if [ "$FILTER" ] ; then
-		grep "$FILTER" $RLIST > /tmp/current_recipelist2
-		RLIST=/tmp/current_recipelist2
-	elif [ -f "$GTMPD/finished_testcase" ] ; then
-		local nr_point="$(grep -x -n $(cat $GTMPD/finished_testcase) $RLIST | cut -f1 -d:)"
-		sed -n $[nr_point + 1]',$p' $RLIST > /tmp/current_recipelist
-		RLIST=/tmp/current_recipelist
+
+	if [ -f "$GTMPD/finished_testcase" ] ; then
+		local nr_point="$(grep -x -n $(cat $GTMPD/finished_testcase) $GTMPD/recipelist | cut -f1 -d:)"
+		sed -n $[nr_point + 1]',$p' $GTMPD/recipelist > $GTMPD/remaining_recipelist
+	else
+		cp $GTMPD/recipelist $GTMPD/remaining_recipelist
 	fi
+
+	if [ "$FILTER" ] ; then
+		set -x
+		grep "$FILTER" $GTMPD/remaining_recipelist > $GTMPD/run_recipes
+	else
+		cp $GTMPD/remaining_recipelist $GTMPD/run_recipes
+	fi
+
+	# $GTMPD/run_recipes is the final recipe list to run.
 }
 
-RLIST=$GTMPD/recipelist
-# RLIST could be updated in generate_recipelist()
 generate_recipelist
-
 . $TCDIR/lib/environment.sh
 
 if [ "$USER" != root ] ; then
-	run_recipes ": $(cat $RLIST | tr '\n' ' ')"
+	run_recipes ": $(cat $GTMPD/run_recipes | tr '\n' ' ')"
 	exit
 fi
 
@@ -279,7 +276,7 @@ if [ "$BACKGROUND" ] ; then # kick background service and kick now
 	setup_systemd_service
 	systemctl start test.service
 else
-	run_recipes ": $(cat $RLIST | tr '\n' ' ')"
+	run_recipes ": $(cat $GTMPD/run_recipes | tr '\n' ' ')"
 	cancel_systemd_service
 	echo "All testcases in project $RUNNAME finished." | tee /dev/kmsg
 	ruby test_core/lib/test_summary.rb work/$RUNNAME

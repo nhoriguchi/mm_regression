@@ -20,7 +20,7 @@ get_test_core:
 	@true
 
 test:
-	@bash test_core/run-test.sh $(addprefix -f ,$(TESTCASE_FILTER)) $(addprefix -r ,$(shell readlink -f $(RECIPES) 2> /dev/null)) $(addprefix -t ,$(RUNNAME)) $(addprefix -d ,$(RECIPEDIR))
+	@bash test_core/run-test.sh
 
 list: get_test_core
 	@bash test_core/display_testcases.sh -a

@@ -11,39 +11,26 @@ export UNPOISON=false
 
 export PATH=$PWD/build:$PATH
 
-[ ! "$SOFT_RETRY" ] && SOFT_RETRY=3
+[ ! "$SOFT_RETRY" ] && SOFT_RETRY=1
 export SOFT_RETRY
 [ ! "$HARD_RETRY" ] && HARD_RETRY=1
 export HARD_RETRY
 
+make -s build
+
 if [ "$FAILRETRY" ] ; then
-	make -s build
 	export RUNNAME=${FAILRETRY}.a
-	make prepare || exit 1
-	ruby test_core/lib/test_summary.rb -C work/$FAILRETRY | grep ^FAIL | cut -f4 -d' ' > work/$RUNNAME/recipelist
+	make --no-print-directory prepare
+	ruby test_core/lib/test_summary.rb -C work/$FAILRETRY | grep -e ^FAIL -e ^WARN | cut -f4 -d' ' > work/$RUNNAME/recipelist
 	export BACKGROUND=true
 	# TODO: how to pass environment variables
-	make --no-print-directory test
-	exit 0
-elif [[ "$1" =~ cases/ ]] ; then
-	make prepare
+else
+	make --no-print-directory prepare
+fi
+
+if [ "$1" ] ; then
 	export FILTER="$1"
-	if [ ! -s work/$RUNNAME/recipelist ] ; then
-		echo "no recipe matched to $1 in work/$RUNNAME/recipelist" >&2
-		exit 1
-	fi
-	make -s build
-	make --no-print-directory test
-	exit 0
 fi
 
-recipelist=$1
-
-if [ "$recipelist" ] ; then
-	export RECIPELIST=$recipelist
-fi
-
-# make --no-print-directory prepare
-make -s build
-make prepare
+set -x
 make --no-print-directory test
