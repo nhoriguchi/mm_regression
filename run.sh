@@ -32,5 +32,4 @@ if [ "$1" ] ; then
 	export FILTER="$1"
 fi
 
-set -x
 make --no-print-directory test

@@ -25,8 +25,6 @@ export TCDIR=$(dirname $(readlink -f $BASH_SOURCE))
 # Assuming that current directory is the root directory of the current test.
 export TRDIR=$PWD
 
-[ "$VERBOSE" ] && set -x
-
 . $TCDIR/setup_generic.sh
 . $TCDIR/setup_test_core.sh
 
@@ -69,6 +67,8 @@ run_recipe() {
 	export TEST_TITLE=$recipe_relpath
 	export RTMPD=$GTMPD/$recipe_relpath
 	export TMPF=$TMPD
+
+	[ "$VERBOSE" ] && set -x
 
 	# recipe run status check
 	check_testcase_already_run && return
@@ -255,7 +255,6 @@ generate_recipelist() {
 	fi
 
 	if [ "$FILTER" ] ; then
-		set -x
 		grep "$FILTER" $GTMPD/remaining_recipelist > $GTMPD/run_recipes
 	else
 		cp $GTMPD/remaining_recipelist $GTMPD/run_recipes
