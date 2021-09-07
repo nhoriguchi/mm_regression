@@ -621,10 +621,11 @@ EOF
 }
 
 cancel_systemd_service() {
-	systemctl status test.service
-	[ $? -eq 4 ] && return
-	systemctl stop test.service
-	systemctl disable test.service
+	if [ -f /etc/systemd/system/test.service ] ; then
+		systemctl stop test.service
+		systemctl disable test.service
+		rm -f /etc/systemd/system/test.service
+	fi
 }
 
 dir_cleanup() {
