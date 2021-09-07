@@ -602,13 +602,15 @@ Type=simple
 WorkingDirectory=$TRDIR
 ExecStart=/bin/bash $TRDIR/run.sh
 Environment=RUNNAME=$RUNNAME
-Environment=VM=$VM
 Environment=PRIORITY=$PRIORITY
 Environment=LOGLEVEL=$LOGLEVEL
 Environment=RUN_MODE=$RUN_MODE
 Environment=SOFT_RETRY=$SOFT_RETRY
 Environment=HARD_RETRY=$HARD_RETRY
 Environment=TEST_RUN_MODE=background
+Environment=VM=$VM
+Environment=PMEMDEV=$PMEMDEV
+Environment=DAXDEV=$DAXDEV
 TimeoutSec=infinity
 Restart=on-failure
 
