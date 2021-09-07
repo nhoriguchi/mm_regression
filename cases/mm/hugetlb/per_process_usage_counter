@@ -1,0 +1,37 @@
+# reproducer of the problem mentioned in https://lore.kernel.org/linux-mm/20210825083704.744-1-liuzixian4@huawei.com/
+
+TEST_TYPE=normal
+EXPECTED_RETURN_CODE="SAME"
+
+_prepare() {
+	sysctl vm.nr_hugepages=10
+}
+
+_cleanup() {
+	sysctl vm.nr_hugepages=0
+}
+
+_control() {
+	grep -I huge /proc/meminfo
+
+	test_alloc_generic -B hugetlb_anon -N 2 -L "mmap access noop:wait_after fork noop:wait_after" -p $PIPE &
+	local pid=$!
+	read -t${PIPETIMEOUT} line <> $PIPE || return 1
+	[ "$line" != "after_noop" ] && return
+	grep -i huge /proc/$pid/status | tee $TMPD/proc_status_hugetlb.1
+	kill -SIGUSR1 $pid
+	read -t${PIPETIMEOUT} line <> $PIPE || return 1
+	[ "$line" != "after_noop" ] && return
+	grep -i huge /proc/$pid/status | tee $TMPD/proc_status_hugetlb.2
+	for cpid in $(pgrep -f test_alloc_generic) ; do
+		[ "$cpid" -eq "$pid" ] && continue
+		grep -i huge /proc/$cpid/status | tee $TMPD/proc_status_hugetlb.3
+	done
+	kill -SIGUSR1 $pid
+
+	if diff $TMPD/proc_status_hugetlb.1 $TMPD/proc_status_hugetlb.3 > /dev/null ; then
+		set_return_code SAME
+	else
+		set_return_code NOTSAME
+	fi
+}
