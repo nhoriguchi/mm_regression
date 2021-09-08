@@ -6,7 +6,7 @@
 
 . $TRDIR/lib/setup_thp_migration.sh
 
-NR_THP=2
+NR_THP=1
 
 # <2019-03-01 Fri 13:53> temporary
 ERROR_OFFSET=1
@@ -14,7 +14,7 @@ ERROR_OFFSET=1
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
 SPLIT_THP=
-HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_MIGRATED
+HUGEPAGE_CHECKCODE=HUGEPAGE_DISAPPEARED
 ACTION=memory_error_injection:error_type=soft-offline
 ERROR_TYPE=soft-offline
 ERROR_OFFSET=1 # offset 0 is unmapped via split pmd
