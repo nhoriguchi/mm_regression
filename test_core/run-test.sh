@@ -1,18 +1,47 @@
 #!/bin/bash
-
-# Accepted environment variables:
-#   - DEVEL_MODE
+#
+# Usage
+#   run-test.sh [options]
+#
+# Description
+#
+# Options
+#
+#   -v <loglevel>
+#   -s <kernel_source_path>
+#   -p <priority>            set priority range to be executed
+#   -V                       show version info of this test tool
+#   -h                       show this message
+#
+# Environment variables:
+#
+#   - RUNNAME
+#   - AGAIN
+#   - SKIP_PASSED
+#   - RUN_MODE
 #   - LOGLEVEL
-#   - TESTCASE_FILTER
 #   - PRIORITY
+#   - SOFT_RETRY
+#   - HARD_RETRY
+#   - BACKWARD_KEYWORD
+#   - FORWARD_KEYWORD
+#
+show_help() {
+        sed -n 2,$[$BASH_LINENO-4]p $BASH_SOURCE | grep "^#" | sed 's/^#/ /'
+}
+
 SHOW_TEST_VERSION=
-while getopts v:s:p:DV OPT ; do
+while getopts v:s:p:DVh OPT ; do
 	case $OPT in
 		v) export LOGLEVEL="$OPTARG" ;;
 		s) KERNEL_SRC="$OPTARG" ;;
 		p) PRIORITY=$OPTARG ;;
 		D) DEVEL_MODE=true ;;
 		V) SHOW_TEST_VERSION=true ;;
+		h)
+			show_help
+			exit 0
+			;;
 	esac
 done
 

@@ -1,5 +1,10 @@
 cd $(dirname $BASH_SOURCE)
 
+if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
+	bash test_core/run-test.sh -h
+	exit 0
+fi
+
 [ ! "$TEST_DESCRIPTION" ] && TEST_DESCRIPTION="MM regression test"
 export TEST_DESCRIPTION
 
