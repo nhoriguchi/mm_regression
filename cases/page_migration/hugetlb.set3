@@ -53,24 +53,10 @@ ALLOCATE_NODE=1
 EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ALLOCATE"
 <% end %>
 
-<% if param["background"] == "reserve" %>
-	<% if param["overcommit"] == "overcommit" %>
-	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
-	<% else %>
-	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_FAILED HUGEPAGE_NOT_MIGRATED"
-	<% end %>
-<% elsif (param["background"] == "allocate1") %>
-	<% if param["overcommit"] == "overcommit" %>
-	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED"
-	<% else %>
-	EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_FAILED HUGEPAGE_NOT_MIGRATED"
-	<% end %>
-<% end %>
-
 <% if (param["background"] == "allocate0") %>
 EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE KILLED"
 <% else %>
-EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
+EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE MIGRATION_PASSED HUGEPAGE_MIGRATED EXIT"
 <% end %>
 
 TEST_PROGRAM="test_alloc_generic -B $BACKEND -N 2 -L 'start:wait_after mmap_numa:preferred_cpu_node=0:preferred_mem_node=0 access:wait_after $MIGRATE_SRC munmap:wait_before exit:wait_before'"
