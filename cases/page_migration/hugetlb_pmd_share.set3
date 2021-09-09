@@ -3,6 +3,8 @@
 #! {"migtype" => "move_pages"}
 #! {"migtype" => "madv_soft"}
 
+TEST_TYPE=devel
+
 . $TRDIR/lib/setup_page_migration.sh
 
 BACKEND=hugetlb_file

@@ -19,6 +19,7 @@
 
 int main(int argc, char *argv[]) {
 	size_t size = 2 * HPS;
+	size_t mapsize = 1UL << 30;
 	char *phugetlb;
 	int preferred_mem_node = 0;
 
@@ -28,8 +29,9 @@ int main(int argc, char *argv[]) {
 	if (set_mempolicy_node(MPOL_BIND, preferred_mem_node) == -1)
 		err("set_mempolicy");
 
-	phugetlb = checked_mmap((void *)ADDR_INPUT, size, protflag,
+	phugetlb = checked_mmap((void *)ADDR_INPUT, mapsize, protflag,
 				MAP_SHARED, hugetlbfd, 0);
+	printf("phugetlb: %p, %lx\n", phugetlb, mapsize);
 	memset(phugetlb, 'a', size);
 
 	if (set_mempolicy_node(MPOL_DEFAULT, 0) == -1)
