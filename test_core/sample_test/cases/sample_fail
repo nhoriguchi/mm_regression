@@ -1,0 +1,6 @@
+EXPECTED_RETURN_CODE=PASS
+
+_control() {
+	echo_log "control"
+	set_return_code FAIL
+}

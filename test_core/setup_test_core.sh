@@ -556,6 +556,10 @@ do_soft_try() {
 }
 
 setup_systemd_service() {
+	local runname=$1
+	local failretry=$2
+	local round=$3
+
 	cat <<EOF > /etc/systemd/system/test.service
 [Unit]
 Description=$TEST_DESCRIPTION
@@ -568,13 +572,15 @@ User=root
 Type=simple
 WorkingDirectory=$TRDIR
 ExecStart=/bin/bash $TRDIR/run.sh
-Environment=RUNNAME=$RUNNAME
+Environment=RUNNAME=$runname
 Environment=PRIORITY=$PRIORITY
 Environment=LOGLEVEL=$LOGLEVEL
 Environment=RUN_MODE=$RUN_MODE
 Environment=SOFT_RETRY=$SOFT_RETRY
 Environment=HARD_RETRY=$HARD_RETRY
 Environment=TEST_RUN_MODE=background
+Environment=FAILRETRY=$failretry
+Environment=ROUND=$round
 Environment=VM=$VM
 Environment=PMEMDEV=$PMEMDEV
 Environment=DAXDEV=$DAXDEV
@@ -589,8 +595,8 @@ EOF
 
 cancel_systemd_service() {
 	if [ -f /etc/systemd/system/test.service ] ; then
-		systemctl stop test.service
 		systemctl disable test.service
+		systemctl stop test.service
 		rm -f /etc/systemd/system/test.service
 	fi
 }

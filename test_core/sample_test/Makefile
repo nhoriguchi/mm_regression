@@ -1,5 +1,4 @@
 build:
-	@bash install.sh
 	@make --no-print-directory -C lib build
 
 clean:

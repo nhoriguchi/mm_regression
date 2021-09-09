@@ -23,7 +23,16 @@ export HARD_RETRY
 
 make -s build
 
-if [ "$FAILRETRY" ] ; then
+if [ "$FAILRETRY" -gt 1 ] ; then
+	# TODO: rename ROUND?
+	[ ! "$ROUND" ] && export ROUND=1
+	BASERUNNAME=$RUNNAME
+	export RUNNAME=$RUNNAME/$ROUND
+	make --no-print-directory prepare
+	if [ "$ROUND" -gt 1 ] ; then
+		ruby test_core/lib/test_summary.rb -C work/$BASERUNNAME/$[ROUND-1] | grep -e ^FAIL -e ^WARN | cut -f4 -d' ' > work/$RUNNAME/recipelist
+	fi
+elif [ "$FAILRETRY" ] ; then
 	export RUNNAME=${FAILRETRY}.a
 	make --no-print-directory prepare
 	ruby test_core/lib/test_summary.rb -C work/$FAILRETRY | grep -e ^FAIL -e ^WARN | cut -f4 -d' ' > work/$RUNNAME/recipelist

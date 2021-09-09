@@ -326,7 +326,7 @@ class TestSummary
 
     @targets = args.map do |dat|
       if File.directory? dat # maybe work/<runname> form
-        dat = "work/" + dat.split("/")[-1]
+        dat = "work/" + dat.split("/")[1..-1].join("/")
       elsif File.exist? dat # maybe tar file
         tmpdir = Dir.mktmpdir
         system "tar -x --force-local -zf #{dat} -C #{tmpdir}"

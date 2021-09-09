@@ -25,6 +25,7 @@
 #   - HARD_RETRY
 #   - BACKWARD_KEYWORD
 #   - FORWARD_KEYWORD
+#   - ROUND
 #
 show_help() {
         sed -n 2,$[$BASH_LINENO-4]p $BASH_SOURCE | grep "^#" | sed 's/^#/ /'
@@ -301,11 +302,22 @@ if [ "$USER" != root ] ; then
 fi
 
 if [ "$BACKGROUND" ] ; then # kick background service and kick now
-	setup_systemd_service
-	systemctl start test.service
+	if [ "$FAILRETRY" ] && [ "$ROUND" ] && [ "$FAILRETRY" -gt "$ROUND" ] ; then
+		setup_systemd_service $(dirname $RUNNAME) $FAILRETRY $ROUND
+		systemctl start test.service
+	else
+		setup_systemd_service $RUNNAME
+		systemctl start test.service
+	fi
 else
 	run_recipes ": $(cat $GTMPD/run_recipes | tr '\n' ' ')"
-	cancel_systemd_service
 	echo "All testcases in project $RUNNAME finished." | tee /dev/kmsg
 	ruby test_core/lib/test_summary.rb work/$RUNNAME
+	if [ "$FAILRETRY" ] && [ "$ROUND" ] && [ "$FAILRETRY" -gt "$ROUND" ] ; then
+		echo "Retry failure cases until reaching retry limit $FAILRETRY (current round: $ROUND)"
+		setup_systemd_service $(dirname $RUNNAME) $FAILRETRY $[ROUND+1]
+		systemctl restart test.service
+	else
+		cancel_systemd_service
+	fi
 fi
