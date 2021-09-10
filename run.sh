@@ -23,7 +23,7 @@ export HARD_RETRY
 
 make -s build
 
-if [ "$FAILRETRY" -gt 1 ] ; then
+if [ "$FAILRETRY" ] && [ "$FAILRETRY" -gt 1 ] ; then
 	# TODO: rename ROUND?
 	[ ! "$ROUND" ] && export ROUND=1
 	BASERUNNAME=$RUNNAME

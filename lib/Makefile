@@ -7,12 +7,9 @@ DST1 = $(patsubst %.c,%,$(SRC))
 DST2 = $(patsubst %,$(DSTDIR)/%,$(notdir $(DST1)))
 DSTDIR = ../build
 
-VPATH = ../cailtest
-
 install: build $(DST2)
 
 build: $(DST1)
-	make -C cailtest
 	make -C pmem
 
 $(DSTDIR)/random: cailtest/random
