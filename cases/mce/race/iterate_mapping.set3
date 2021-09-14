@@ -18,6 +18,8 @@
 #! {"backend" => "thp", "error" => "hard-offline"}
 #! {"backend" => "thp", "error" => "soft-offline"}
 
+TEST_TYPE=stress
+
 # Not care about head/tail difference for now.
 TEST_PRIORITY=13
 

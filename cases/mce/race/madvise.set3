@@ -3,6 +3,8 @@
 #! {"offline" => "soft"}
 #! {"offline" => "hardsoft"}
 
+TEST_TYPE=stress
+
 . $TRDIR/lib/setup_mce_test.sh
 
 TEST_PRIORITY=13

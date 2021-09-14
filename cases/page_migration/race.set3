@@ -19,6 +19,8 @@
 
 . $TRDIR/lib/setup_page_migration.sh
 
+TEST_TYPE=stress
+
 BACKEND=<%= param["backend"] %>
 MIGRATE_SRC=<%= param["migtype"] %>
 RACE_SRC=<%= param["race"] %>
