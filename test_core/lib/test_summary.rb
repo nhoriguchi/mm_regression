@@ -15,8 +15,9 @@ class TestCaseSummary
     @success = 0
     @failure = 0
     @later = 0
-    if File.exist?('cases/' + tc_dir)
-      File.read('cases/' + tc_dir, :encoding => 'UTF-8').split("\n").select do |line|
+    recipe = run_dir + '/' + tc_dir + "/_recipe"
+    if File.exist? recipe
+      File.read(recipe, :encoding => 'UTF-8').split("\n").select do |line|
         if line =~ /TEST_PRIORITY=(\d+)/
           @priority = $1.to_i
           break
@@ -324,15 +325,20 @@ class TestSummary
       end
     end.parse! args
 
-    @targets = args.map do |dat|
-      if File.directory? dat # maybe work/<runname> form
-        dat = "work/" + dat.split("/")[1..-1].join("/")
+    @targets = []
+    args.each do |dat|
+      dat = File.expand_path dat
+      if File.directory? dat
+        @targets += Dir.glob(dat + "/**/recipelist").sort.map {|d| File.dirname d}
       elsif File.exist? dat # maybe tar file
         tmpdir = Dir.mktmpdir
         system "tar -x --force-local -zf #{dat} -C #{tmpdir}"
         dat = tmpdir + "/work_log_testrun" # TODO: better getter?
+        @targets += [dat]
       end
-      dat
+    end
+    @targets.sort! do |a, b|
+      File.mtime(a + "/recipelist") <=> File.mtime(b + "/recipelist")
     end
     check_args
   end
