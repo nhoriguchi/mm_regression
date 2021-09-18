@@ -287,9 +287,7 @@ check() {
 #
 # "return 1" means we run the current testcase. See also sample_test/sample.rc.
 check_test_flag() {
-	if [ ! "$TEST_TYPE" ] || [ "$TEST_TYPE" == normal ] ; then
-		return 1
-	fi
+	[ ! "$TEST_TYPE" ] && TEST_TYPE=normal
 
 	if [ "$RUN_MODE" = all ] ; then
 		return 1
