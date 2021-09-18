@@ -1,4 +1,4 @@
-TEST_TYPE=devel
+TEST_TYPE=debug
 [ ! "$ERROR_TYPE" ] && ERROR_TYPE=hard_offline
 
 # 0x0000000000000080      slab
