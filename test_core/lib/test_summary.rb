@@ -280,29 +280,16 @@ class TestSummary
 
   def parse_args args
     @options = {
-      # :workdir => File.expand_path(File.dirname(__FILE__) + "/../../work"),
-      # :recipedir => File.expand_path(File.dirname(__FILE__) + "/../../cases"),
-      # :workdir => "#{Dir::pwd}/work",
       :latest => nil,
       :workdir => "work",
-      :recipedir => "#{Dir::pwd}/cases",
     }
     OptionParser.new do |opts|
       opts.banner = "Usage: #{$0} [-options] work/<runname>"
-      opts.on("-o dir", "--outdir") do |d|
-        @options[:outdir] = d
-      end
       opts.on("-w workdir", "--workdir") do |d|
         @options[:workdir] = d
       end
       opts.on("-l", "--latest") do
         @options[:latest] = true
-      end
-      opts.on("-f filter", "--filter") do |f|
-        @options[:filter] = f
-      end
-      opts.on("-v", "--verbose") do
-        @options[:verbose] = true
       end
       opts.on("-p", "--progress") do
         @options[:progress] = true
@@ -350,11 +337,11 @@ class TestSummary
     end
 
     if @options[:latest]
-      tmp = Dir.glob(@options[:workdir] + "/*/full_recipe_list").sort do |a, b|
-        File.mtime(a) <=> File.mtime(b)
+      tmp = Dir.glob(@options[:workdir] + "/**/recipelist").map {|d| File.dirname d}
+      tmp.sort! do |a, b|
+        File.mtime(a + "/recipelist") <=> File.mtime(b + "/recipelist")
       end
-      # TODO: assuming @options[:workdir] is 'work'
-      @targets = [tmp[-1].split('/')[-3..-2].join('/')]
+      @targets = [tmp[-1]]
     end
   end
 
