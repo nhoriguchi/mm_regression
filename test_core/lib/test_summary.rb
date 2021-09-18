@@ -3,7 +3,7 @@ require 'optparse'
 require 'tmpdir'
 
 class TestCaseSummary
-  attr_accessor :testcaseid, :testcount, :success, :failure, :later, :date, :priority
+  attr_accessor :testcaseid, :testcount, :success, :failure, :later, :date, :priority, :tc_dir
 
   def initialize run_dir, tc_dir
     @runname = run_dir
@@ -160,6 +160,8 @@ class TestSummary
       show_progress
     elsif @options[:progressverbose]
       show_progress_verbose
+    elsif @options[:showfailure]
+      show_failure_detail
     elsif @options[:timesummary]
       show_timesummary
     elsif @options[:recipes]
@@ -244,6 +246,17 @@ class TestSummary
     puts "Target: #{@targets.join(", ")}"
   end
 
+  def show_failure_detail
+    outstr = []
+    @full_recipe_list.each do |recipe|
+      next if ! ["FAIL", "WARN"].include?(@test_summary_hash[recipe].testcase_result)
+      tmp = [recipe]
+      tmp << File.read(@test_summary_hash[recipe].tc_dir + "/result").split("\n").select{|line| line =~ /^FAIL:/}.map {|line| "  " + line}.join("\n")
+      outstr << tmp.join("\n")
+    end
+    puts outstr.join("\n\n")
+  end
+
   def show_timesummary
     @full_recipe_list.each do |recipe|
       if r = @test_summary_hash[recipe]
@@ -299,6 +312,9 @@ class TestSummary
       end
       opts.on("-C", "--progress-verbose") do # left for compatibility
         @options[:progressverbose] = true
+      end
+      opts.on("-f", "--show-failure") do
+        @options[:showfailure] = true
       end
       opts.on("-F", "--finishcheck") do
         @options[:finishcheck] = true
