@@ -310,6 +310,7 @@ if [ "$BACKGROUND" ] ; then # kick background service and kick now
 		systemctl start test.service
 	fi
 else
+	touch work/$RUNNAME/finished
 	run_recipes ": $(cat $GTMPD/run_recipes | tr '\n' ' ')"
 	echo "All testcases in project $RUNNAME finished." | tee /dev/kmsg
 	ruby test_core/lib/test_summary.rb work/$RUNNAME
