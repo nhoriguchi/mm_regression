@@ -5,21 +5,15 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
 	exit 0
 fi
 
-[ ! "$TEST_DESCRIPTION" ] && TEST_DESCRIPTION="MM regression test"
-export TEST_DESCRIPTION
-
-[ ! "$RUNNAME" ] && RUNNAME=debug
-export RUNNAME
-
 # export AGAIN=true
-export UNPOISON=false
+export TEST_DESCRIPTION=${TEST_DESCRIPTION:="MM regression test"}
+export RUNNAME=${RUNNAME:=debug}
+export SOFT_RETRY=${SOFT_RETRY:=1}
+export HARD_RETRY=${HARD_RETRY:=1}
+export RUN_MODE=${RUN_MODE:=normal}
 
 export PATH=$PWD/build:$PATH
-
-[ ! "$SOFT_RETRY" ] && SOFT_RETRY=1
-export SOFT_RETRY
-[ ! "$HARD_RETRY" ] && HARD_RETRY=1
-export HARD_RETRY
+export UNPOISON=false
 
 make -s build
 
