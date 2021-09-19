@@ -31,6 +31,10 @@ if [ "$FAILRETRY" ] && [ "$FAILRETRY" -gt 1 ] ; then
 	make --no-print-directory prepare
 	if [ "$ROUND" -gt 1 ] ; then
 		ruby test_core/lib/test_summary.rb -C work/$BASERUNNAME/$[ROUND-1] | grep -e ^FAIL -e ^WARN | cut -f4 -d' ' > work/$RUNNAME/recipelist
+	else
+		if [ -f work/$BASERUNNAME/recipelist ] ; then
+			cp work/$BASERUNNAME/recipelist work/$RUNNAME/recipelist
+		fi
 	fi
 elif [ "$FAILRETRY" ] ; then
 	export RUNNAME=${FAILRETRY}.a
