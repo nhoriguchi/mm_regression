@@ -6,6 +6,7 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
 fi
 
 # export AGAIN=true
+# export BACKGROUND=true
 export TEST_DESCRIPTION=${TEST_DESCRIPTION:="MM regression test"}
 export RUNNAME=${RUNNAME:=debug}
 export SOFT_RETRY=${SOFT_RETRY:=1}
@@ -21,23 +22,18 @@ if [ "$FAILRETRY" ] && [ "$FAILRETRY" -gt 1 ] ; then
 	# TODO: rename ROUND?
 	[ ! "$ROUND" ] && export ROUND=1
 	BASERUNNAME=$RUNNAME
-	export RUNNAME=$RUNNAME/$ROUND
+	export RUNNAME=$BASERUNNAME/$ROUND
 	make --no-print-directory prepare
-	if [ "$ROUND" -gt 1 ] ; then
-		ruby test_core/lib/test_summary.rb -C work/$BASERUNNAME/$[ROUND-1] | grep -e ^FAIL -e ^WARN | cut -f4 -d' ' > work/$RUNNAME/recipelist
-	else
-		if [ -f work/$BASERUNNAME/recipelist ] ; then
-			cp work/$BASERUNNAME/recipelist work/$RUNNAME/recipelist
+	if [ ! -f  work/$RUNNAME/recipelist ] ; then
+		if [ "$ROUND" -gt 1 ] ; then
+			ruby test_core/lib/test_summary.rb -C work/$BASERUNNAME/$[ROUND-1] | grep -e ^FAIL -e ^WARN | cut -f4 -d' ' > work/$RUNNAME/recipelist
+		else
+			if [ -f work/$BASERUNNAME/recipelist ] ; then
+				cp work/$BASERUNNAME/recipelist work/$RUNNAME/recipelist
+			fi
 		fi
+		make --no-print-directory prepare
 	fi
-elif [ "$FAILRETRY" ] ; then
-	export RUNNAME=${FAILRETRY}.a
-	make --no-print-directory prepare
-	ruby test_core/lib/test_summary.rb -C work/$FAILRETRY | grep -e ^FAIL -e ^WARN | cut -f4 -d' ' > work/$RUNNAME/recipelist
-	export BACKGROUND=true
-	# TODO: how to pass environment variables
-else
-	make --no-print-directory prepare
 fi
 
 if [ "$1" ] ; then

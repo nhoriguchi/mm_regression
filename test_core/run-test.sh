@@ -310,15 +310,18 @@ if [ "$BACKGROUND" ] ; then # kick background service and kick now
 		systemctl start test.service
 	fi
 else
-	touch work/$RUNNAME/finished
 	run_recipes ": $(cat $GTMPD/run_recipes | tr '\n' ' ')"
 	echo "All testcases in project $RUNNAME finished." | tee /dev/kmsg
+	touch work/$RUNNAME/finished
 	ruby test_core/lib/test_summary.rb work/$RUNNAME
-	if [ "$FAILRETRY" ] && [ "$ROUND" ] && [ "$FAILRETRY" -gt "$ROUND" ] ; then
-		echo "Retry failure cases until reaching retry limit $FAILRETRY (current round: $ROUND)"
-		setup_systemd_service $(dirname $RUNNAME) $FAILRETRY $[ROUND+1]
-		systemctl restart test.service
-	else
-		cancel_systemd_service
+
+	if [ -f /etc/systemd/system/test.service ] ; then
+		if [ "$FAILRETRY" ] && [ "$ROUND" ] && [ "$FAILRETRY" -gt "$ROUND" ] ; then
+			echo "Retry failure cases until reaching retry limit $FAILRETRY (current round: $ROUND)"
+			setup_systemd_service $(dirname $RUNNAME) $FAILRETRY $[ROUND+1]
+			systemctl restart test.service
+		else
+			cancel_systemd_service
+		fi
 	fi
 fi
