@@ -39,6 +39,7 @@ _prepare() {
 	echo "THP=$THP"
 	echo "THP_ALLOCATED=$THP_ALLOCATED"
 	echo 1 > /proc/sys/vm/panic_on_oom
+	khpd_off
 	prepare_mmgeneric || return 1
 	set -x
 	test_alloc_generic -B pagecache -N $THP -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite"
@@ -47,6 +48,7 @@ _prepare() {
 
 _cleanup() {
 	cleanup_mmgeneric || return 1
+	khpd_on
 	echo 0 > /proc/sys/vm/panic_on_oom
 }
 

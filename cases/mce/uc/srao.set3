@@ -178,7 +178,7 @@ unset TEST_PROGRAM
 _control() {
 	# TODO: racy
 	TARGET_PAGEFLAG="huge,compound_head,mmap,hwpoison=huge,compound_head"
-	local pfn=$(page-types -b $TARGET_PAGEFLAG -Nl | grep -v offset | head -n1 | cut -f1)
+	local pfn=$(page-types -b $TARGET_PAGEFLAG -Nl | grep -v offset | tail -n1 | cut -f1)
 	if [ ! "$pfn" ] ; then
 		set_return_code PFN_NOT_FOUND
 		return 1
