@@ -12,10 +12,6 @@ NR_THP=2
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
 SPLIT_THP=
-HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_MIGRATED
-ACTION=memory_error_injection:error_type=soft-offline
-ERROR_TYPE=soft-offline
-ERROR_OFFSET=513 # first 512 pages are not thp
 
 <% if param["thp"] == "shared_thp" %>
 FORK=fork:wait_after
@@ -26,7 +22,6 @@ SPLIT_THP="split_thp:only_pmd access"
 SPLIT_THP="split_thp:only_pmd access"
 <% elsif param["thp"] == "thp_split" %>
 SPLIT_THP="split_thp access access"
-HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 <% end %>
 
 SHMEM_DIR=$TDIR/shmem
@@ -52,12 +47,17 @@ _cleanup() {
 	khpd_on
 }
 
-EXPECTED_RETURN_CODE="INJECT MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
+EXPECTED_RETURN_CODE="KILLED"
 
 _control() {
-	set -x
 	test_alloc_generic -B pagecache -N $NR_THP -w $SHMEM_DIR -L "$MAPTYPE access $FORK $SPLIT_THP noop:wait_after access munmap:wait_before exit" -p $PIPE &
 	local pid=$!
+
+	<% if param["thp"] == "shared_thp" or param["thp"] == "double_mapping" %>
+	read -t${PIPETIMEOUT} line <> $PIPE || return 1
+	[ "$line" != "after_fork" ] && return
+	kill -SIGUSR1 $pid
+	<% end %>
 
 	read -t${PIPETIMEOUT} line <> $PIPE || return 1
 	[ "$line" != "after_noop" ] && return
@@ -72,11 +72,11 @@ _control() {
 	page-types -p $pid -a 0x700000000+10 -Nrl
 	kill -SIGUSR1 $pid
 
-	read -t${PIPETIMEOUT} line <> $TMPD/.pipe || return 1
-	[ "$line" != "before_munmap" ] && return
-
-	page-types -p $pid -a 0x700000000 -Nrl
-	page-types -f $SHMEM_DIR/testfile -Nrl
-
-	kill -SIGUSR1 $pid
+	sleep 1
+	if ! check_process_status $pid ; then
+		set_return_code KILLED
+	else
+		set_return_code NOT_KILLED
+		kill -SIGUSR1 $pid
+	fi
 }

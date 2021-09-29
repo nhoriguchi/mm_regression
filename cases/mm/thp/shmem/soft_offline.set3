@@ -4,15 +4,15 @@
 #! {"thp" => "pmd_split"}
 #! {"thp" => "thp_split"}
 
-NR_THP=2
+NR_THP=1
 
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
 SPLIT_THP=
-HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_MIGRATED
+HUGEPAGE_CHECKCODE=HUGEPAGE_DISAPPEARED
 ACTION=memory_error_injection:error_type=soft-offline
 ERROR_TYPE=soft-offline
-ERROR_OFFSET=513 # first 512 pages are not thp
+ERROR_OFFSET=1
 
 <% if param["thp"] == "shared_thp" %>
 FORK=fork:wait_after
@@ -22,7 +22,7 @@ SPLIT_THP="split_thp:only_pmd access"
 <% elsif param["thp"] == "pmd_split" %>
 SPLIT_THP="split_thp:only_pmd access"
 <% elsif param["thp"] == "thp_split" %>
-SPLIT_THP="split_thp access access"
+SPLIT_THP="split_thp access"
 HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 <% end %>
 
