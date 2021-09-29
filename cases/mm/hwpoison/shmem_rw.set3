@@ -1,0 +1,93 @@
+#! {"thp" => "always"}
+#! {"thp" => "never"}
+
+. $TRDIR/lib/thp.sh
+
+TEST_TYPE=devel
+
+NR_THP=1
+SHMEM_DIR=$TDIR/shmem
+
+_prepare() {
+	khpd_off
+	rm -rf $SHMEM_DIR/* > /dev/null 2>&1
+	umount -f $SHMEM_DIR > /dev/null 2>&1
+	rm -rf $SHMEM_DIR > /dev/null 2>&1
+	mkdir -p $SHMEM_DIR > /dev/null 2>&1
+	mount -t tmpfs -o <%= "huge=" + param["thp"] %> tmpfs $SHMEM_DIR || return 1
+
+	test_alloc_generic -B pagecache -N $NR_THP -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite"
+}
+
+_cleanup() {
+	rm -rf $SHMEM_DIR/* > /dev/null 2>&1
+	umount -f $SHMEM_DIR > /dev/null 2>&1
+	rm -rf $SHMEM_DIR > /dev/null 2>&1
+	khpd_on
+	cleanup_mmgeneric || return 1
+}
+
+EXPECTED_RETURN_CODE="INJECT READ_FAILED READ_SUCCEEDED WRITE_FAILED WRITE_SUCCEEDED PUNCH_HOLE_OK READ_SUCCEEDED"
+
+_control() {
+	page-types -f $SHMEM_DIR/testfile -Nrl | grep ___ | head | tee $TMPD/filemap
+	local targetpfn=0x$(head -n1 $TMPD/filemap | cut -f2)
+	if [ "$targetpfn" == 0x ] ; then
+		echo "target pfn not found for file $SHMEM_DIR/testfile"
+		return 1
+	fi
+
+	echo ${targetpfn}000 > /sys/devices/system/memory/hard_offline_page
+	if [ $? -eq 0 ] ; then
+		set_return_code INJECT
+	else
+		set_return_code INJECT_FAILED
+		return 1
+	fi
+
+	page-types -f $SHMEM_DIR/testfile -Nrl | grep ___ | head | tee $TMPD/filemap2
+
+	dd if=$SHMEM_DIR/testfile of=/dev/null bs=4096 count=1 > /dev/null
+	if [ $? -eq 0 ] ; then
+		set_return_code READ_SUCCEEDED
+	else
+		set_return_code READ_FAILED
+	fi
+
+	dd if=$SHMEM_DIR/testfile of=/dev/null bs=4096 count=1 skip=1 > /dev/null
+	if [ $? -eq 0 ] ; then
+		set_return_code READ_SUCCEEDED
+	else
+		set_return_code READ_FAILED
+	fi
+
+	dd of=$SHMEM_DIR/testfile if=/dev/random bs=4096 count=1 seek=0 conv=notrunc > /dev/null
+	if [ $? -eq 0 ] ; then
+		set_return_code WRITE_SUCCEEDED
+	else
+		set_return_code WRITE_FAILED
+	fi
+
+	dd of=$SHMEM_DIR/testfile if=/dev/random bs=4096 count=1 seek=1 conv=notrunc > /dev/null
+	if [ $? -eq 0 ] ; then
+		set_return_code WRITE_SUCCEEDED
+	else
+		set_return_code WRITE_FAILED
+	fi
+
+	fallocate -p -o 0 -l 4096 -n $SHMEM_DIR/testfile
+	if [ $? -eq 0 ] ; then
+		set_return_code PUNCH_HOLE_OK
+	else
+		set_return_code PUNCH_HOLE_NG
+	fi
+
+	dd if=$SHMEM_DIR/testfile of=/dev/null bs=4096 count=1 > /dev/null
+	if [ $? -eq 0 ] ; then
+		set_return_code READ_SUCCEEDED
+	else
+		set_return_code READ_FAILED
+	fi
+
+	page-types -f $SHMEM_DIR/testfile -Nrl | grep ___ | head | tee $TMPD/filemap3
+}
