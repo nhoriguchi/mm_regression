@@ -1,0 +1,79 @@
+#! {"tp" => "lmce"}
+#! {"tp" => "mca-recover"}
+#! {"tp" => "hornet"}
+#! {"tp" => "cmcistorm"}
+#! {"tp" => "einj_mem_uc"}
+#! {"tp" => "einj_mem_uc_fatal"}
+
+TEST_TYPE=devel
+
+_prepare() {
+	cd $TRDIR/lib/ras-tools/
+	make || return 1
+	modprobe einj || return 1
+
+	cat /sys/kernel/debug/apei/einj/available_error_type
+	# 0x00000008      Memory Correctable
+	# 0x00000010      Memory Uncorrectable non-fatal
+	# 0x00000020      Memory Uncorrectable fatal
+
+	if ! grep -q "^0x00000010" /sys/kernel/debug/apei/einj/available_error_type ; then
+		echo "Platform does not support Memory Uncorrectable non-fatal error injection"
+		return 1
+	fi
+
+	echo 1 > /sys/kernel/debug/mce/fake_panic
+}
+
+_cleanup() {
+	echo 0 > /sys/kernel/debug/mce/fake_panic
+}
+
+set_apei_einj() {
+	local paddr=$1
+
+	echo 0x10 > "/sys/kernel/debug/apei/einj/error_type"
+	echo $paddr > "/sys/kernel/debug/apei/einj/param1"
+	echo -1 > "/sys/kernel/debug/apei/einj/param2"
+	# echo apic > "/sys/kernel/debug/apei/einj/param3"
+	echo 2 > "/sys/kernel/debug/apei/einj/flags"
+	echo 1 > "/sys/kernel/debug/apei/einj/notrigger"
+	echo 1 > "/sys/kernel/debug/apei/einj/error_inject"
+}
+
+_control() {
+	cd $TRDIR/lib/ras-tools/
+
+	<% if param["tp"] == "lmce" %>
+	./lmce
+	<% elsif param["tp"] == "mca-recover" %>
+	./mca-recover <> ${PIPE} | tee $TMPD/s &
+	local pid=$!
+	sleep 0.1
+	cat $TMPD/s | grep ^vtop | awk '{print $3}' > $TMPD/vtop
+	if [ ! "$(cat $TMPD/vtop)" ] ; then
+		echo fail to get paddr by vtop
+	else
+		echo set_apei_einj "0x$(cat $TMPD/vtop)"
+		set_apei_einj "0x$(cat $TMPD/vtop)"
+	fi
+	sleep 0.1
+	# consume poison
+	echo "\n" > ${PIPE}
+	<% elsif param["tp"] == "hornet" %>
+	# TODO: flag's meaning ?
+	./hornet -v
+	<% elsif param["tp"] == "cmcistorm" %>
+	./cmcistorm
+	<% elsif param["tp"] == "einj_mem_uc" %>
+	# TODO: skip testcase "llc"
+	for testname in single double THP store instr patrol mlock ; do
+		./einj_mem_uc -c 3 -d 5 $testname
+	done
+	<% elsif param["tp"] == "einj_mem_uc_fatal" %>
+	# F_FATAL testcases
+	for testname in split memcpy copyin copyout futex ; do
+		./einj_mem_uc -c 3 -d 5 -f $testname
+	done
+	<% end %>
+}
