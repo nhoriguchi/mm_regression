@@ -2,6 +2,7 @@
 # v1: https://lore.kernel.org/linux-mm/20210511070329.2002597-1-yangerkun@huawei.com/
 # v2: https://lore.kernel.org/linux-mm/20210604084705.3729204-1-yangerkun@huawei.com/
 
+TEST_TYPE=wip
 TEST_PRIORITY=12
 
 . $TRDIR/lib/setup_mce_test.sh || exit 1

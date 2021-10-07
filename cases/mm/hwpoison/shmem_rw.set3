@@ -24,7 +24,6 @@ _cleanup() {
 	umount -f $SHMEM_DIR > /dev/null 2>&1
 	rm -rf $SHMEM_DIR > /dev/null 2>&1
 	khpd_on
-	cleanup_mmgeneric || return 1
 }
 
 EXPECTED_RETURN_CODE="INJECT READ_FAILED READ_SUCCEEDED WRITE_FAILED WRITE_SUCCEEDED PUNCH_HOLE_OK READ_SUCCEEDED"

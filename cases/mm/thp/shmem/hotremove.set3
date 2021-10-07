@@ -33,16 +33,19 @@ SPLIT_THP="split_thp:only_pmd access"
 SPLIT_THP="split_thp access"
 HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 ACTION=hotremove:busyloop:pageflags=$(get_backend_pageflags thp_shmem_split)
+TEST_TYPE=wip
 <% end %>
 
 _prepare() {
 	echo "THP=$THP"
 	echo "THP_ALLOCATED=$THP_ALLOCATED"
 	echo 1 > /proc/sys/vm/panic_on_oom
+	sysctl vm.panic_on_oom=1
 	khpd_off
 	prepare_mmgeneric || return 1
 	set -x
 	test_alloc_generic -B pagecache -N $THP -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite"
+	numactl -H
 	set +x
 }
 
