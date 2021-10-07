@@ -1,0 +1,103 @@
+.TH HORNET 8 2015-07-07 Linux "System Validation Manual"
+.SH NAME
+hornet \- inject an uncorrectable memory error into a process
+.SH SYNOPSIS
+.B hornet
+[
+.B \-D
+.I delay
+] [
+.B \-v
+] [
+.I address\-options
+]
+.I COMMAND
+[
+.I ARGS
+]
+.br
+.B hornet
+[
+.B \-D
+.I delay
+] [
+.B \-v
+] [
+.I address\-options
+]
+\-p
+.I PID
+.br
+.B hornet
+[
+.B \-v
+]
+\-P
+.I PID
+.SH CONFIGURATION
+.B hornet
+requires that error injection be enabled in ACPI 5.0 mode by the BIOS and that the
+error injection driver
+.B einj
+is loaded. Running on a processor that does not support error recovery
+will crash the system when the injected error is consumed.
+.SH DESCRIPTION
+.B hornet
+injects an uncorrectable memory error into a program to test recovery paths.
+It waits for the process to terminate and tries to take the target page offline
+if the application did not trigger an error by accessing the injected address.
+.SH OPTIONS
+.TP
+.BI \-D " delay"
+Pause for
+.I delay
+seconds before injecting the memory error. A floating point value may be specified.
+.TP
+.B \-v
+print verbose details about execution progress.
+.TP
+.B address-options
+.BI \-a " address"
+inject at the specified virtual address
+.br
+.B \-t
+choose an address randomly from the text (code) section
+.br
+.B \-d
+choose an address randomly from the initialized data section
+.br
+.B \-b
+choose an address randomly from the uninitialized data section (heap)
+.br
+.B \-s
+choose an address randomly from the stack section
+.br
+.B \-m
+choose an address randomly from an anonymous mapped section
+.br
+If none of the address options are specified
+.B hornet
+will choose an address from the largest writable address region
+in the process.
+.TP
+.BI \-p " PID"
+inject errors into an already running process
+.TP
+.BI \-P " PID"
+stop the process using ptrace(2), inject at the next instruction to be executed, then continue.
+.SH EXIT STATUS
+.SH FILES
+.PP
+/sys/kernel/debug/apei/einj/*
+.RS 4
+Error injection interface.
+.RE
+.PP
+/sys/devices/system/memory/hard_offline_page
+.RS 4
+Interface to ask kernel to take pages offline.
+.RE
+.SH NOTES
+.SH BUGS
+.SH EXAMPLE
+.SH SEE ALSO
