@@ -4,7 +4,9 @@ TEST_TYPE=normal
 EXPECTED_RETURN_CODE="SAME"
 
 _prepare() {
-	sysctl vm.nr_hugepages=10
+	local surplus=$(grep ^HugePages_Surp: /proc/meminfo | awk '{print $2}')
+
+	sysctl vm.nr_hugepages=$[surplus + 10]
 }
 
 _cleanup() {
