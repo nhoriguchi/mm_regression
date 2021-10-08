@@ -10,7 +10,7 @@ EXPECTED_RETURN_CODE="NOOOM"
 # When running this test case in background mode, testcase thread re-run
 # without rebooting. So there's some issue on thread handling.
 
-TEST_TYPE=devel
+TEST_TYPE=debug
 TEST_PRIORITY=20
 
 MAX_REBOOT=1
