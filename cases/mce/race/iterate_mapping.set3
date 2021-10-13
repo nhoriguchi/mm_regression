@@ -46,6 +46,25 @@ HUGEPAGESIZE=2048 # kB
 
 EXPECTED_RETURN_CODE="EXIT"
 
+_prepare() {
+	flagmask="$(get_backend_pageflags_mask_value $BACKEND)"
+	maskbits="$(echo $flagmask | cut -f1 -d,)"
+	valuebits="$(echo $flagmask | cut -f2 -d,)"
+
+	echo "|/bin/false" > /proc/sys/kernel/core_pattern
+
+	echo "set hwpoison-filter for $BACKEND (mask:$maskbits, value:$valuebits)"
+	echo $maskbits > $DEBUGFSDIR/hwpoison/corrupt-filter-flags-mask
+	echo $valuebits > $DEBUGFSDIR/hwpoison/corrupt-filter-flags-value
+	echo 1 > $DEBUGFSDIR/hwpoison/corrupt-filter-enable
+	return 0
+}
+
+_cleanup() {
+	echo 0 > $DEBUGFSDIR/hwpoison/corrupt-filter-enable
+	echo "|/usr/lib/systemd/systemd-coredump %P %u %g %s %t %c %h" > /proc/sys/kernel/core_pattern
+}
+
 _control() {
 	local pid=
 

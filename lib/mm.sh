@@ -4,6 +4,80 @@
 . $TRDIR/lib/thp.sh
 . $TRDIR/lib/ksm.sh
 
+if [ ! -s "$GTMPD/kpf_flags" ] ; then
+	cat <<EOF > $GTMPD/kpf_flags
+locked			0
+error			1
+referenced		2
+uptodate		3
+dirty			4
+lru				5
+active			6
+slab			7
+writeback		8
+reclaim			9
+buddy			10
+mmap			11
+anonymous		12
+swapcache		13
+swapbacked		14
+compound_head	15
+compound_tail	16
+huge			17
+unevictable		18
+hwpoison		19
+nopage			20
+ksm				21
+thp				22
+offline			23
+pgtable			24
+zero_page		25
+idle_page		26
+reserved		32
+mlocked			33
+mappedtodisk	34
+private			35
+private_2		36
+owner_private	37
+arch			38
+uncached		39
+softdirty		40
+arch_2			41
+readahead		48
+slob_free		49
+slub_frozen		50
+slub_debug		51
+file			61
+swap			62
+mmap_exclusive	63
+EOF
+fi
+
+get_backend_pageflags_mask_value() {
+	local flags="$(get_backend_pageflags $1)"
+	[ ! "$flags" ] && return 1
+
+	local mask=$(echo $flags | cut -f1 -d=)
+	local value=$(echo $flags | cut -f2 -d=)
+
+	[ ! "$value" ] && value=$mask
+
+	local mask2=0
+	local value2=0
+
+	for flg in $(echo $mask | tr ',' ' ') ; do
+		local flbit="$(grep -P "^$flg\t" $GTMPD/kpf_flags | awk '{print $2}')"
+		mask2=$[mask2 + (1<<$flbit)]
+	done
+
+	for flg in $(echo $value | tr ',' ' ') ; do
+		local flbit="$(grep -P "^$flg\t" $GTMPD/kpf_flags | awk '{print $2}')"
+		value2=$[value2 + (1<<$flbit)]
+	done
+
+	printf "0x%lx,0x%lx\n" $mask2 $value2
+}
+
 # The behavior of page flag set in typical workload could change, so
 # we must keep up with newest kernel.
 get_backend_pageflags() {
