@@ -5,7 +5,7 @@
 #! {"tp" => "einj_mem_uc"}
 #! {"tp" => "einj_mem_uc_fatal"}
 
-TEST_TYPE=devel
+TEST_TYPE=wip
 
 _prepare() {
 	cd $TRDIR/lib/ras-tools/
