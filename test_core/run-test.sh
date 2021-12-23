@@ -76,6 +76,8 @@ if [ "$USER" = root ] ; then
 	sysctl -q kernel.panic_on_oops=1
 	sysctl -q kernel.softlockup_panic=1
 	sysctl -q kernel.softlockup_all_cpu_backtrace=1
+	echo "|/bin/false" > /proc/sys/kernel/core_pattern
+	systemctl stop systemd-journald.service
 fi
 
 stop_test_running() {
