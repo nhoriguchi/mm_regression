@@ -1,4 +1,4 @@
-#y! {"optype" => "mlock", "flavor" => "full", "fork" => "nofork"}
+#! {"optype" => "mlock", "flavor" => "full", "fork" => "nofork"}
 #! {"optype" => "mlock", "flavor" => "full", "fork" => "fork"}
 #! {"optype" => "mlock", "flavor" => "partial", "fork" => "nofork"}
 #! {"optype" => "mlock", "flavor" => "partial", "fork" => "fork"}
@@ -12,8 +12,11 @@
 NUMA_NODE=2
 THP=10
 
-# TODO: unmatured testcase
+# TODO: immature testcase
 TEST_PRIORITY=15
+TEST_TYPE=wip
+
+OPERATION_TYPE=<%= param["optype"] %>
 
 <% if param["optype"] == "mlock" %>
 EXPECTED_RETURN_CODE="MLOCKED"
