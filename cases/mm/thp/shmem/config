@@ -4,4 +4,6 @@ SHMEM=true
 SHMEM_DIR=tmp/shmem
 NUMA_NODE=2
 
+SOFT_RETRY=3
+
 mkdir -p $SHMEM_DIR
