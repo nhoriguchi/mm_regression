@@ -4,9 +4,10 @@ MCEINJECT=$(dirname $(readlink -f $BASH_SOURCE))/mceinj.sh
 
 SYSFS_MCHECK=/sys/devices/system/machinecheck
 
-# TODO: unpoison is always problematic operation.
-if [ ! "$UNPOISON" ] || [ "$UNPOISON" == true ] ; then
-	all_unpoison() { page-types -b hwpoison -x -N; }
+if [ "$UNPOISON" ] ; then
+	all_unpoison() {
+		page-types -b hwpoison -x -N;
+	}
 else
 	all_unpoison() { true; }
 fi
@@ -82,7 +83,7 @@ __check_nr_hwcorrupted_increased() {
 }
 
 check_nr_hwcorrupted() {
-	if [ ! "$UNPOISON" ] || [ "$UNPOISON" == true ] ; then
+	if [ "$UNPOISON" ] ; then
 		if [ -s "$TMPD/hwcorrupted2" ] ; then
 			__check_nr_hwcorrupted
 		else
