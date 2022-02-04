@@ -6,6 +6,7 @@ split_recipes:
 
 cleanup_recipes:
 	@find cases -type f -name *.auto -o -name *.auto2 -o -name *.auto3 | xargs -r rm > /dev/null
+	@find cases/ -empty -type d | xargs rm -r > /dev/null
 	@true
 
 update_recipes:
