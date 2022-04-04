@@ -10,6 +10,8 @@ collect_environment_info() {
 	lsmem > $ENVDIR/lsmem
 	virsh list --all > $ENVDIR/virsh-list
 	env > $ENVDIR/env
+	git log -n1 > $ENVDIR/testtool_version
+	git diff > $ENVDIR/testtool_version.diff
 	true
 }
 
