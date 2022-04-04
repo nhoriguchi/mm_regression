@@ -1,0 +1,4 @@
+if ! which migratepages > /dev/null ; then
+	echo "migratepages command not found" >&2
+	return 1
+fi
