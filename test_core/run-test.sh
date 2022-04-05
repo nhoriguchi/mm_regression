@@ -17,7 +17,9 @@
 #
 #   - RUNNAME
 #   - AGAIN
-#   - SKIP_PASSED
+#   - SKIP_PASS
+#   - SKIP_FAIL
+#   - SKIP_WARN
 #   - RUN_MODE
 #   - LOGLEVEL
 #   - PRIORITY
@@ -88,11 +90,6 @@ stop_test_running() {
 
 trap stop_test_running SIGTERM SIGINT
 
-skip_testcase_out_priority() {
-	echo_log "This testcase is skipped because the testcase priority ($TEST_PRIORITY) is not within given priority range [$PRIORITY]."
-	echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
-}
-
 run_recipe() {
 	export RECIPE_FILE="$1"
 	local recipe_relpath=$(echo $RECIPE_FILE | sed 's/.*cases\///')
@@ -120,27 +117,15 @@ run_recipe() {
 	( set -o posix; set ) > $RTMPD/.var1
 
 	TEST_PRIORITY=10 # TODO: better place?
-	. $RECIPE_FILE
+	# TODO: helpful if we can save stdout in loading process, but this might
+	# break test control.
+	set -o pipefail
+	. $RECIPE_FILE # | tee -a $RTMPD/result
 	ret=$?
 	echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
 
-	if [ "$SKIP_THIS_TEST" ] ; then
-		echo_log "This testcase is marked to be skipped by developer."
-		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
-		echo SKIPPED > $RTMPD/run_status
-	elif [ "$ret" -ne 0 ] ; then
-		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
-		echo SKIPPED > $RTMPD/run_status
-	elif ! check_skip_priority $TEST_PRIORITY ; then
-		skip_testcase_out_priority
-		echo SKIPPED > $RTMPD/run_status
-	elif check_test_flag ; then
-		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
-		echo SKIPPED > $RTMPD/run_status
-		# TODO: check_inclusion_of_fixedby_patch && break
-	else
+	if recipe_load_check $recipe_relpath $ret | tee -a $RTMPD/result ; then
 		save_environment_variables
-
 		# reminder for restart after reboot. If we find this file when starting,
 		# that means the reboot was triggerred during running the testcase.
 		if [ "$TEST_RUN_MODE" ] && [ -f $GTMPD/current_testcase ] && [ "$RECIPE_FILE" = $(cat $GTMPD/current_testcase) ] ; then
@@ -181,6 +166,7 @@ run_recipe() {
 		echo -n cases/$recipe_relpath > $GTMPD/finished_testcase
 		sync
 	fi
+	set +o pipefail
 	echo_log "<=== testcase '$TEST_TITLE' end" | tee /dev/kmsg
 }
 
@@ -265,14 +251,25 @@ run_recipes() {
 	fi
 }
 
+filter_recipe_list() {
+	make recipe_priority > work/$RUNNAME/recipelist_filtered
+	head work/$RUNNAME/recipelist_filtered
+	env | grep -e PRIORITY -e RUN_MODE
+}
+
 generate_recipelist() {
 	if [ ! -f "$GTMPD/full_recipe_list" ] ; then
 		make --no-print-directory allrecipes | grep ^cases | sort > $GTMPD/full_recipe_list
 	fi
 
-	if [ ! -f "$GTMPD/recipelist" ] ; then
+	if [ -s "$GTMPD/full_recipe_list" ] && [ ! -f "$GTMPD/recipelist" ] ; then
+		echo "$GTMPD/recipelist not found, so all testcases in $GTMPD/full_recipe_list is included."
 		cp $GTMPD/full_recipe_list $GTMPD/recipelist
 	fi
+
+	# filter recipelist based on priority and test type
+	# filter_recipe_list
+	# exit 1
 
 	# recipe control, need to have separate function for this
 	if [ "$AGAIN" == true ] ; then

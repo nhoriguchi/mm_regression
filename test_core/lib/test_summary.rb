@@ -249,9 +249,9 @@ class TestSummary
   def show_failure_detail
     outstr = []
     @full_recipe_list.each do |recipe|
-      next if ! ["FAIL", "WARN"].include?(@test_summary_hash[recipe].testcase_result)
+      next if ! ["FAIL", "WARN", "SKIP"].include?(@test_summary_hash[recipe].testcase_result)
       tmp = [recipe]
-      tmp << File.read(@test_summary_hash[recipe].tc_dir + "/result").split("\n").select{|line| line =~ /^FAIL:/}.map {|line| "  " + line}.join("\n")
+      tmp << File.read(@test_summary_hash[recipe].tc_dir + "/result").split("\n").select{|line| line =~ /^(FAIL|SKIPPED):/}.map {|line| "  " + line}.join("\n")
       outstr << tmp.join("\n")
     end
     puts outstr.join("\n\n")
@@ -329,7 +329,9 @@ class TestSummary
     end.parse! args
 
     @targets = []
-    args.each do |dat|
+    targets = args
+    targets << find_latest_result_directory if @options[:latest]
+    targets.each do |dat|
       dat = File.expand_path dat
       if File.directory? dat
         @targets += Dir.glob(dat + "/**/recipelist").sort.map {|d| File.dirname d}
@@ -348,18 +350,24 @@ class TestSummary
   end
 
   def check_args
-    if @options[:latest].nil? and @targets.empty?
+    if @options[:latest] and @targets.size > 0
       puts "both of runname and -l option are given (not intended)"
       exit
     end
+  end
 
-    if @options[:latest]
-      tmp = Dir.glob(@options[:workdir] + "/**/recipelist").map {|d| File.dirname d}
-      tmp.sort! do |a, b|
+  def find_latest_result_directory
+    tmp = Dir.glob(@options[:workdir] + "/**/recipelist").map {|d| File.dirname d}.sort
+    tmp.sort! do |a, b|
+      if a.start_with? b
+        -1
+      elsif b.start_with? a
+        1
+      else
         File.mtime(a + "/recipelist") <=> File.mtime(b + "/recipelist")
       end
-      @targets = [tmp[-1]]
     end
+    return tmp[-1]
   end
 
   def self.usage

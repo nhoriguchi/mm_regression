@@ -119,7 +119,7 @@ check_return_code() {
 	local expected="$1"
 	[ ! "${expected}" ] && return
 	count_testcount
-	if [ "$(get_return_code_seq)" == "$expected" ] ; then
+	if [[ "$(get_return_code_seq)" =~ $expected ]] ; then
 		count_success "return code: $(get_return_code_seq)"
 	else
 		count_failure "return code: $(get_return_code_seq) (expected ${expected})"
@@ -129,18 +129,33 @@ check_return_code() {
 # Determine whether a testcase is skipped or not.
 # Return true when we do skip the testcase, return false otherwise.
 check_testcase_already_run() {
-	if [ "$AGAIN" == true ] ; then
-		if [ "$SKIP_PASSED" ] ; then
-			if grep -q "^TESTCASE_RESULT: .*: PASS$" $RTMPD/result ; then
-				echo "SKIP_PASSED is set, so skip passed testcase."
-				return 0
-			fi
+	if [ "$SKIP_PASS" ] ; then
+		if grep -q "^TESTCASE_RESULT: .*: PASS$" $RTMPD/result ; then
+			echo_verbose "SKIP_PASS is set, so skip passed testcase."
+			return 0
 		fi
-		return 1
 	fi
+
+	if [ "$SKIP_FAIL" ] ; then
+		if grep -q "^TESTCASE_RESULT: .*: FAIL$" $RTMPD/result ; then
+			echo_verbose "SKIP_FAIL is set, so skip passed testcase."
+			return 0
+		fi
+	fi
+
+	if [ "$SKIP_WARN" ] ; then
+		if [ -e $RTMPD/result ] && ( ! grep -q "^TESTCASE_RESULT: " $RTMPD/result ) ; then
+			echo_verbose "SKIP_WARN is set, so skip warned testcase."
+			return 0
+		fi
+	fi
+
+	[ "$AGAIN" == true ] && return 1
+
 	[ ! -s "$RTMPD/run_status" ] && return 1
 
 	[ "$(cat $RTMPD/run_status)" == FINISHED ] && return 0
+
 	return 1
 }
 
@@ -231,8 +246,7 @@ prepare() {
 	done
 
 	if [ $ret -ne 0 ] ; then
-		echo "test preparation failed ($prepfunc) check your environment." >&2
-		count_skipped
+		count_skipped "Preparation process for this testcase ($prepfunc) failed. Check your environment to meet the prerequisite."
 		return 1
 	fi
 }
@@ -316,7 +330,40 @@ check_test_flag() {
 
 	echo_log "Testcase $TEST_TITLE has TEST_TYPE tags \"$TEST_TYPE\", but RUN_MODE does not contain all of keywords in TEST_TYPE."
 	echo_log "If you really want to run this testcase, please set environment variable RUN_MODE to contain \"$TEST_TYPE\", OR simply set to \"all\"."
-	count_skipped
+	count_skipped "Filtered by RUN_MODE/TEST_TYPE setting."
+	return 0
+}
+
+recipe_load_check() {
+	local recipe_relpath=$1
+	local loadret=$2
+	local skip=false
+
+	if [ "$loadret" -ne 0 ] ; then
+		count_skipped "Failed to load recipe file."
+		skip=true
+	elif [ "$SKIP_THIS_TEST" ] ; then
+		count_skipped "This testcase is marked to be skipped by developer."
+		skip=true
+	elif ! check_skip_priority $TEST_PRIORITY ; then
+		count_skipped "This testcase is out of range of given priority range."
+		skip=true
+		echo_log "The testcase priority ($TEST_PRIORITY) is not within given priority range [$PRIORITY]."
+	elif check_test_flag ; then
+		count_skipped "Filtered by RUN_MODE/TEST_TYPE setting."
+		skip=true
+		echo_log "Testcase $TEST_TITLE has TEST_TYPE tags \"$TEST_TYPE\", but RUN_MODE does not contain all of keywords in TEST_TYPE."
+		echo_log "If you really want to run this testcase, please set environment variable RUN_MODE to contain \"$TEST_TYPE\", OR simply set to \"all\"."
+		# TODO: check_inclusion_of_fixedby_patch && break
+	fi
+
+	if [ "$skip" = true ] ; then
+		echo_log "TESTCASE_RESULT: $recipe_relpath: SKIP"
+		echo SKIPPED > $RTMPD/run_status
+		return 1
+	fi
+
+	# You may run this recipe
 	return 0
 }
 

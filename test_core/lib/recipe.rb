@@ -34,7 +34,8 @@ class RecipeTemplate
       if param.empty?
         outbase = basename + '.auto3'
       else
-        outbase = basename + '_' + get_id(param) + '.auto3'
+        outbase = basename + '/' + get_id(param) + '.auto3'
+        FileUtils.mkdir_p(dirname + "/" + basename)
       end
       File.write(dirname + "/" + outbase, template.result(binding))
     end
@@ -165,7 +166,7 @@ class RecipeSet
         if line =~ /TEST_PRIORITY=(\d+)/
           priority = $1.to_i
         end
-        if line =~ /TEST_TYPE=(\w+)/
+        if line =~ /TEST_TYPE=([\w,]+)/
           type = $1
         end
       end
@@ -181,9 +182,10 @@ if $0 == __FILE__
   if ARGV.size == 0
     rs.split
   elsif ARGV[0] == "list"
+    type_width = rs.list.map {|a| a[:type].size}.max + 1
     rs.list.each do |a|
       next if a[:id] =~ /\/config$/
-      printf("%s\t%d\t%s\n", a[:type], a[:priority], a[:id])
+      printf("%-#{type_width}s%d\t%s\n", a[:type], a[:priority], a[:id])
     end
   end
 end

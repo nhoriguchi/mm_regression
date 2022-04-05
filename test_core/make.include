@@ -1,5 +1,8 @@
 # assume that this extension is imported from a ../Makefile
 
+list: get_test_core
+	@bash test_core/display_testcases.sh -a
+
 split_recipes:
 	@ruby test_core/lib/recipe.rb > /dev/null
 	@true
@@ -42,7 +45,7 @@ version:
 	@true
 
 allrecipes:
-	@ruby test_core/lib/recipe.rb list | cut -f3
+	@ruby test_core/lib/recipe.rb list | awk '{print $$3}'
 	@true
 
 recipe_priority:

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # usage:
-#   run standard testcases on VM
+#   run standard testcases on VM (called from host user)
 #     run_guest.sh <VM> <RUNNAME> <WORKDIR>
 #
 show_help() {
