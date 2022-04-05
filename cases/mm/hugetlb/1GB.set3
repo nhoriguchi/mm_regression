@@ -1,4 +1,4 @@
-#! {}
+#! {"base" => "base"}
 
 # TODO:
 
@@ -12,7 +12,6 @@ HUGETLBFSDIR=tmp/hugetlbfs
 EXPECTED_RETURN_CODE="EXIT"
 PIPETIMEOUT=30
 HUGEPAGESIZE=1048576
-THP=true
 
 _prepare() {
 	prepare_mm_generic || return 1

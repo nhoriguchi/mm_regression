@@ -1,0 +1,24 @@
+TEST_TYPE=devel
+TEST_PRIORITY=20
+
+# rawdevice to be used for
+DEVICE=vdb
+
+_prepare() {
+	if lsblk | grep -A1 ^$DEVICE | tail -1 | grep -q '^|' ; then
+		echo "device $DEVICE is somehow in-use, so can't run this testcase." >&2
+		return 1
+	fi
+}
+
+_control() {
+	echo "create dm device for error injection"
+
+	echo "abc"
+	$TRDIR/lib/pmem/get_namespace_layout.sh
+	ndctl list -R
+}
+
+_cleanup() {
+	true
+}

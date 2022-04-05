@@ -286,6 +286,7 @@ get_pagetypes() {
 	local file=$2
 	shift 2
 	page-types -p $pid $@ | grep -v offset > $TMPD/.$file
+	cp $TMPD/.$file $TMPD/2.$file
 
 	# separate mapping list part and statistics part.
 	gawk '

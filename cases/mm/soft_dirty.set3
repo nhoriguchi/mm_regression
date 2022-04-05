@@ -6,8 +6,8 @@
 
 # NEED: khugepaged focused setting
 
-# TODO: unmatured testcase
 TEST_PRIORITY=18
+TEST_TYPE=wip
 
 . $TRDIR/lib/setup_mmgeneric.sh
 

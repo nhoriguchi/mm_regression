@@ -1,20 +1,15 @@
-#! {"backend" => "anonymous", "error" => "mce-srao"}
 #! {"backend" => "anonymous", "error" => "hard-offline"}
 #! {"backend" => "anonymous", "error" => "soft-offline"}
-#! {"backend" => "pagecache", "error" => "mce-srao"}
 #! {"backend" => "pagecache", "error" => "hard-offline"}
 #! {"backend" => "pagecache", "error" => "soft-offline"}
-#! {"backend" => "ksm", "error" => "mce-srao"}
 #! {"backend" => "ksm", "error" => "hard-offline"}
 #! {"backend" => "ksm", "error" => "soft-offline"}
-#! {"backend" => "zero", "error" => "mce-srao"}
 #! {"backend" => "zero", "error" => "hard-offline"}
 #! {"backend" => "zero", "error" => "soft-offline"}
-#! {"backend" => "hugetlb_anon", "error" => "mce-srao"}
 #! {"backend" => "hugetlb_anon", "error" => "hard-offline"}
 #! {"backend" => "hugetlb_anon", "error" => "soft-offline"}
+#! {"backend" => "hugetlb_file", "error" => "hard-offline"}
 #! {"backend" => "hugetlb_file", "error" => "soft-offline"}
-#! {"backend" => "thp", "error" => "mce-srao"}
 #! {"backend" => "thp", "error" => "hard-offline"}
 #! {"backend" => "thp", "error" => "soft-offline"}
 
@@ -62,7 +57,7 @@ _prepare() {
 
 _cleanup() {
 	echo 0 > $DEBUGFSDIR/hwpoison/corrupt-filter-enable
-	echo "|/usr/lib/systemd/systemd-coredump %P %u %g %s %t %c %h" > /proc/sys/kernel/core_pattern
+	# echo "|/usr/lib/systemd/systemd-coredump %P %u %g %s %t %c %h" > /proc/sys/kernel/core_pattern
 }
 
 _control() {

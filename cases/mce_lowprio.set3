@@ -1,7 +1,5 @@
 ## TODO: this test case is broken.
 
-#! {"backend" => "zero", "error" => "mce-srao", "access" => "later"}
-#! {"backend" => "zero", "error" => "mce-srao", "access" => "avoid"}
 #! {"backend" => "zero", "error" => "hard-offline", "access" => "later"}
 #! {"backend" => "zero", "error" => "hard-offline", "access" => "avoid"}
 #! {"backend" => "zero", "error" => "soft-offline", "access" => "later"}
@@ -29,7 +27,7 @@ TEST_PROGRAM="test_alloc_generic -B $BACKEND -N 2 -L 'start:wait_after mmap acce
 
 FALSENEGATIVE=true
 
-<% if param["error"] =~ /(mce-srao|hard-offline|madv_hard)/ %>
+<% if param["error"] =~ /(hard-offline|madv_hard)/ %>
     <% if param["access"] == "later" %>
     EXPECTED_RETURN_CODE="INJECT ACCESS KILLED_IN_ACCESS"
     <% else %>

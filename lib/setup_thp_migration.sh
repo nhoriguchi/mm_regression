@@ -20,6 +20,11 @@ _control() {
     case "$line" in
 		"after_access")
 			get_mm_stats 0 $pid $(pgrep -P $pid) > /dev/null
+
+			if [ "$SHMEM_DIR" ] ; then
+				page-types -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.0
+			fi
+
             kill -SIGUSR1 $pid
             ;;
         "after_fork")
@@ -40,7 +45,7 @@ _control() {
 			fi
 
 			if [ "$SHMEM_DIR" ] ; then
-				check_migration_done $TMPD/shmem.pagemap.2 $TMPD/shmem.pagemap.3
+				check_migration_done $TMPD/shmem.pagemap.0 $TMPD/shmem.pagemap.3
 			elif [ "$FORK" ] ; then
 				check_migration_done $TMPD/pagetypes.2.$pid $TMPD/pagetypes.3.$pid
 			else
@@ -53,8 +58,6 @@ _control() {
 			get_mm_stats 2 $pid $(pgrep -P $pid) > /dev/null
 
 			if [ "$SHMEM_DIR" ] ; then
-				# echo page-types -f $SHMEM_DIR/testfile -rlN
-				# page-types -f $SHMEM_DIR/testfile -rlN | head
 				page-types -f $SHMEM_DIR/testfile -rlN | grep ___ > $TMPD/shmem.pagemap.2
 			fi
 

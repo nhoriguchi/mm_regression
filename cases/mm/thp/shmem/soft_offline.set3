@@ -9,7 +9,7 @@ NR_THP=1
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
 FORK=
 SPLIT_THP=
-HUGEPAGE_CHECKCODE=HUGEPAGE_DISAPPEARED
+HUGEPAGE_CHECKCODE="(HUGEPAGE_MIGRATED|HUGEPAGE_DISAPPEARED|HUGEPAGE_NOT_EXIST)"
 ACTION=memory_error_injection:error_type=soft-offline
 ERROR_TYPE=soft-offline
 ERROR_OFFSET=1
@@ -23,7 +23,6 @@ SPLIT_THP="split_thp:only_pmd access"
 SPLIT_THP="split_thp:only_pmd access"
 <% elsif param["thp"] == "thp_split" %>
 SPLIT_THP="split_thp access"
-HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 <% end %>
 
 _prepare() {

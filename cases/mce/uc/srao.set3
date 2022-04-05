@@ -1,132 +1,40 @@
-#! {"backend" => "anonymous", "error" => "mce-srao", "access" => "later"}
-#! {"backend" => "anonymous", "error" => "mce-srao", "access" => "avoid"}
-#! {"backend" => "anonymous", "error" => "hard-offline", "access" => "later"}
-#! {"backend" => "anonymous", "error" => "hard-offline", "access" => "avoid"}
-#! {"backend" => "anonymous", "error" => "soft-offline", "access" => "later"}
-#! {"backend" => "anonymous", "error" => "soft-offline", "access" => "avoid"}
-#! {"backend" => "anonymous", "error" => "madv_hard", "access" => "later"}
-#! {"backend" => "anonymous", "error" => "madv_hard", "access" => "avoid"}
-#! {"backend" => "anonymous", "error" => "madv_soft", "access" => "later"}
-#! {"backend" => "anonymous", "error" => "madv_soft", "access" => "avoid"}
+#! {"backend" => "anonymous", "access" => "later"}
+#! {"backend" => "anonymous", "access" => "avoid"}
 
-#! {"backend" => "pagecache", "error" => "mce-srao", "access" => "later"}
-#! {"backend" => "pagecache", "error" => "mce-srao", "access" => "avoid"}
-#! {"backend" => "pagecache", "error" => "hard-offline", "access" => "later"}
-#! {"backend" => "pagecache", "error" => "hard-offline", "access" => "avoid"}
-#! {"backend" => "pagecache", "error" => "soft-offline", "access" => "later"}
-#! {"backend" => "pagecache", "error" => "soft-offline", "access" => "avoid"}
-#! {"backend" => "pagecache", "error" => "madv_hard", "access" => "later"}
-#! {"backend" => "pagecache", "error" => "madv_hard", "access" => "avoid"}
-#! {"backend" => "pagecache", "error" => "madv_soft", "access" => "later"}
-#! {"backend" => "pagecache", "error" => "madv_soft", "access" => "avoid"}
+#! {"backend" => "pagecache", "access" => "later"}
+#! {"backend" => "pagecache", "access" => "avoid"}
 
-#! {"backend" => "ksm", "error" => "mce-srao", "access" => "later"}
-#! {"backend" => "ksm", "error" => "mce-srao", "access" => "avoid"}
-#! {"backend" => "ksm", "error" => "hard-offline", "access" => "later"}
-#! {"backend" => "ksm", "error" => "hard-offline", "access" => "avoid"}
-#! {"backend" => "ksm", "error" => "soft-offline", "access" => "later"}
-#! {"backend" => "ksm", "error" => "soft-offline", "access" => "avoid"}
-#! {"backend" => "ksm", "error" => "madv_hard", "access" => "later"}
-#! {"backend" => "ksm", "error" => "madv_hard", "access" => "avoid"}
-#! {"backend" => "ksm", "error" => "madv_soft", "access" => "later"}
-#! {"backend" => "ksm", "error" => "madv_soft", "access" => "avoid"}
+#! {"backend" => "ksm", "access" => "later"}
+#! {"backend" => "ksm", "access" => "avoid"}
 
-#! {"backend" => "hugetlb_anon", "error" => "mce-srao", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_anon", "error" => "mce-srao", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_anon", "error" => "mce-srao", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_anon", "error" => "mce-srao", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_anon", "error" => "hard-offline", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_anon", "error" => "hard-offline", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_anon", "error" => "hard-offline", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_anon", "error" => "hard-offline", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_anon", "error" => "soft-offline", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_anon", "error" => "soft-offline", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_anon", "error" => "soft-offline", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_anon", "error" => "soft-offline", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_anon", "error" => "madv_hard", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_anon", "error" => "madv_hard", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_anon", "error" => "madv_hard", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_anon", "error" => "madv_hard", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_anon", "error" => "madv_soft", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_anon", "error" => "madv_soft", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_anon", "error" => "madv_soft", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_anon", "error" => "madv_soft", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_anon", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_anon", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_anon", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_anon", "access" => "avoid", "error_offset" => "tail"}
 
-#! {"backend" => "hugetlb_file", "error" => "mce-srao", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_file", "error" => "mce-srao", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_file", "error" => "mce-srao", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_file", "error" => "mce-srao", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_file", "error" => "hard-offline", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_file", "error" => "hard-offline", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_file", "error" => "hard-offline", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_file", "error" => "hard-offline", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_file", "error" => "soft-offline", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_file", "error" => "soft-offline", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_file", "error" => "soft-offline", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_file", "error" => "soft-offline", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_file", "error" => "madv_hard", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_file", "error" => "madv_hard", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_file", "error" => "madv_hard", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_file", "error" => "madv_hard", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_file", "error" => "madv_soft", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_file", "error" => "madv_soft", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_file", "error" => "madv_soft", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_file", "error" => "madv_soft", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_file", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_file", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_file", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_file", "access" => "avoid", "error_offset" => "tail"}
 
-#! {"backend" => "hugetlb_shmem", "error" => "mce-srao", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_shmem", "error" => "mce-srao", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_shmem", "error" => "mce-srao", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_shmem", "error" => "mce-srao", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_shmem", "error" => "hard-offline", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_shmem", "error" => "hard-offline", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_shmem", "error" => "hard-offline", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_shmem", "error" => "hard-offline", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_shmem", "error" => "soft-offline", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_shmem", "error" => "soft-offline", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_shmem", "error" => "soft-offline", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_shmem", "error" => "soft-offline", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_shmem", "error" => "madv_hard", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_shmem", "error" => "madv_hard", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_shmem", "error" => "madv_hard", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_shmem", "error" => "madv_hard", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_shmem", "error" => "madv_soft", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "hugetlb_shmem", "error" => "madv_soft", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "hugetlb_shmem", "error" => "madv_soft", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "hugetlb_shmem", "error" => "madv_soft", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_shmem", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_shmem", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_shmem", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_shmem", "access" => "avoid", "error_offset" => "tail"}
 
-#! {"backend" => "thp", "error" => "mce-srao", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "thp", "error" => "mce-srao", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "thp", "error" => "mce-srao", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "thp", "error" => "mce-srao", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "thp", "error" => "hard-offline", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "thp", "error" => "hard-offline", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "thp", "error" => "hard-offline", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "thp", "error" => "hard-offline", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "thp", "error" => "soft-offline", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "thp", "error" => "soft-offline", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "thp", "error" => "soft-offline", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "thp", "error" => "soft-offline", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "thp", "error" => "madv_hard", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "thp", "error" => "madv_hard", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "thp", "error" => "madv_hard", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "thp", "error" => "madv_hard", "access" => "avoid", "error_offset" => "tail"}
-#! {"backend" => "thp", "error" => "madv_soft", "access" => "later", "error_offset" => "head"}
-#! {"backend" => "thp", "error" => "madv_soft", "access" => "later", "error_offset" => "tail"}
-#! {"backend" => "thp", "error" => "madv_soft", "access" => "avoid", "error_offset" => "head"}
-#! {"backend" => "thp", "error" => "madv_soft", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "thp", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "thp", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "thp", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "thp", "access" => "avoid", "error_offset" => "tail"}
 
-#! {"backend" => "buddy", "error" => "mce-srao"}
-#! {"backend" => "buddy", "error" => "hard-offline"}
-#! {"backend" => "buddy", "error" => "soft-offline"}
+#! {"backend" => "buddy"}
 
-#! {"backend" => "free_hugepage", "error" => "mce-srao"}
-#! {"backend" => "free_hugepage", "error" => "hard-offline"}
-#! {"backend" => "free_hugepage", "error" => "soft-offline"}
+#! {"backend" => "free_hugepage"}
 
 . $TRDIR/lib/setup_mce_test.sh
 
 BACKEND=<%= param["backend"] %>
-ERROR_TYPE=<%= param["error"] %>
+ERROR_TYPE="mce-srao"
 ACCESS=<%= param["access"] %>
 
 <% if param["access"] == "later" %>
@@ -189,16 +97,8 @@ _control() {
 }
 <% end %>
 
-<% if param["error"] =~ /(mce-srao|hard-offline|madv_hard)/ %>
-	<% if param["access"] == "later" %>
-	EXPECTED_RETURN_CODE="INJECT ACCESS KILLED_IN_ACCESS"
-	<% else %>
-	EXPECTED_RETURN_CODE="INJECT EXIT"
-	<% end %>
+<% if param["access"] == "later" %>
+EXPECTED_RETURN_CODE="INJECT ACCESS KILLED_IN_ACCESS"
 <% else %>
-	<% if param["access"] == "later" %>
-	EXPECTED_RETURN_CODE="INJECT ACCESS ACCESS_SUCCEEDED EXIT"
-	<% else %>
-	EXPECTED_RETURN_CODE="INJECT EXIT"
-	<% end %>
+EXPECTED_RETURN_CODE="INJECT EXIT"
 <% end %>

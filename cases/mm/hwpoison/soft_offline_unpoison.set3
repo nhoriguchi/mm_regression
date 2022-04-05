@@ -1,0 +1,68 @@
+#! {"backend" => "buddy"}
+#! {"backend" => "free_hugetlb"}
+
+TEST_TYPE=wip
+
+EXPECTED_RETURN_CODE=PASS
+
+. $TRDIR/lib/mce.sh
+
+_prepare() {
+	echo "3 4 1 3" > /proc/sys/kernel/printk
+}
+
+_cleanup() {
+	echo "7 4 1 7" > /proc/sys/kernel/printk
+}
+
+corrupt_buddy_pages() {
+	page-types -Nrl -b buddy | grep -P '\t[0-9]{3,}\t' | sort -k2n > $TMPD/list
+	base="0x$(tail -1 $TMPD/list | cut -f1)"
+	if [ "$base" == 0x ] ; then
+		echo failed to get base address
+		return 1
+	fi
+
+	i=0
+	while [[ "$i" -lt $size ]] ; do
+		echo $[(base + i) << 12] > /sys/devices/system/memory/soft_offline_page
+		i=$[i+1]
+	done
+}
+
+corrupt_free_hugetlb() {
+	page-types -Nrl -b huge,compound_head=huge,compound_head | grep ___ | cut -f1 > $TMPD/list
+	for pfn in $(cat $TMPD/list) ; do
+		echo 0x${pfn}000 > /sys/devices/system/memory/soft_offline_page
+	done
+}
+
+_control() {
+	size=0x100
+
+	save_nr_corrupted 1
+
+	<% if param["backend"] == "buddy" %>
+	corrupt_buddy_pages
+	<% elsif param["backend"] == "free_hugetlb" %>
+	for i in $(seq 10) ; do
+		sysctl vm.nr_hugepages=1000
+		corrupt_free_hugetlb
+		sysctl vm.nr_hugepages=0
+	done
+	<% end %>
+
+	save_nr_corrupted 2
+
+	page-types -b hwpoison -x
+
+	save_nr_corrupted 3
+
+	if [ "$(show_nr_corrupted 1)" -eq "$(show_nr_corrupted 2)" ] ; then
+		set_return_code INJECT_FAIL
+	elif [ "$(show_nr_corrupted 1)" -ne "$(show_nr_corrupted 3)" ] ; then
+		set_return_code UNPOISON_FAIL
+	else
+		set_return_code PASS
+	fi
+}

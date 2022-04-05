@@ -4,9 +4,6 @@
 #! {"offline" => "hard", "memtype" => "buddy"}
 #! {"offline" => "hard", "memtype" => "mlocked_anon"}
 #! {"offline" => "hard", "memtype" => "anonymous"}
-#! {"offline" => "mce-srao", "memtype" => "buddy"}
-#! {"offline" => "mce-srao", "memtype" => "mlocked_anon"}
-#! {"offline" => "mce-srao", "memtype" => "anonymous"}
 
 TEST_PRIORITY=16
 TEST_TYPE=devel
@@ -105,7 +102,6 @@ get_target_memblk() {
 }
 
 _control() {
-	echo 1 > /proc/sys/vm/panic_on_oom
 	echo 1 > /proc/sys/vm/panic_on_oom
 	echo 1 > /proc/sys/kernel/panic_on_warn
 

@@ -1,6 +1,9 @@
-# This testcase is written for debugging.
-# when overcommit is on, free_huge_page leaks the target hugepage somewhere, so
-# no PageBuddy flag is set.
+# This testcase check that when soft offline some page on a hugetlb page,
+# all subpages except the offlined 4kB page are dissolved and move back to buddy,
+# which is checked by confirming that such page are reusable.
+#
+# Motivated by the report that when overcommitting is enabled, the target hugepage
+# are leaked and free_huge_page() failed to set PageBuddy flag on it.
 
 #! {"flavor" => "none"}
 #! {"flavor" => "overcommit"}
@@ -12,7 +15,6 @@
 TEST_PRIORITY=20
 TEST_TYPE=debug
 
-MIGRATE_SRC=__STR_MIGRATE_SRC
 NUMA_NODE=2
 HUGEPAGESIZE=2048 # kB
 
@@ -57,7 +59,9 @@ kick_soft_offline() {
 
 check_leak() {
 	local pfn=$1
-	page-types -a $pfn -b =0x0 -lr | tee $TMPD/check_leak
+	echo "######### page-types -a $pfn -b =0x0 -lr"
+	ruby $TRDIR/lib/get_pagerefcount.rb $pfn
+	page-types -a $pfn -b 0xfffff=0x80000 -r | tee $TMPD/check_leak
 	local match=$(cat $TMPD/check_leak | grep total | awk '{print $2}')
 	local res=NOLEAKED
 
@@ -83,26 +87,19 @@ check_dissolve() {
 
 check_reusable() {
 	local pfn=$1
-	local available_pages=$(echo $[$(grep MemAvailable /proc/meminfo | awk '{print $2}') / 4])
-	test_alloc_generic -B anonymous -n $available_pages -L 'mmap access:wait_after' -p $PIPE &
-	local backpid=$!
-	echo "running background process ($backpid) ..."
-	read -t${PIPETIMEOUT} line <> ${PIPE}
-	echo "ready: $line"
 
-	head -n4 /proc/meminfo
-	echo "page-types -a $pfn"
-	page-types -a $pfn -b anonymous -lr | tee $TMPD/check_reusable
+	echo "XXX page-types -a $pfn"
+	page-types -a $pfn -b buddy -lr | tee $TMPD/check_reusable
 	local match=$(cat $TMPD/check_reusable | grep total | awk '{print $2}')
 	local res=REUSABLE_NG
-
 	if [ "$match" -eq 1 ] ; then
+		res=REUSABLE_OK
+	fi
+	if [ "$(ruby $TRDIR/lib/get_pagerefcount.rb $pfn)" -gt 0 ] ; then
 		res=REUSABLE_OK
 	fi
 	echo "$FUNCNAME $pfn: $res"
 	set_return_code $res
-
-	kill -9 $backpid
 }
 
 __control_inuse() {
@@ -135,7 +132,7 @@ __control_inuse() {
 	<% if param["flavor"] == "none" %>
 	check_dissolve $[0x$target1+3]
 	<% end %>
-	check_reusable 0x$target1
+	check_reusable $[0x$target1+3]
 
 	set_return_code EXIT
 }
@@ -154,7 +151,6 @@ __control_free() {
 	<% if param["flavor"] == "full_reserved" %>
 	pkill -f -9 test_alloc_generic
 	echo "page state after kill test_alloc_generic"
-	page-types -a 0x$target1+0x200 -Nrl | tee $TMPD/5 >&2
 	<% end %>
 	page-types -a 0x$target1+0x200 -Nrl | tee $TMPD/3 >&2
 	set_and_check_hugetlb_pool 0
@@ -163,6 +159,6 @@ __control_free() {
 
 	check_leak 0x$target1
 	check_dissolve $[0x$target1+3]
-	check_reusable 0x$target1
+	check_reusable $[0x$target1+3]
 	set_return_code EXIT
 }

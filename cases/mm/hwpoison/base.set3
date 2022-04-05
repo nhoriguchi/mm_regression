@@ -1,0 +1,183 @@
+#! {"backend" => "anonymous", "error" => "hard-offline", "access" => "later"}
+#! {"backend" => "anonymous", "error" => "hard-offline", "access" => "avoid"}
+#! {"backend" => "anonymous", "error" => "soft-offline", "access" => "later"}
+#! {"backend" => "anonymous", "error" => "soft-offline", "access" => "avoid"}
+#! {"backend" => "anonymous", "error" => "madv_hard", "access" => "later"}
+#! {"backend" => "anonymous", "error" => "madv_hard", "access" => "avoid"}
+#! {"backend" => "anonymous", "error" => "madv_soft", "access" => "later"}
+#! {"backend" => "anonymous", "error" => "madv_soft", "access" => "avoid"}
+
+#! {"backend" => "pagecache", "error" => "hard-offline", "access" => "later"}
+#! {"backend" => "pagecache", "error" => "hard-offline", "access" => "avoid"}
+#! {"backend" => "pagecache", "error" => "soft-offline", "access" => "later"}
+#! {"backend" => "pagecache", "error" => "soft-offline", "access" => "avoid"}
+#! {"backend" => "pagecache", "error" => "madv_hard", "access" => "later"}
+#! {"backend" => "pagecache", "error" => "madv_hard", "access" => "avoid"}
+#! {"backend" => "pagecache", "error" => "madv_soft", "access" => "later"}
+#! {"backend" => "pagecache", "error" => "madv_soft", "access" => "avoid"}
+
+#! {"backend" => "ksm", "error" => "hard-offline", "access" => "later"}
+#! {"backend" => "ksm", "error" => "hard-offline", "access" => "avoid"}
+#! {"backend" => "ksm", "error" => "soft-offline", "access" => "later"}
+#! {"backend" => "ksm", "error" => "soft-offline", "access" => "avoid"}
+#! {"backend" => "ksm", "error" => "madv_hard", "access" => "later"}
+#! {"backend" => "ksm", "error" => "madv_hard", "access" => "avoid"}
+#! {"backend" => "ksm", "error" => "madv_soft", "access" => "later"}
+#! {"backend" => "ksm", "error" => "madv_soft", "access" => "avoid"}
+
+#! {"backend" => "hugetlb_anon", "error" => "hard-offline", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_anon", "error" => "hard-offline", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_anon", "error" => "hard-offline", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_anon", "error" => "hard-offline", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_anon", "error" => "soft-offline", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_anon", "error" => "soft-offline", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_anon", "error" => "soft-offline", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_anon", "error" => "soft-offline", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_anon", "error" => "madv_hard", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_anon", "error" => "madv_hard", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_anon", "error" => "madv_hard", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_anon", "error" => "madv_hard", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_anon", "error" => "madv_soft", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_anon", "error" => "madv_soft", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_anon", "error" => "madv_soft", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_anon", "error" => "madv_soft", "access" => "avoid", "error_offset" => "tail"}
+
+#! {"backend" => "hugetlb_file", "error" => "hard-offline", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_file", "error" => "hard-offline", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_file", "error" => "hard-offline", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_file", "error" => "hard-offline", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_file", "error" => "soft-offline", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_file", "error" => "soft-offline", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_file", "error" => "soft-offline", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_file", "error" => "soft-offline", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_file", "error" => "madv_hard", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_file", "error" => "madv_hard", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_file", "error" => "madv_hard", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_file", "error" => "madv_hard", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_file", "error" => "madv_soft", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_file", "error" => "madv_soft", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_file", "error" => "madv_soft", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_file", "error" => "madv_soft", "access" => "avoid", "error_offset" => "tail"}
+
+#! {"backend" => "hugetlb_shmem", "error" => "hard-offline", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_shmem", "error" => "hard-offline", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_shmem", "error" => "hard-offline", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_shmem", "error" => "hard-offline", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_shmem", "error" => "soft-offline", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_shmem", "error" => "soft-offline", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_shmem", "error" => "soft-offline", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_shmem", "error" => "soft-offline", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_shmem", "error" => "madv_hard", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_shmem", "error" => "madv_hard", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_shmem", "error" => "madv_hard", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_shmem", "error" => "madv_hard", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_shmem", "error" => "madv_soft", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "hugetlb_shmem", "error" => "madv_soft", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "hugetlb_shmem", "error" => "madv_soft", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "hugetlb_shmem", "error" => "madv_soft", "access" => "avoid", "error_offset" => "tail"}
+
+#! {"backend" => "thp", "error" => "hard-offline", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "thp", "error" => "hard-offline", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "thp", "error" => "hard-offline", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "thp", "error" => "hard-offline", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "thp", "error" => "soft-offline", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "thp", "error" => "soft-offline", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "thp", "error" => "soft-offline", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "thp", "error" => "soft-offline", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "thp", "error" => "madv_hard", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "thp", "error" => "madv_hard", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "thp", "error" => "madv_hard", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "thp", "error" => "madv_hard", "access" => "avoid", "error_offset" => "tail"}
+#! {"backend" => "thp", "error" => "madv_soft", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "thp", "error" => "madv_soft", "access" => "later", "error_offset" => "tail"}
+#! {"backend" => "thp", "error" => "madv_soft", "access" => "avoid", "error_offset" => "head"}
+#! {"backend" => "thp", "error" => "madv_soft", "access" => "avoid", "error_offset" => "tail"}
+
+#! {"backend" => "buddy", "error" => "hard-offline"}
+#! {"backend" => "buddy", "error" => "soft-offline"}
+
+#! {"backend" => "free_hugepage", "error" => "hard-offline"}
+#! {"backend" => "free_hugepage", "error" => "soft-offline"}
+
+#! {"backend" => "huge_zero", "error" => "hard-offline", "access" => "later", "error_offset" => "head"}
+#! {"backend" => "huge_zero", "error" => "soft-offline", "access" => "later", "error_offset" => "head"}
+
+. $TRDIR/lib/setup_mce_test.sh
+
+BACKEND=<%= param["backend"] %>
+ERROR_TYPE=<%= param["error"] %>
+ACCESS=<%= param["access"] %>
+
+<% if param["access"] == "later" %>
+INJOP="memory_error_injection:error_type=$ERROR_TYPE:access_after_injection"
+<% else %>
+INJOP=memory_error_injection:error_type=$ERROR_TYPE
+<% end %>
+
+<% if param["error_offset"] == "head" %>
+INJOP="$INJOP:error_offset=0"
+ERROR_OFFSET=0
+<% elsif param["error_offset"] == "tail" %>
+INJOP="$INJOP:error_offset=1"
+ERROR_OFFSET=1
+<% else %>
+INJOP="$INJOP:error_offset=0"
+ERROR_OFFSET=0
+<% end %>
+
+TEST_PROGRAM="test_alloc_generic -B $BACKEND -N 2 -L 'start:wait_after mmap access:wait_after=1000000 $INJOP munmap:wait_before exit:wait_before' ${DEBUG:+-v}"
+
+<% if param["backend"] == "thp" %>
+THP=100
+<% elsif param["backend"] =~ /(hugetlb_free|hugetlb_anon|hugetlb_shmem|hugetlb_file)/ %>
+HUGETLB=100
+HUGEPAGESIZE=2048 # kB
+<% elsif param["backend"] == "ksm" %>
+FALSENEGATIVE=false
+<% elsif param["backend"] =~ /(zero|huge_zero)/ %>
+FALSENEGATIVE=true
+<% elsif param["backend"] == "buddy" %>
+unset TEST_PROGRAM
+
+_control() {
+	# TODO: racy
+	local pfn=$(page-types -b buddy,hwpoison=buddy -Nl | grep -v offset | head -n1 | cut -f1)
+	if [ ! "$pfn" ] ; then
+		set_return_code PFN_NOT_FOUND
+		return 1
+	fi
+	$MCEINJECT -e $ERROR_TYPE -a 0x$pfn
+	set_return_code INJECT
+	set_return_code EXIT
+}
+<% elsif param["backend"] == "free_hugepage" %>
+HUGETLB=300
+unset TEST_PROGRAM
+
+_control() {
+	# TODO: racy
+	TARGET_PAGEFLAG="huge,compound_head,mmap,hwpoison=huge,compound_head"
+	local pfn=$(page-types -b $TARGET_PAGEFLAG -Nl | grep -v offset | tail -n1 | cut -f1)
+	if [ ! "$pfn" ] ; then
+		set_return_code PFN_NOT_FOUND
+		return 1
+	fi
+	$MCEINJECT -e $ERROR_TYPE -a 0x$pfn
+	set_return_code INJECT
+	set_return_code EXIT
+}
+<% end %>
+
+<% if param["error"] =~ /(hard-offline|madv_hard)/ %>
+	<% if param["access"] == "later" %>
+	EXPECTED_RETURN_CODE="INJECT ACCESS KILLED_IN_ACCESS"
+	<% else %>
+	EXPECTED_RETURN_CODE="INJECT EXIT"
+	<% end %>
+<% else %>
+	<% if param["access"] == "later" %>
+	EXPECTED_RETURN_CODE="INJECT ACCESS ACCESS_SUCCEEDED EXIT"
+	<% else %>
+	EXPECTED_RETURN_CODE="INJECT EXIT"
+	<% end %>
+<% end %>

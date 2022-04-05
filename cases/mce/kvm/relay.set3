@@ -1,26 +1,18 @@
 ##!1 BACKEND: anonymous pagecache ksm zero
 ##!1 ERROR_TYPE: mce-srao hard-offline soft-offline madv_hard madv_soft
 
-#! {"backend" => "clean_pagecache", "error" => "mce-srao", "hostbackend" => "hostanon"}
-#! {"backend" => "clean_pagecache", "error" => "mce-srao", "hostbackend" => "hostthp"}
 #! {"backend" => "clean_pagecache", "error" => "hard-offline", "hostbackend" => "hostanon"}
 #! {"backend" => "clean_pagecache", "error" => "hard-offline", "hostbackend" => "hostthp"}
 #! {"backend" => "clean_pagecache", "error" => "soft-offline", "hostbackend" => "hostanon"}
 #! {"backend" => "clean_pagecache", "error" => "soft-offline", "hostbackend" => "hostthp"}
-#! {"backend" => "dirty_pagecache", "error" => "mce-srao", "hostbackend" => "hostanon"}
-#! {"backend" => "dirty_pagecache", "error" => "mce-srao", "hostbackend" => "hostthp"}
 #! {"backend" => "dirty_pagecache", "error" => "hard-offline", "hostbackend" => "hostanon"}
 #! {"backend" => "dirty_pagecache", "error" => "hard-offline", "hostbackend" => "hostthp"}
 #! {"backend" => "dirty_pagecache", "error" => "soft-offline", "hostbackend" => "hostanon"}
 #! {"backend" => "dirty_pagecache", "error" => "soft-offline", "hostbackend" => "hostthp"}
-#! {"backend" => "anonymous", "error" => "mce-srao", "hostbackend" => "hostanon"}
-#! {"backend" => "anonymous", "error" => "mce-srao", "hostbackend" => "hostthp"}
 #! {"backend" => "anonymous", "error" => "hard-offline", "hostbackend" => "hostanon"}
 #! {"backend" => "anonymous", "error" => "hard-offline", "hostbackend" => "hostthp"}
 #! {"backend" => "anonymous", "error" => "soft-offline", "hostbackend" => "hostanon"}
 #! {"backend" => "anonymous", "error" => "soft-offline", "hostbackend" => "hostthp"}
-#! {"backend" => "thp", "error" => "mce-srao", "hostbackend" => "hostanon"}
-#! {"backend" => "thp", "error" => "mce-srao", "hostbackend" => "hostthp"}
 #! {"backend" => "thp", "error" => "hard-offline", "hostbackend" => "hostanon"}
 #! {"backend" => "thp", "error" => "hard-offline", "hostbackend" => "hostthp"}
 #! {"backend" => "thp", "error" => "soft-offline", "hostbackend" => "hostanon"}
