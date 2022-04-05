@@ -1,0 +1,71 @@
+#! {"pagecache" => "clean"}
+#! {"pagecache" => "dirty"}
+#
+# Related patches
+# - commit e53ac7374e64 ("mm: invalidate hwpoison page cache page in fault path")
+# - commit 3149c79f3cb0 ("mm,hwpoison: unmap poisoned page before invalidation")
+#
+# This testcase is to confirm that no panic or no infinite loop happens.
+#
+# Note: to run this testcase, the test system needs to install systemtap
+# (which should be latest enough to work with latest upstream kernel).
+# The systemtap binary should be pointed to by environment variable STAP_DIR.
+
+TEST_TYPE=debug
+TEST_PRIORITY=10
+
+<% if param["pagecache"] == "clean" %>
+EXPECTED_RETURN_CODE="OK OK"
+<% else %>
+EXPECTED_RETURN_CODE="SIGBUS SIGBUS"
+<% end %>
+
+PAGECACHE=<%= param["pagecache"] %>
+
+_prepare() {
+	if [ ! -s "$STAP_DIR" ] ; then
+		echo "environment variable STAP_DIR not set." >&2
+		return 1
+	fi
+
+	if [ ! -s "$STAP_DIR/stap" ] ; then
+		echo "Systemtap binary not found ($STAP_DIR/stap)"
+		return 1
+	fi
+
+	if [ ! -s "$GTMPD/stap_mark_pghwpoison.ko" ] ; then
+		$STAP_DIR/stap -g -p4 -m stap_mark_pghwpoison \
+					   -DSTP_OVERLOAD_THRESHOLD=10000000 \
+					   --suppress-time-limits \
+					   -DMAXACTION=1000000 \
+					   $TRDIR/lib/stap/mark_pghwpoison.stp \
+			|| return 1
+		mv stap_mark_pghwpoison.ko $GTMPD/
+	fi
+}
+
+_control() {
+	dd if=/dev/zero of=tmp/testfile bs=4k count=1 status=none
+	page-types -f tmp/testfile -Nrl | tee $TMPD/pagemap
+	local pfn=0x$(sed -n 2p $TMPD/pagemap | cut -f2)
+	<% if param["pagecache"] == "dirty" %>
+	test_alloc_generic -B pagecache -n 1 -f testfile -L 'mmap access'
+	<% end %>
+	$STAP_DIR/staprun $GTMPD/stap_mark_pghwpoison.ko pfn=$pfn
+	test_alloc_generic -B pagecache -n 1 -f testfile -L "mmap access"
+	if [ $? -eq 0 ] ; then
+		set_return_code OK
+	else
+		set_return_code SIGBUS
+	fi
+	test_alloc_generic -B pagecache -n 1 -f testfile -L "mmap access"
+	if [ $? -eq 0 ] ; then
+		set_return_code OK
+	else
+		set_return_code SIGBUS
+	fi
+}
+
+_cleanup() {
+	true
+}

@@ -1,0 +1,17 @@
+%{
+#include <linux/mm.h>
+%}
+
+function set_hwpoison(pfn:long) %{
+	unsigned long pfn = (unsigned long)STAP_ARG_pfn;
+	struct page *page = pfn_to_page(pfn);
+
+	_stp_printf("---> pfn %lx, flags %lx\n", pfn, page->flags);
+	page->flags ^= 1 << PG_hwpoison;
+%}
+
+global pfn = 0;
+probe begin {
+	set_hwpoison(pfn);
+	exit();
+}
