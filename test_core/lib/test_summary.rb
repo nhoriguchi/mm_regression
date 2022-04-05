@@ -340,6 +340,7 @@ class TestSummary
         @targets += [dat]
       end
     end
+    @targets.filter! {|t| File.exist? "#{t}/environment"}
     @targets.sort! do |a, b|
       File.mtime(a + "/recipelist") <=> File.mtime(b + "/recipelist")
     end
