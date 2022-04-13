@@ -1,0 +1,77 @@
+# Related to discussion (but this testcase is for hugetlb)
+#   https://lore.kernel.org/linux-mm/7362f9ee-81fa-702a-7a03-1a91ecf0b58e@oracle.com/
+
+TEST_TYPE=debug
+EXPECTED_RETURN_CODE="NOT_KILLED HUGETLB_POISONED RAW_PAGE_POISONED EXIT"
+
+_prepare() {
+	sysctl vm.nr_hugepages=10
+	mkdir -p tmp/hugetlbfs
+	mount -t hugetlbfs none tmp/hugetlbfs || return 1
+
+	if [ ! -s "$STAP_DIR" ] ; then
+		echo "environment variable STAP_DIR not set." >&2
+		return 1
+	fi
+
+	if [ ! -s "$STAP_DIR/stap" ] ; then
+		echo "Systemtap binary not found ($STAP_DIR/stap)"
+		return 1
+	fi
+
+	if [ ! -s "$GTMPD/stap_mark_pghwpoison.ko" ] ; then
+		$STAP_DIR/stap -g -p4 -m stap_mark_pghwpoison \
+					   -DSTP_OVERLOAD_THRESHOLD=10000000 \
+					   --suppress-time-limits \
+					   -DMAXACTION=1000000 \
+					   $TRDIR/lib/stap/mark_pghwpoison.stp \
+			|| return 1
+		mv stap_mark_pghwpoison.ko $GTMPD/
+		sync
+	fi
+}
+
+_cleanup() {
+	umount -f tmp/hugetlbfs
+	sysctl vm.nr_hugepages=0
+}
+
+_control() {
+	test_alloc_generic -B pagecache -N 1 -w tmp/hugetlbfs -f testfile -L 'mmap access:wait_after access:wait_after' &
+	local pid=$!
+	page-types -f tmp/hugetlbfs/testfile -Nrl | tee $TMPD/pagemap
+	page-types -p $pid -a 0x700000000+0x200 -Nrl | tee $TMPD/pagemap2
+	local targetpfn=0x$(sed -n 2p $TMPD/pagemap2 | cut -f2)
+	echo "targetpfn:$targetpfn"
+	$STAP_DIR/staprun $GTMPD/stap_mark_pghwpoison.ko pfn=$[targetpfn + 1] || return 1
+	page-types -p $pid -a 0x700000000+0x200 -Nrl | tee $TMPD/pagemap3
+	kill -SIGUSR1 $pid
+	sleep 0.2
+	if ! kill -0 $pid 2> /dev/null ; then
+		# process $pid was killed.
+		set_return_code KILLED
+	else
+		set_return_code NOT_KILLED
+		kill -SIGKILL $pid
+	fi
+	sleep 0.2
+	rm -f tmp/hugetlbfs/testfile
+	sysctl vm.nr_hugepages=0
+	grep -i huge /proc/meminfo
+	page-types -a ${targetpfn}+0x200 -Nrl | tee $TMPD/pagemap4
+
+	# check hwpoison page is still a hugepage.
+	if grep -q ___H_G_X___ $TMPD/pagemap3 ; then
+		set_return_code HUGETLB_POISONED
+	else
+		return 1
+	fi
+
+	local checkpfn="$(printf "%lx\n" $[$targetpfn + 1])"
+	# hwpoisoned should not be a buddy page (?)
+	if grep -q -E "^${checkpfn}.*______X____" $TMPD/pagemap4 ; then
+		set_return_code RAW_PAGE_POISONED
+	fi
+
+	set_return_code EXIT
+}

@@ -1,0 +1,46 @@
+# commit f87060d345232c7d855167a43faf006e24afa999
+# mm: fix panic caused by __page_handle_poison()
+
+TEST_TYPE=debug
+# soft-offline should succeed
+EXPECTED_RETURN_CODE="NOTSAME"
+
+_prepare() {
+	sysctl vm.nr_hugepages=10
+}
+
+_cleanup() {
+	sysctl vm.nr_hugepages=0
+}
+
+_control() {
+	grep -i huge /proc/meminfo
+
+	test_alloc_generic -B hugetlb_anon -N 2 -L "mmap access noop:wait_after" -p $PIPE &
+
+	local pid=$!
+	read -t${PIPETIMEOUT} line <> $PIPE || return 1
+	[ "$line" != "after_noop" ] && return
+
+	# reserving makes dissolve_free_huge_page fail
+	test_alloc_generic -B hugetlb_anon -N 8 -L "mmap:wait_after" &
+
+	grep -i huge /proc/meminfo
+
+	page-types -p $pid -rlN -a 0x700000000+$[2*512] | grep -v offset | cut -f-3 | tee $TMPD/pagemap.1
+	local targetpfn=0x$(head -n1 $TMPD/pagemap.1 | cut -f2)
+	grep -i huge /proc/$pid/status | tee $TMPD/proc_status_hugetlb.1
+	echo ${targetpfn}000 > /sys/devices/system/memory/soft_offline_page
+	sleep 0.5
+	page-types -p $pid -rlN -a 0x700000000+$[2*512] | grep -v offset | cut -f-3 | tee $TMPD/pagemap.2
+	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.3
+	grep -i huge /proc/$pid/status | tee $TMPD/proc_status_hugetlb.2
+
+	kill -SIGUSR1 $pid
+
+	if diff $TMPD/pagemap.1 $TMPD/pagemap.2 > /dev/null ; then
+		set_return_code SAME
+	else
+		set_return_code NOTSAME
+	fi
+}

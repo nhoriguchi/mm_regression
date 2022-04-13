@@ -1,0 +1,71 @@
+#! {"error-type" => "soft-offline"}
+#! {"error-type" => "hard-offline", "dissolve" => "dequeue"}
+#! {"error-type" => "hard-offline", "dissolve" => "free"}
+
+# Related to discussion
+#   https://lore.kernel.org/linux-mm/7362f9ee-81fa-702a-7a03-1a91ecf0b58e@oracle.com/
+
+TEST_TYPE=debug
+EXPECTED_RETURN_CODE="HUGETLB_POISONED RAW_PAGE_POISONED EXIT"
+
+_prepare() {
+	sysctl vm.nr_hugepages=10
+}
+
+_cleanup() {
+	sysctl vm.nr_hugepages=0
+}
+
+_control() {
+	# reserving makes dissolve_free_huge_page fail
+	test_alloc_generic -B hugetlb_anon -N 10 -L "mmap:wait_after access:wait_after" &
+	local pid=$!
+
+	grep -i huge /proc/meminfo
+
+	page-types -b huge -rlN | grep -v offset | cut -f-3 | tee $TMPD/pagemap.1
+	local targetpfn=0x$(head -n1 $TMPD/pagemap.1 | cut -f1)
+	echo targetpfn: $targetpfn
+	<% if param["error-type"] == "soft-offline" %>
+	echo $[($targetpfn + 1) * 4096] > /sys/devices/system/memory/soft_offline_page
+	<% elsif param["error-type"] == "hard-offline" %>
+	echo $[($targetpfn + 1) * 4096] > /sys/devices/system/memory/hard_offline_page
+	<% end %>
+	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.2
+
+	# check hwpoison page is still a hugepage.
+	if grep -q ___H_G_X___ $TMPD/pagemap.2 ; then
+		set_return_code HUGETLB_POISONED
+	else
+		return 1
+	fi
+
+	<% if param["dissolve"] == "dequeue" %>
+	# remove reservation
+	kill -9 $pid
+	# this allocation try to dequeue hwpoisoned free page in free list,
+	# which causes deferred dissolve.
+	test_alloc_generic -B hugetlb_anon -N 9 -L "mmap access:wait_after" &
+	sleep 1
+	# hwpoisoned hugepage should be dissolved here.
+	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.3
+
+	<% elsif param["dissolve"] == "free" %>
+	# remove reservation
+	kill -9 $pid
+	sysctl vm.nr_hugepages=0
+	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.3
+
+	<% elsif param["dissolve"] == "unpoison" %>
+	<% end %>
+
+	grep -i huge /proc/meminfo
+
+	local checkpfn="$(printf "%lx\n" $[$targetpfn + 1])"
+	# hwpoisoned should not be a buddy page
+	if grep -q -E "^${checkpfn}.*______X____" $TMPD/pagemap.3 ; then
+		set_return_code RAW_PAGE_POISONED
+	fi
+
+	set_return_code EXIT
+}
