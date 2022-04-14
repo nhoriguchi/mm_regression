@@ -1,0 +1,71 @@
+# https://lore.kernel.org/linux-mm/20220324170600.16491-1-mike.kravetz@oracle.com/
+
+TEST_TYPE=wip
+
+HUGETLBFSDIR=tmp/hugetlbfs
+
+_prepare() {
+	sysctl vm.nr_hugepages=10
+	mount -t hugetlbfs none "$HUGETLBFSDIR"
+
+	cat <<EOF > /tmp/tmp_madv_dontneed.c
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <sys/mman.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+
+#define VADDR	0x700000000000
+
+int main(int argc, char **argv) {
+	int fd;
+	int ret;
+	char *ptr;
+	unsigned char vec[4096];
+	int size = 6 << 20;
+
+	fd = open("tmp/hugetlbfs/testfile", O_RDWR|O_CREAT);
+	if (fd < 0) {
+		perror("open");
+		return 1;
+	}
+	ptr = mmap((void *)VADDR, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+	printf("ptr %p\n", ptr);
+	ret = mincore(ptr, size, vec);
+	if (ret)
+		perror("mincore");
+	printf("%d %d %d %d %d %d\n", vec[0], vec[1], vec[512], vec[513], vec[1024], vec[1025]);
+	memset(ptr, 3, size);
+	ret = mincore(ptr, size, vec);
+	if (ret)
+		perror("mincore");
+	printf("%d %d %d %d %d %d\n", vec[0], vec[1], vec[512], vec[513], vec[1024], vec[1025]);
+	ret = madvise(ptr, size, MADV_RANDOM);
+	perror("madvise(MADV_RANDOM)");
+	ret = madvise(ptr, size, MADV_SEQUENTIAL);
+	perror("madvise(MADV_SEQUENTIAL)");
+	return ret;
+}
+EOF
+	gcc -o $TMPD/tmp_madv_dontneed /tmp/tmp_madv_dontneed.c || return 1
+}
+
+_control() {
+	test_alloc_generic -B hugetlb_file -N 3 -w tmp -f testfile -L 'mmap access'
+	echo "---"
+	$TMPD/tmp_madv_dontneed
+	# trace-cmd record -p function_graph $TMPD/tmp_madv_dontneed
+	echo "---"
+	/root/linux/tools/vm/page-types -f $HUGETLBFSDIR/testfile -Nrl | tee $TMPD/pagemap2 | head
+	echo "---"
+	ls -l $HUGETLBFSDIR
+	grep -i huge /proc/meminfo
+}
+
+_cleanup() {
+	rm -rf "$HUGETLBFSDIR/*"
+	umount "$HUGETLBFSDIR"
+	sysctl vm.nr_hugepages=0
+}

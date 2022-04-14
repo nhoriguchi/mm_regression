@@ -1,0 +1,71 @@
+# https://lore.kernel.org/linux-mm/20220324170600.16491-1-mike.kravetz@oracle.com/
+
+TEST_TYPE=wip
+
+HUGETLBFSDIR=tmp/hugetlbfs
+[ ! -d "$HUGETLBFSDIR" ] && mkdir -p $HUGETLBFSDIR
+
+_prepare() {
+	sysctl vm.nr_hugepages=10
+	mount -t hugetlbfs none "$HUGETLBFSDIR"
+
+	cat <<EOF > /tmp/tmp_madv_dontneed.c
+#include <stdio.h>
+#include <sys/mman.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <signal.h>
+
+#define VADDR	0x700000000000
+
+int flag = 1;
+void sig_handle_flag(int signo) { flag = 0; }
+
+int main() {
+	int size = 6 << 20;
+	char *ptr;
+	int fd;
+	int ret;
+
+	signal(SIGUSR1, sig_handle_flag);
+
+	fd = open("tmp/hugetlbfs/testfile", O_RDWR|O_CREAT);
+	if (fd < 0) {
+		perror("open");
+		return 1;
+	}
+	ptr = mmap((void *)VADDR, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+	memset(ptr, 0, size);
+	pause();
+	ret = madvise(ptr + (2 << 20), 2 << 20, MADV_DONTNEED);
+	// ret = madvise(ptr + (2 << 20) - 4096, 2 * 4096 + (2 << 20), MADV_DONTNEED);
+	pause();
+	return 0;
+}
+EOF
+	gcc -o $TMPD/tmp_madv_dontneed /tmp/tmp_madv_dontneed.c || return 1
+}
+
+_control() {
+	test_alloc_generic -B hugetlb_file -N 3 -w tmp -f testfile -L 'mmap access'
+	$TMPD/tmp_madv_dontneed &
+	local pid=$!
+	sleep 0.2
+	page-types -p $pid -a 0x700000000+$[10<<20] -Nrl | tee $TMPD/pagemap1 | head
+	kill -SIGUSR1 $pid
+	sleep 0.2
+	page-types -p $pid -a 0x700000000+$[10<<20] -Nrl | tee $TMPD/pagemap2 | head
+	kill -SIGUSR1 $pid
+	ls -l $HUGETLBFSDIR
+	grep -i huge /proc/meminfo
+
+	# check madv succeeded
+}
+
+_cleanup() {
+	rm -rf "$HUGETLBFSDIR/*"
+	umount "$HUGETLBFSDIR"
+	sysctl vm.nr_hugepages=0
+}

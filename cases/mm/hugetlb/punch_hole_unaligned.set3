@@ -1,0 +1,104 @@
+# https://lore.kernel.org/linux-mm/20220324170600.16491-1-mike.kravetz@oracle.com/
+
+TEST_TYPE=debug
+
+HUGETLBFSDIR=tmp/hugetlbfs
+
+_prepare() {
+	sysctl vm.nr_hugepages=10
+	mount -t hugetlbfs none "$HUGETLBFSDIR"
+
+	cat <<EOF > /tmp/tmp_madv_dontneed.c
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <sys/mman.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+
+#define VADDR	0x700000000000
+
+int main(int argc, char **argv) {
+	int fd;
+	int ret;
+	int offset;
+	int len;
+
+	offset = strtol(argv[1], NULL, 0);
+	len = strtol(argv[2], NULL, 0);
+
+	fd = open("tmp/hugetlbfs/testfile", O_RDWR|O_CREAT);
+	if (fd < 0) {
+		perror("open");
+		return 1;
+	}
+	ret = fallocate(fd, FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE, offset, len);
+	if (ret)
+		perror("fallocate");
+	return ret;
+}
+EOF
+	gcc -o $TMPD/tmp_madv_dontneed /tmp/tmp_madv_dontneed.c || return 1
+}
+
+_control() {
+	test_alloc_generic -B hugetlb_file -N 3 -w tmp -f testfile -L 'mmap access'
+	ls -l $HUGETLBFSDIR/testfile
+	$TMPD/tmp_madv_dontneed 0x300000 0x300000
+	# trace-cmd record -p function_graph $TMPD/tmp_madv_dontneed 0x300000 0x300000
+	ls -l $HUGETLBFSDIR/testfile
+	for i in $(seq 0 5) ; do
+		echo -n "$i: "
+		dd if=tmp/hugetlbfs/testfile bs=4 count=1 skip="$[(i<<20)/4]" status=none ; echo
+	done | tee $TMPD/1
+
+	test_alloc_generic -B hugetlb_file -N 3 -w tmp -f testfile -L 'mmap access'
+	ls -l $HUGETLBFSDIR/testfile
+	$TMPD/tmp_madv_dontneed 0x200000 0x200000
+	ls -l $HUGETLBFSDIR/testfile
+	for i in $(seq 0 5) ; do
+		echo -n "$i: "
+		dd if=tmp/hugetlbfs/testfile bs=4 count=1 skip="$[(i<<20)/4]" status=none ; echo
+	done | tee $TMPD/2
+
+	test_alloc_generic -B hugetlb_file -N 3 -w tmp -f testfile -L 'mmap access'
+	ls -l $HUGETLBFSDIR/testfile
+	$TMPD/tmp_madv_dontneed 0x100000 0x400000
+	ls -l $HUGETLBFSDIR/testfile
+	for i in $(seq 0 5) ; do
+		echo -n "$i: "
+		dd if=tmp/hugetlbfs/testfile bs=4 count=1 skip="$[(i<<20)/4]" status=none ; echo
+	done | tee $TMPD/3
+
+	grep -i huge /proc/meminfo
+}
+
+_cleanup() {
+	rm -rf "$HUGETLBFSDIR/*"
+	umount "$HUGETLBFSDIR"
+	sysctl vm.nr_hugepages=0
+}
+
+_check() {
+	count_testcount "truncate [0x300000,0x600000)"
+	if grep -q -e "[3,4,5]: aaaa" $TMPD/1 ; then
+		count_failure
+	else
+		count_success
+	fi
+
+	count_testcount "truncate [0x200000,0x400000)"
+	if grep -q -e "[2,3]: aaaa" $TMPD/2 ; then
+		count_failure
+	else
+		count_success
+	fi
+
+	count_testcount "truncate [0x100000,0x500000)"
+	if grep -q -e "[1,2,3,4]: aaaa" $TMPD/3 ; then
+		count_failure
+	else
+		count_success
+	fi
+}
