@@ -163,7 +163,7 @@ run_recipe() {
 		date +%s%3N > $RTMPD/end_time
 		echo FINISHED > $RTMPD/run_status
 		rm -f $GTMPD/current_testcase
-		echo -n cases/$recipe_relpath > $GTMPD/finished_testcase
+		echo -n cases/$recipe_relpath > $GTMPD/__finished_testcase
 		sync
 	fi
 	set +o pipefail
@@ -273,30 +273,30 @@ generate_recipelist() {
 
 	# recipe control, need to have separate function for this
 	if [ "$AGAIN" == true ] ; then
-		rm -f $GTMPD/finished_testcase 2> /dev/null
+		rm -f $GTMPD/__finished_testcase 2> /dev/null
 	fi
 
-	if [ -f "$GTMPD/finished_testcase" ] ; then
-		local nr_point="$(grep -x -n $(cat $GTMPD/finished_testcase) $GTMPD/recipelist | cut -f1 -d:)"
-		sed -n $[nr_point + 1]',$p' $GTMPD/recipelist > $GTMPD/remaining_recipelist
+	if [ -f "$GTMPD/__finished_testcase" ] ; then
+		local nr_point="$(grep -x -n $(cat $GTMPD/__finished_testcase) $GTMPD/recipelist | cut -f1 -d:)"
+		sed -n $[nr_point + 1]',$p' $GTMPD/recipelist > $GTMPD/__remaining_recipelist
 	else
-		cp $GTMPD/recipelist $GTMPD/remaining_recipelist
+		cp $GTMPD/recipelist $GTMPD/__remaining_recipelist
 	fi
 
 	if [ "$FILTER" ] ; then
-		grep "$FILTER" $GTMPD/remaining_recipelist > $GTMPD/run_recipes
+		grep "$FILTER" $GTMPD/__remaining_recipelist > $GTMPD/__run_recipes
 	else
-		cp $GTMPD/remaining_recipelist $GTMPD/run_recipes
+		cp $GTMPD/__remaining_recipelist $GTMPD/__run_recipes
 	fi
 
-	# $GTMPD/run_recipes is the final recipe list to run.
+	# $GTMPD/__run_recipes is the final recipe list to run.
 }
 
 generate_recipelist
 . $TCDIR/lib/environment.sh
 
 if [ "$USER" != root ] ; then
-	run_recipes ": $(cat $GTMPD/run_recipes | tr '\n' ' ')"
+	run_recipes ": $(cat $GTMPD/__run_recipes | tr '\n' ' ')"
 	exit
 fi
 
@@ -309,9 +309,9 @@ if [ "$BACKGROUND" ] ; then # kick background service and kick now
 		systemctl start test.service
 	fi
 else
-	run_recipes ": $(cat $GTMPD/run_recipes | tr '\n' ' ')"
+	run_recipes ": $(cat $GTMPD/__run_recipes | tr '\n' ' ')"
 	echo "All testcases in project $RUNNAME finished." | tee /dev/kmsg
-	touch work/$RUNNAME/finished
+	touch work/$RUNNAME/__finished
 	ruby test_core/lib/test_summary.rb work/$RUNNAME
 
 	if [ -f /etc/systemd/system/test.service ] ; then

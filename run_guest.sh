@@ -55,7 +55,7 @@ ssh $VM \
 for i in $(seq $TIMEOUT) ; do
 	sleep 60
 
-	if ssh $VM stat $WDIR/work/$RUNNAME/$FAILRETRY/finished 2>&1 > /dev/null ; then
+	if ssh $VM stat $WDIR/work/$RUNNAME/$FAILRETRY/__finished 2>&1 > /dev/null ; then
 		break
 	else
 		echo "$(date +'%y%m%d %H:%M:%S') ($i/$TIMEOUT) testing on vm $VM still running..."
