@@ -49,7 +49,7 @@ allrecipes:
 	@true
 
 recipe_priority:
-	@ruby test_core/lib/recipe.rb list
+	@ruby test_core/lib/recipe.rb list all
 	@true
 
 prepare:

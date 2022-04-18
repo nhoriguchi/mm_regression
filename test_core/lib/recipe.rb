@@ -139,6 +139,8 @@ class RecipeSet
 
     OptionParser.new do |opts|
       opts.banner = "Usage: #{$0} [-h|--help]"
+      # opts.on("--all") do |nw|
+      # end
     end.parse! args
   end
 
@@ -185,6 +187,10 @@ if $0 == __FILE__
     type_width = rs.list.map {|a| a[:type].size}.max + 1
     rs.list.each do |a|
       next if a[:id] =~ /\/config$/
+      if ARGV[1] == "all"
+      else
+        next if a[:id] =~ /\/.*\.tmp$/
+      end
       printf("%-#{type_width}s%d\t%s\n", a[:type], a[:priority], a[:id])
     end
   end
