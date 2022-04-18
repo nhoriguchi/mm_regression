@@ -1,0 +1,73 @@
+#! {"error" => "hard-offline"}
+#! {"error" => "soft-offline"}
+
+TEST_TYPE=normal
+TEST_PRIORITY=13
+
+HUGETLB=100
+BGPID=
+ITERATIONS=10
+
+_prepare() {
+	rm -rf ${TDIR:?not found}/*
+	sysctl vm.nr_hugepages=$HUGETLB
+	echo 'madvise' > /sys/kernel/mm/transparent_hugepage/enabled
+	test_alloc_generic -B pagecache -B anonymous -B thp -B hugetlb_anon -N 4 -L 'mmap access busyloop' &
+	BGPID=$!
+	sleep 1
+	if ! kill -0 $BGPID 2> /dev/null ; then
+		echo process test_alloc_generic not exist >&2
+		return 1
+	fi
+}
+
+_cleanup() {
+	sysctl vm.nr_hugepages=0
+	echo 'always' > /sys/kernel/mm/transparent_hugepage/enabled
+}
+
+page_offline() {
+	local addr=$1
+
+	<% if param["error"] == "hard-offline" %>
+	echo $addr > /sys/devices/system/memory/hard_offline_page
+	<% elsif param["error"] == "soft-offline" %>
+	echo $addr > /sys/devices/system/memory/soft_offline_page
+	<% end %>
+}
+
+sync_page_offline() {
+	local addr=$1
+	local file=$2
+
+	while true ; do
+		[ ! -s "$file" ] && break
+	done
+
+	page_offline $addr
+}
+
+combination() {
+	touch $TMPD/lockfile
+	for pfn in $(cat $TMPD/pfns) ; do
+		(
+			sync_page_offline 0x${pfn}000 $TMPD/lockfile
+		) &
+	done
+	sleep 0.1
+	rm -f $TMPD/lockfile
+	sleep 0.2
+}
+
+_control() {
+	for i in $(seq $ITERATIONS) ; do
+		page-types -p $BGPID -a 0x700000000+$[160*512] -NLr | grep -v offset > $TMPD/.pagetypes
+		wc -l $TMPD/.pagetypes
+		echo -n > $TMPD/pfns
+		for j in $(seq 16) ; do
+			sed -n $[RANDOM % 8192 + 1]p $TMPD/.pagetypes | cut -f2 >> $TMPD/pfns
+		done
+		echo "target pfns: $(cat $TMPD/pfns | tr '\n' ' ')"
+		combination
+	done
+}
