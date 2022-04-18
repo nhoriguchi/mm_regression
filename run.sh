@@ -220,7 +220,7 @@ case $1 in
 	c|cl|cle|clea|clean)
 		make clean
 		;;
-	re|rec|reci|recip|recipe)
+	re|rec|reci|recip|recipe|recipes)
 		shift 1
 		case $1 in
 			s|sp|spl|spli|split|g|ge|gen|gene|gener|genera|generat|generate)
