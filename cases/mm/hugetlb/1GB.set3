@@ -1,15 +1,32 @@
-#! {"base" => "base"}
+#! {"offline" => "hard"}
+#! {"offline" => "soft"}
+#! {"offline" => "hard", "fork" => "true"}
+#! {"offline" => "soft", "fork" => "true"}
+#! {"offline" => "hard", "fork" => "true", "memset" => "true"}
 
-# TODO:
-
-TEST_PRIORITY=20
+TEST_TYPE=debug
+TEST_PRIORITY=16
 
 HUGETLBFSDIR=tmp/hugetlbfs
 
+OFFLINE=<%= param["offline"] %>
+
+<% if param["fork"] == "true" %>
+FORK=fork
+<% else %>
+FORK=.
+<% end %>
+
+<% if param["memset"] == "true" %>
+MEMSET=fork
+<% else %>
+MEMSET=.
+<% end %>
+
+
 . $TRDIR/lib/setup_mmgeneric.sh
 
-# TEST_PROGRAM="test_alloc_generic -L 'start:wait_after memory_compaction exit:wait_before'"
-EXPECTED_RETURN_CODE="EXIT"
+EXPECTED_RETURN_CODE="OFFLINE_PASS EXIT"
 PIPETIMEOUT=30
 HUGEPAGESIZE=1048576
 
@@ -22,13 +39,17 @@ _prepare() {
 		return 1
 	fi
 
+	echo 2 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages || return 1
+
 	if [ "$(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)" -eq 0 ] ; then
 		echo "no 1GB hugetlb allocated. abort." >&2
 		return 1
 	fi
 
 	[ ! -d "$HUGETLBFSDIR" ] && mkdir -p "$HUGETLBFSDIR"
-	ls /sys/kernel/mm/hugepages/hugepages-1048576kB
+	find /sys/kernel/mm/hugepages/hugepages-1048576kB -type f | while read f ; do
+		echo "$f $(cat $f)"
+	done
 	mount -t hugetlbfs -o pagesize=1G,size=1G none "$HUGETLBFSDIR"
 }
 
@@ -36,15 +57,23 @@ _cleanup() {
 	cleanup_mm_generic
 	cleanup_system_default
 
+	rm -rf $HUGETLBFSDIR/*
 	umount "$HUGETLBFSDIR"
+	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
 }
 
 _control() {
-	./hugetlb_1gb double
-	ls -l "$HUGETLBFSDIR"
-	cat /proc/mounts | grep hugetlb
-	mount | grep hugetlb
-	true
+	echo "+++++++ offline:$OFFLINE fork:$FORK, memset:$MEMSET"
+	hugetlb_1gb double $OFFLINE $FORK $MEMSET | tee $TMPD/out.$OFFLINE &
+	local pid=$!
+	sleep 0.1
+	if grep -q "ret 1: 0" $TMPD/out.$OFFLINE ; then
+		set_return_code OFFLINE_PASS
+	fi
+	page-types -b huge -Nrl
+	kill -SIGUSR1 $pid
+
+	set_return_code EXIT
 }
 
 _check() {
