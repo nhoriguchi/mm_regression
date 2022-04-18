@@ -1,0 +1,92 @@
+# To reproduce the issue reported in the following threads:
+# v1: https://lore.kernel.org/linux-mm/20210511070329.2002597-1-yangerkun@huawei.com/
+# v2: https://lore.kernel.org/linux-mm/20210604084705.3729204-1-yangerkun@huawei.com/
+
+#! {"type" => "unevictable"}
+#! {"type" => "non-lru"}
+#! {"type" => "writeback"}
+
+TEST_TYPE=normal
+TEST_PRIORITY=10
+
+RACE_ITERATIONS=20
+
+EXPECTED_RETURN_CODE="EXIT"
+
+loop=loop2
+loopfile=/tmp/.disk
+
+modprobe hwpoison-inject
+
+_prepare() {
+	dd if=/dev/zero of=$loopfile bs=1M count=32 || return 1
+	ls -lart $TMPD/
+
+	losetup /dev/$loop $loopfile || return 1
+	mkfs.ext4 /dev/$loop || return 1
+	mount /dev/$loop $TRDIR/tmp || return 1
+
+	ls -ltra /dev | tail
+	mount
+	tune2fs -l /dev/$loop | grep -i jour
+	ulimit -l unlimited
+
+	set -x
+	# echo 1 > /sys/kernel/debug/hwpoison/corrupt-filter-enable
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-memcg
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-flags-value
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-flags-mask
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-dev-minor
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-dev-major
+	cat /sys/kernel/debug/hwpoison/corrupt-filter-enable
+	set +x
+}
+
+_control() {
+	local pid=
+
+	<% if param["type"] == "unevictable" %>
+	echo 0x0000000000040000 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-mask
+	echo 0x0000000000040000 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-value
+	<% elsif param["type"] == "non-lru" %>
+	echo 0x0000000000000820 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-mask
+	echo 0x0000000000000800 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-value
+	<% else %>
+	echo 0x0000000000000100 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-mask
+	echo 0x0000000000000100 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-value
+	<% end %>
+
+	for i in $(seq $RACE_ITERATIONS) ; do
+		<% if param["type"] == "unevictable" %>
+		test_alloc_generic -B pagecache -n 10 -L 'mmap access iterate_mlock' 2> /dev/null &
+		<% elsif param["type"] == "non-lru" %>
+		test_alloc_generic -B pagecache -N 10 -L 'mmap access iterate_mlock' 2> /dev/null &
+		<% else %>
+		test_alloc_generic -B pagecache -n 10 -L 'mmap access iterate_write_fsync' 2> /dev/null &
+		<% end %>
+		pid=$!
+
+		for j in $(seq 100) ; do
+			check_process_status $pid || break
+			<% if param["type"] == "unevictable" %>
+			page-types -p $pid -b unevictable -X -a 0x700000000+10 -Nrl | grep -v offset
+			<% elsif param["type"] == "non-lru" %>
+			page-types -p $pid -b lru,mmap=mmap -X -a 0x700000000+$[10*512] -Nrl | grep -v offset
+			<% elsif param["type"] == "writeback" %>
+			page-types -p $pid -b writeback -X -a 0x700000000+10 -Nrl | grep -v offset
+			<% end %>
+		done
+
+		kill_all_subprograms $BASHPID
+	done
+	set_return_code EXIT
+	check_kernel_message -v "kernel panic"
+}
+
+_cleanup() {
+	echo 0 > /sys/kernel/debug/hwpoison/corrupt-filter-enable
+	echo 0 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-mask
+	umount -f $TRDIR/tmp
+	rm -f $loopfile
+	losetup -D
+}
