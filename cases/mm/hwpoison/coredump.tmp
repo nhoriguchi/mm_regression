@@ -1,4 +1,4 @@
-TEST_TYPE=wip
+TEST_TYPE=obsolete
 
 _prepare() {
 	rm -rf /var/lib/systemd/coredump/*

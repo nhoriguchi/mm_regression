@@ -1,5 +1,5 @@
 TEST_PRIORITY=20
-TEST_TYPE=devel
+TEST_TYPE=manual
 
 . $TRDIR/lib/check_hwpoison_limit.sh
 
@@ -22,7 +22,7 @@ _cleanup() {
 
 _control() {
 	for i in $(seq $ITERATION) ; do
-		random 1 2> $TMPD/log
+		( cd lib/cailtest ; ./random 1 2> $TMPD/log )
 		if grep -q "madvise: Input/output error" $TMPD/log ; then
 			dmesg | tail | tee -a $TMPD/dmesg_eio
 			break

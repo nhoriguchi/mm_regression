@@ -1,4 +1,4 @@
-TEST_TYPE=devel
+TEST_TYPE=obsolete
 
 _prepare() {
 	set -x

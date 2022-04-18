@@ -1,5 +1,7 @@
+# 目的不明に付き排除
+
 TEST_PRIORITY=19
-TEST_TYPE=devel
+TEST_TYPE=obsolete
 
 . $TRDIR/lib/mm.sh
 

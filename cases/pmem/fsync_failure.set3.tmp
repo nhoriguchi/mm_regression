@@ -1,4 +1,4 @@
-TEST_TYPE=devel
+TEST_TYPE=wip
 TEST_PRIORITY=20
 
 # rawdevice to be used for
