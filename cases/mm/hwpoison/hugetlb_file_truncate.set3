@@ -1,0 +1,47 @@
+TEST_TYPE=wip
+
+HUGETLBFSDIR=tmp/hugetlbfs
+
+_prepare() {
+	mkdir -p $HUGETLBFSDIR
+	sysctl vm.nr_hugepages=10 || return 1
+	mount -t hugetlbfs none "$HUGETLBFSDIR" || return 1
+}
+
+EXPECTED_RETURN_CODE="COREDUMP_EXISTS"
+
+_cleanup() {
+	rm -f $HUGETLBFSDIR/*
+	umount -f "$HUGETLBFSDIR"
+	sysctl vm.nr_hugepages=0
+}
+
+_control() {
+	test_alloc_generic -B hugetlb_file -N 2 -w tmp -f testfile -L 'mmap access:wait_after' &
+	local pid=$!
+	ls -l tmp/hugetlbfs
+	find tmp/hugetlbfs
+	page-types -f tmp/hugetlbfs/testfile -Nrl
+	page-types -p $pid -a 0x700000000+1024 -Nrl | grep -v offset | tee $TMPD/pagemap1
+	local pfn=0x$(sed -n 3p $TMPD/pagemap1 | cut -f2)
+	touch $TMPD/a
+	(
+		while [ -e "$TMPD/a" ] ; do
+			truncate -s $[2*1024*1024] tmp/hugetlbfs/testfile
+		done
+	) &
+	(
+		while [ -e "$TMPD/a" ] ; do
+			# no sleep -> recovery action for huge page: Recovered
+			# sleep 0.1 -> recovery action for free huge page: Recovered
+			# sleep 0.01 -> free
+			# sleep 0.0001 # -> free
+			# sleep 1 # -> no hugepage
+			echo ${pfn}000 > /sys/devices/system/memory/hard_offline_page
+		done
+	) &
+	sleep 0.2
+	rm -f $TMPD/a
+	sleep 0.2
+	page-types -p $pid -a 0x700000000+1024 -Nrl
+}
