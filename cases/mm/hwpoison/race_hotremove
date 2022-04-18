@@ -1,0 +1,9 @@
+# reproduce race between memory hotremove and hwpoison which could break
+# num_poisoned_pages counter.
+# https://lore.kernel.org/linux-mm/20220124063721.GA2570139@hori.linux.bs1.fc.nec.co.jp/
+
+TEST_TYPE=debug,wip
+
+_control() {
+    true
+}

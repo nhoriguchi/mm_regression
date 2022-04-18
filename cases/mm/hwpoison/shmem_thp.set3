@@ -67,10 +67,17 @@ _control() {
 
 	local targetpfn=0x$(grep -P '^0\t' $TMPD/testfile_pagetype | cut -f2)
 	[ "$targetpfn" == 0x ] && return 1
-	echo ${targetpfn}000 > /sys/devices/system/memory/hard_offline_page
+	echo $[${targetpfn}000] > /sys/devices/system/memory/hard_offline_page
+	echo $[${targetpfn}000 + 0x201000] > /sys/devices/system/memory/hard_offline_page
 
-	page-types -p $pid -a 0x700000000+10 -Nrl
+	echo "---"
+	page-types -p $pid -a 0x700000000+1024 -Nrl
+	echo "--- b"
+	page-types -f $SHMEM_DIR/testfile -Nrl
+	sleep 0.5
 	kill -SIGUSR1 $pid
+
+
 
 	sleep 1
 	if ! check_process_status $pid ; then

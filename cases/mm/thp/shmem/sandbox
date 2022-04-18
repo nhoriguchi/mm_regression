@@ -1,0 +1,57 @@
+#! {"thp" => "base"}
+#! {"thp" => "shared_thp"}
+#! {"thp" => "double_mapping"}
+#! {"thp" => "pmd_split"}
+#! {"thp" => "thp_split"}
+
+TEST_TYPE=debug
+NR_THP=2
+
+MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0
+# ACTION=memory_error_injection:error_type=soft-offline
+# ERROR_TYPE=soft-offline
+# ERROR_OFFSET=513 # first 512 pages are not thp
+
+FORK=fork:wait_after
+# SPLIT_THP="split_thp:only_pmd access"
+SPLIT_THP="split_thp access"
+
+_prepare() {
+	prepare_mmgeneric || return 1
+	test_alloc_generic -B pagecache -N $NR_THP -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite"
+
+	mkfifo $TMPD/.tmp_pipe
+	chmod a+x $TMPD/.tmp_pipe
+
+	df
+}
+
+_cleanup() {
+	cleanup_mmgeneric || return 1
+}
+
+EXPECTED_RETURN_CODE="INJECT MIGRATION_PASSED $HUGEPAGE_CHECKCODE EXIT"
+_control() {
+	test_alloc_generic -B pagecache -N $NR_THP -w $SHMEM_DIR -L "open:path=$SHMEM_DIR/testfile mmap access:wait_after $SPLIT_THP noop:wait_after munmap" -p $TMPD/.tmp_pipe &
+	local pid=$!
+
+	if read -t60 line <> $TMPD/.tmp_pipe ; then
+		echo "after_access"
+
+		page-types -p $pid -Nrl -a 0x700000000+0x10000000 | grep -v offset
+
+		kill -SIGUSR1 $pid
+	else
+		return 1
+	fi
+
+	if read -t60 line <> $TMPD/.tmp_pipe ; then
+		echo "after_noop"
+
+		page-types -p $pid -Nrl -a 0x700000000+0x10000000 | grep -v offset
+
+		kill -SIGUSR1 $pid
+	else
+		return 1
+	fi
+}

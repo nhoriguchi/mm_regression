@@ -122,7 +122,8 @@ _control() {
 	page-types -r -a $[0x8000 * $target_memblk]+0x8000
 	echo "-------- memory offlining"
 	echo_log "echo offline > /sys/devices/system/memory/memory$target_memblk/state"
-	echo offline > /sys/devices/system/memory/memory$target_memblk/state
+	# echo offline > /sys/devices/system/memory/memory$target_memblk/state
+	trace-cmd record -p function bash -c "echo offline > /sys/devices/system/memory/memory$target_memblk/state"
 	if [ $? -ne 0 ] ; then
 		set_return_code MEMORY_OFFLINE_FAILED
 	elif [ "$(cat /sys/devices/system/memory/memory$target_memblk/state)" != "offline" ] ; then

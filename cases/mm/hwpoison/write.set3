@@ -1,0 +1,33 @@
+TEST_TYPE=wip
+
+_prepare() {
+	rm -rf /var/lib/systemd/coredump/*
+}
+
+EXPECTED_RETURN_CODE="COREDUMP_EXISTS"
+
+_control() {
+	test_alloc_generic -B anonymous -N 2 -L 'start mmap access:wait_after access munmap exit:wait_before' &
+	local pid=$!
+	set -x
+
+
+	return 0
+
+	echo 0x1f > /proc/$pid/coredump_filter || return 1
+	echo 0x3 > /proc/$pid/coredump_filter || return 1
+	sleep 1
+	page-types -p $pid -r
+	page-types -p $pid -a 0x700000000 -X
+	sleep 2
+	kill -SIGUSR1 $pid
+	sleep 2
+
+	find /var/lib/systemd/coredump/ -name core.test_alloc_gene* > $TMPD/coredumplist
+
+	if [ -s $TMPD/coredumplist ] ; then
+		set_return_code COREDUMP_EXISTS
+	else
+		set_return_code COREDUMP_NOT_EXIST
+	fi
+}
