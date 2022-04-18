@@ -98,6 +98,11 @@ run_recipe() {
 	export RTMPD=$GTMPD/$recipe_relpath
 	export TMPF=$TMPD
 
+	if [ ! -s "$RECIPE_FILE" ] ; then
+		echo "Recipe file not found: '$RECIPE_FILE'"
+		return
+	fi
+
 	[ "$VERBOSE" ] && set -x
 
 	# recipe run status check

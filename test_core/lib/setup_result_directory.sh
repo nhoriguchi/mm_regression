@@ -8,7 +8,5 @@ fi
 # need parse_recipefile
 . $(dirname $BASH_SOURCE)/recipe.sh
 
-full_recipe=work/$RUNNAME/full_recipe_list
-
 mkdir -p work/$RUNNAME
 make --no-print-directory allrecipes | grep ^cases > work/$RUNNAME/full_recipe_list
