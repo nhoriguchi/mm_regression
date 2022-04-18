@@ -55,6 +55,7 @@
 # Subcommand options (summary):
 #   -f|--show-failure  Show all failed checks
 #   -p|--progress      Show full list of test status
+#   -t|--timesummary   Show spent time of each test case
 #
 # Runtime config
 #   - AGAIN
@@ -191,6 +192,10 @@ show_summary() {
 			SHOW_PROGRESS=-p
 			shift 1
 			;;
+		-t|--timesummary)
+			SHOW_TIMESUMMARY=-t
+			shift 1
+			;;
 		-h|--help)
 			show_help
 			;;
@@ -204,8 +209,8 @@ show_summary() {
 	fi
 	echo "# [$@, $proj]"
 	# TODO: more detail
-	echo "ruby test_core/lib/test_summary.rb $SHOW_FAILURE $SHOW_PROGRESS work/$proj"
-	ruby test_core/lib/test_summary.rb $SHOW_FAILURE $SHOW_PROGRESS work/$proj
+	echo "ruby test_core/lib/test_summary.rb $SHOW_FAILURE $SHOW_PROGRESS $SHOW_TIMESUMMARY work/$proj"
+	ruby test_core/lib/test_summary.rb $SHOW_FAILURE $SHOW_PROGRESS $SHOW_TIMESUMMARY work/$proj
 }
 
 case $1 in
