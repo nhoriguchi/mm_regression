@@ -70,7 +70,10 @@ count_testcount() {
             *) break ;;
         esac
     done
-    [ "$@" ] && echo_log $nonewline "$@"
+    if [ "$@" ] ; then
+		# echo_log $nonewline "$@"
+		__TESTCOUNT_LABEL="$@"
+	fi
     add_counts $RTMPD/_testcount 1
 }
 
@@ -82,13 +85,16 @@ count_success() {
             *) break ;;
         esac
     done
+	local label="$__TESTCOUNT_LABEL"
+	[ "$@" ] && label="$@"
+	__TESTCOUNT_LABEL=""
     if [ "$FALSENEGATIVE" = true ] ; then
         add_counts $RTMPD/_later 1
-        echo_log $nonewline "LATER: PASS: $@"
+        echo_log $nonewline "LATER: PASS: $label"
         return 0
     else
         add_counts $RTMPD/_success 1
-        echo_log $nonewline "PASS: $@"
+        echo_log $nonewline "PASS: $label"
         return 0
     fi
 }
@@ -101,13 +107,16 @@ count_failure() {
             *) break ;;
         esac
     done
+	local label="$__TESTCOUNT_LABEL"
+	[ "$@" ] && label="$@"
+	__TESTCOUNT_LABEL=""
     if [ "$FALSENEGATIVE" = true ] ; then
         add_counts $RTMPD/_later 1
-        echo_log $nonewline "LATER: FAIL: $@"
+        echo_log $nonewline "LATER: FAIL: $label"
         return 0
     else
         add_counts $RTMPD/_failure 1
-        echo_log $nonewline "FAIL: $@"
+        echo_log $nonewline "FAIL: $label"
         return 1
     fi
 }
@@ -120,8 +129,11 @@ count_warning() {
             *) break ;;
         esac
     done
+	local label="$__TESTCOUNT_LABEL"
+	[ "$@" ] && label="$@"
+	__TESTCOUNT_LABEL=""
     add_counts $RTMPD/_warning 1
-    echo_log $nonewline "WARN: $@"
+    echo_log $nonewline "WARN: $label"
     return 0
 }
 
@@ -133,9 +145,11 @@ count_skipped() {
             *) break ;;
         esac
     done
-
+	local label="$__TESTCOUNT_LABEL"
+	[ "$@" ] && label="$@"
+	__TESTCOUNT_LABEL=""
     add_counts $GTMPD/__skipped 1
-    echo_log $nonewline "SKIPPED: $@"
+    echo_log $nonewline "SKIPPED: $label"
     echo $TEST_TITLE >> $GTMPD/__skipped_testcases
     return 0
 }
