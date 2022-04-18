@@ -1,0 +1,126 @@
+#! {"error" => "hard-offline"}
+#! {"error" => "soft-offline"}
+#
+# Related patches
+# - https://lore.kernel.org/linux-mm/20220407130352.15618-2-linmiaohe@huawei.com/
+
+TEST_TYPE=debug
+TEST_PRIORITY=10
+
+<% if param["error"] == "hard-offline" %>
+EXPECTED_RETURN_CODE="SWAPCACHE_GENERATED HARD_OFFLINE_PASS HWPOISONED"
+<% elsif param["error"] == "soft-offline" %>
+EXPECTED_RETURN_CODE="SWAPCACHE_GENERATED SOFT_OFFLINE_PASS HWPOISONED"
+<% end %>
+
+SWAPFILE=$TDIR/swapfile
+SWAPSIZE=$[1024*256] # 1GB
+
+_prepare() {
+	# disable/remove zram-generator service
+	swapoff /dev/zram0
+	if swapon | grep -q $SWAPFILE ; then
+		true
+	else
+		dd if=/dev/zero of=$SWAPFILE bs=4096 count=$SWAPSIZE > /dev/null 2>&1
+		[ $? -ne 0 ] && echo "failed to create $SWAPFILE" && exit 1
+		chmod 0600 $SWAPFILE
+		mkswap $SWAPFILE || exit 1
+		echo "swapon $SWAPFILE"
+		swapon $SWAPFILE || exit 1
+		swapon -s
+	fi
+
+	cat <<EOF > /tmp/tmp_madv_pageout.c
+#include <stdio.h>
+#include <sys/mman.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <signal.h>
+
+#define VADDR	0x700000000000
+
+#define MADV_COLD	20
+#define MADV_PAGEOUT	21
+
+int flag = 1;
+void sig_handle_flag(int signo) { flag = 0; }
+
+int main() {
+	int size = 512 * 1024 * 1024;
+	char *ptr;
+	int fd;
+	int ret;
+	int nsec = 0;
+	char buf[4096];
+
+	signal(SIGUSR1, sig_handle_flag);
+
+	memset(buf, 8, 4096);
+
+	fd = open("/tmp/tmp_madv_pageout.file", O_RDWR|O_CREAT);
+	if (fd < 0) {
+		perror("open");
+		return 1;
+	}
+	ptr = mmap((void *)VADDR, size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_SHARED, fd, 0);
+
+	while (flag) {
+		memset(ptr, 0, size);
+		ret = madvise(ptr, size, MADV_PAGEOUT);
+	}
+	memset(ptr, 2, size);
+	return 0;
+}
+EOF
+	gcc -o /tmp/tmp_madv_pageout /tmp/tmp_madv_pageout.c || return 1
+}
+
+_control() {
+	/tmp/tmp_madv_pageout &
+	local pid=$!
+	sleep 1 # better sleep time?
+	page-types -p $pid -a 0x700000000+$[1<<17] -rl > $TMPD/tmp_page-types
+	page-types -b swapcache -rl | grep -ve offset > $TMPD/tmp_swapcache
+	head $TMPD/tmp_swapcache
+
+	if [ ! -s "$TMPD/tmp_swapcache" ] ; then
+		echo "No swapcache generated. Abort"
+		set_return_code NO_SWAPCACHE_GENERATED
+		return 1
+	else
+		set_return_code SWAPCACHE_GENERATED
+	fi
+
+	local pfn=0x$(sed -n 1p $TMPD/tmp_swapcache | cut -f 1)
+	<% if param["error"] == "hard-offline" %>
+	echo ${pfn}000 > /sys/devices/system/memory/hard_offline_page
+	if [ $? -eq 0 ] ; then
+		set_return_code HARD_OFFLINE_PASS
+	else
+		set_return_code HARD_OFFLINE_FAIL
+	fi
+	<% elsif param["error"] == "soft-offline" %>
+	echo ${pfn}000 > /sys/devices/system/memory/soft_offline_page
+	if [ $? -eq 0 ] ; then
+		set_return_code SOFT_OFFLINE_PASS
+	else
+		set_return_code SOFT_OFFLINE_FAIL
+	fi
+	<% end %>
+	sleep 0.2
+	kill -SIGUSR1 $pid
+	page-types -a $pfn -Nrl | tee $TMPD/tmp_page-types.2
+	if grep -q _X_ $TMPD/tmp_page-types.2 ; then
+		set_return_code HWPOISONED
+	else
+		set_return_code NOT_HWPOISONED
+	fi
+}
+
+_cleanup() {
+	# remove swapfile?
+	true
+}
