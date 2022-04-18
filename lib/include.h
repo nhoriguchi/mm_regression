@@ -1098,6 +1098,14 @@ static void do_iterate_mlock(struct op_control *opc) {
 	}
 }
 
+static void do_iterate_write_fsync(struct op_control *opc) {
+	opc_set_value(opc, "type", "syswrite");
+	while (flag) {
+		do_access(opc);
+		do_fsync_file_range(opc);
+	}
+}
+
 static int iterate_mbind_pingpong(void *arg) {
 	struct mbind_arg *mbind_arg = (struct mbind_arg *)arg;
 
@@ -1418,6 +1426,7 @@ enum {
 	NR_iterate_mapping,
 	NR_iterate_fault_dontneed,
 	NR_iterate_mlock,
+	NR_iterate_write_fsync,
 	NR_mremap,
 	NR_mremap_stress,
 	NR_hotremove,
@@ -1461,6 +1470,7 @@ static const char *operation_name[] = {
 	[NR_iterate_mapping]		= "iterate_mapping",
 	[NR_iterate_fault_dontneed]	= "iterate_fault_dontneed",
 	[NR_iterate_mlock]		= "iterate_mlock",
+	[NR_iterate_write_fsync]	= "iterate_write_fsync",
 	[NR_mremap]			= "mremap",
 	[NR_mremap_stress]		= "mremap_stress",
 	[NR_hotremove]			= "hotremove",
@@ -1507,6 +1517,7 @@ static const char *op_supported_args[][10] = {
 	[NR_iterate_mapping]		= {},
 	[NR_iterate_fault_dontneed]	= {},
 	[NR_iterate_mlock]		= {},
+	[NR_iterate_write_fsync]	= {},
 	[NR_mremap]			= {},
 	[NR_mremap_stress]		= {},
 	[NR_hotremove]			= {"busyloop", "pageflags"},
@@ -1704,6 +1715,8 @@ static void do_operation_loop(void) {
 			do_iterate_fault_dontneed(&opc);
 		} else if (!strcmp(opc.name, "iterate_mlock")) {
 			do_iterate_mlock(&opc);
+		} else if (!strcmp(opc.name, "iterate_write_fsync")) {
+			do_iterate_write_fsync(&opc);
 		} else if (!strcmp(opc.name, "mremap")) {
 			do_mremap(&opc);
 		} else if (!strcmp(opc.name, "mremap_stress")) {
