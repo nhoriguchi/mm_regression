@@ -80,7 +80,8 @@ _control() {
 			fi
 
 			# This keep soft dirtiness
-			test_numa_move_pages 1 $pid 1 100
+			# test_numa_move_pages 1 $pid 1 100
+			test_numa_move_pages 1 $pid 0 100
 
 			get_mm_stats 3 $pid
 			if check_migration_pagemap $TMPD/pagetypes.1 $TMPD/pagetypes.3 ; then

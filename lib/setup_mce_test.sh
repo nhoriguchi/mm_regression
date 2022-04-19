@@ -99,6 +99,10 @@ control_mce_test() {
 				;;
 			"waiting for injection from outside")
 				[ ! "$ERROR_OFFSET" ] && ERROR_OFFSET=0
+file tmp/testfile
+cat  tmp/testfile > /dev/null
+page-types -p $pid -Nrl
+page-types -f tmp/testfile -a 0+10 -Nrl
 				echo_log "$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]"
 				$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]
 				if check_process_status $pid ; then
