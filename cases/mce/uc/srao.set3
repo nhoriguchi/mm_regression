@@ -33,6 +33,10 @@
 
 . $TRDIR/lib/setup_mce_test.sh
 
+# test scenarios based on MCE injection highly likely to cause panics (especially
+# unpoisoning after each testcases is enabled), so mainly supposed to be executed manually.
+TEST_TYPE=manual
+
 BACKEND=<%= param["backend"] %>
 ERROR_TYPE="mce-srao"
 ACCESS=<%= param["access"] %>
