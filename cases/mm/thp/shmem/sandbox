@@ -4,7 +4,7 @@
 #! {"thp" => "pmd_split"}
 #! {"thp" => "thp_split"}
 
-TEST_TYPE=debug
+TEST_TYPE=manual
 NR_THP=2
 
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0

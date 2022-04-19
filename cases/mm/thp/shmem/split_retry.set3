@@ -5,7 +5,7 @@
 #! {"thp" => "thp_split"}
 #! {"thp" => "fork_pmd_split"}
 
-TEST_TYPE=debug
+TEST_TYPE=normal
 
 <% if param["thp"] == "shared_thp" %>
 FORK=fork:wait_after=1000000

@@ -7,7 +7,7 @@
 
 . $TRDIR/lib/setup_thp_migration.sh
 
-TEST_TYPE=debug
+TEST_TYPE=normal
 
 <% if param["thp"] == "shared_thp" %>
 FORK=fork:wait_after=1000000

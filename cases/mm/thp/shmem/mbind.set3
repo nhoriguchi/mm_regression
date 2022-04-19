@@ -1,3 +1,5 @@
+# <2022-04-18 Mon 11:24> shmem thp is not found by page-types?
+
 #! {"thp" => "base"}
 #! {"thp" => "shared_thp"}
 #! {"thp" => "double_mapping"}
@@ -23,7 +25,6 @@ SPLIT_THP="split_thp:only_pmd access"
 <% elsif param["thp"] == "pmd_split" %>
 SPLIT_THP="split_thp:only_pmd access"
 <% elsif param["thp"] == "thp_split" %>
-TEST_TYPE=devel
 SPLIT_THP="split_thp access"
 HUGEPAGE_CHECKCODE=HUGEPAGE_NOT_EXIST
 <% end %>

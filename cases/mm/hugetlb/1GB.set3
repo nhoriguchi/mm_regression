@@ -4,7 +4,7 @@
 #! {"offline" => "soft", "fork" => "true"}
 #! {"offline" => "hard", "fork" => "true", "memset" => "true"}
 
-TEST_TYPE=debug
+TEST_TYPE=devel
 TEST_PRIORITY=16
 
 HUGETLBFSDIR=tmp/hugetlbfs

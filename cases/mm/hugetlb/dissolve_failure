@@ -1,7 +1,7 @@
 # commit f87060d345232c7d855167a43faf006e24afa999
 # mm: fix panic caused by __page_handle_poison()
 
-TEST_TYPE=debug
+TEST_TYPE=normal
 # soft-offline should succeed
 EXPECTED_RETURN_CODE="NOTSAME"
 

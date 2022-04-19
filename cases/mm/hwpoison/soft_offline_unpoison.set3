@@ -1,7 +1,7 @@
 #! {"backend" => "buddy"}
 #! {"backend" => "free_hugetlb"}
 
-TEST_TYPE=wip
+TEST_TYPE=normal
 
 EXPECTED_RETURN_CODE=PASS
 

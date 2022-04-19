@@ -11,7 +11,7 @@
 # (which should be latest enough to work with latest upstream kernel).
 # The systemtap binary should be pointed to by environment variable STAP_DIR.
 
-TEST_TYPE=debug
+TEST_TYPE=normal
 TEST_PRIORITY=10
 
 <% if param["pagecache"] == "clean" %>

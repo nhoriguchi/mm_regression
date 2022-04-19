@@ -4,7 +4,7 @@
 . $TRDIR/lib/setup_memcg.sh
 . $TRDIR/lib/setup_thp.sh
 
-TEST_TYPE=debug
+TEST_TYPE=wip
 
 MAPTYPE=mmap
 FORK=

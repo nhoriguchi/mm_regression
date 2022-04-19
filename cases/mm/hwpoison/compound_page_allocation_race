@@ -1,7 +1,7 @@
 # testing the race issue reported in the following thread:
 # https://lore.kernel.org/linux-mm/20210421060259.67554-1-songmuchun@bytedance.com/T/#u
 
-TEST_TYPE=debug
+TEST_TYPE=obsolete
 
 _prepare() {
 	sysctl vm.nr_overcommit_hugepages=1

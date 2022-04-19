@@ -1,4 +1,5 @@
-TEST_TYPE=debug
+TEST_TYPE=manual
+TEST_PRIORITY=18
 [ ! "$ERROR_TYPE" ] && ERROR_TYPE=hard_offline
 
 # 0x0000000000000080      slab

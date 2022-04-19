@@ -1,7 +1,7 @@
 # Related to discussion (but this testcase is for hugetlb)
 #   https://lore.kernel.org/linux-mm/7362f9ee-81fa-702a-7a03-1a91ecf0b58e@oracle.com/
 
-TEST_TYPE=debug
+TEST_TYPE=devel
 EXPECTED_RETURN_CODE="NOT_KILLED HUGETLB_POISONED RAW_PAGE_POISONED EXIT"
 
 _prepare() {

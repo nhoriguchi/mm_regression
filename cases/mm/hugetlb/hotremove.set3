@@ -4,8 +4,8 @@
 
 . $TRDIR/lib/setup_hugetlb_migration.sh
 
-TEST_TYPE=debug
-TEST_PRIORITY=18
+TEST_TYPE=normal
+TEST_PRIORITY=12
 
 MIGRATE_SRC=hotremove
 

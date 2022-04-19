@@ -10,7 +10,7 @@
 
 ERROR_TYPE=<%= param["type"] %>
 
-TEST_TYPE=debug
+TEST_TYPE=wip
 HUGETLB_DIR=$TDIR/hugetlbfs
 SHMEM_DIR=$TDIR/shmem
 

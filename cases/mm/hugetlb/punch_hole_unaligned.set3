@@ -1,6 +1,6 @@
 # https://lore.kernel.org/linux-mm/20220324170600.16491-1-mike.kravetz@oracle.com/
 
-TEST_TYPE=debug
+TEST_TYPE=wip
 
 HUGETLBFSDIR=tmp/hugetlbfs
 

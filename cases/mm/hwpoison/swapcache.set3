@@ -4,7 +4,7 @@
 # Related patches
 # - https://lore.kernel.org/linux-mm/20220407130352.15618-2-linmiaohe@huawei.com/
 
-TEST_TYPE=debug
+TEST_TYPE=normal
 TEST_PRIORITY=10
 
 <% if param["error"] == "hard-offline" %>

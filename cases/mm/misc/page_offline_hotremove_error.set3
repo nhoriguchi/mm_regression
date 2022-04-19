@@ -5,7 +5,7 @@
 #! {"offline" => "hard", "memtype" => "mlocked_anon"}
 #! {"offline" => "hard", "memtype" => "anonymous"}
 
-TEST_PRIORITY=16
+TEST_PRIORITY=10
 TEST_TYPE=devel
 
 . $TRDIR/lib/mm.sh

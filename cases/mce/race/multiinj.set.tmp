@@ -6,6 +6,8 @@
 
 . $TRDIR/lib/setup_mce_test.sh
 
+TEST_TYPE=wip
+
 TARGET_PAGEFLAG=$(get_backend_pageflags __STR_BACKEND)
 
 HUGETLB=300

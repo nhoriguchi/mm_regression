@@ -6,8 +6,8 @@
 
 # NEED: khugepaged focused setting
 
-TEST_PRIORITY=18
-TEST_TYPE=wip
+TEST_PRIORITY=10
+TEST_TYPE=normal
 
 . $TRDIR/lib/setup_mmgeneric.sh
 
@@ -18,6 +18,7 @@ THP=true
 <% end %>
 
 <% if param["backend"] =~ /hugetlb/ %>
+FALSENEGATIVE=true
 HUGETLB=100
 <% end %>
 

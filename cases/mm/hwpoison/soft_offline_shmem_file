@@ -1,6 +1,6 @@
 EXPECTED_RETURN_CODE="INJECTION_SUCCEEDED"
 
-TEST_TYPE=debug
+TEST_TYPE=normal
 SHMEM_DIR=$TDIR/shmem
 
 _prepare() {

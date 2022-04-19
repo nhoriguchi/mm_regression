@@ -2,7 +2,7 @@
 # num_poisoned_pages counter.
 # https://lore.kernel.org/linux-mm/20220124063721.GA2570139@hori.linux.bs1.fc.nec.co.jp/
 
-TEST_TYPE=debug,wip
+TEST_TYPE=wip
 
 _control() {
     true

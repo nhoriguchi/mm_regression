@@ -3,7 +3,7 @@
 
 . $TRDIR/lib/thp.sh
 
-TEST_TYPE=devel
+TEST_TYPE=normal
 
 NR_THP=1
 SHMEM_DIR=$TDIR/shmem
