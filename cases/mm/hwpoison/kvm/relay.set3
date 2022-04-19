@@ -5,6 +5,7 @@
 #! {"backend" => "clean_pagecache", "error" => "hard-offline", "hostbackend" => "hostthp"}
 #! {"backend" => "clean_pagecache", "error" => "soft-offline", "hostbackend" => "hostanon"}
 #! {"backend" => "clean_pagecache", "error" => "soft-offline", "hostbackend" => "hostthp"}
+#! {"backend" => "clean_folio", "error" => "hard-offline", "hostbackend" => "hostanon"}
 #! {"backend" => "dirty_pagecache", "error" => "hard-offline", "hostbackend" => "hostanon"}
 #! {"backend" => "dirty_pagecache", "error" => "hard-offline", "hostbackend" => "hostthp"}
 #! {"backend" => "dirty_pagecache", "error" => "soft-offline", "hostbackend" => "hostanon"}
@@ -43,6 +44,8 @@ TEST_PRIORITY=15 # low priority
 
 TARGET_PAGETYPES="$(get_backend_pageflags $BACKEND)"
 <% if param["backend"] == "clean_pagecache" %>
+EXPECTED_RETURN_CODE="GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
+<% elsif param["backend"] == "clean_folio" %>
 EXPECTED_RETURN_CODE="GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_ALIVE_LATER_ACCESS"
 <% elsif param["backend"] == "dirty_pagecache" %>
 EXPECTED_RETURN_CODE="GOT_HPA GUEST_ALIVE GUEST_PROC_ALIVE GUEST_PROC_KILLED_LATER_ACCESS"
