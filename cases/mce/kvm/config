@@ -6,12 +6,7 @@ TARGETGVA=""
 TARGETGPA=""
 TARGETHPA=""
 
-# check VM RAM size is not greater than 2GB
 memsize=$(virsh dominfo $VM | grep "Used memory:" | tr -s ' ' | cut -f3 -d' ')
-# if [ "$memsize" -gt 2097152 ] ; then
-# 	echo_log "Too much VM RAM size. (> 2GB)"
-# 	return 1
-# fi
 
 get_gpa_guest_memeater() {
 	local vmip=$(vm_to_vmip $VM)

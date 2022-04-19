@@ -21,9 +21,6 @@
 # environment variable VM should be given via environment variable
 # VM=f21a
 
-# # TODO: assuming that sshvm is installed (via deploy_vm_image)
-#<2019-04-01 Mon 11:56> VMIP=$(sshvm -i -n default $VM 2> /dev/null)
-
 . $TRDIR/lib/mm.sh || return 1
 
 ERROR_TYPE=<%= param["error"] %>
