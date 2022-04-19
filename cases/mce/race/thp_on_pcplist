@@ -1,10 +1,10 @@
 . $TRDIR/lib/setup_mce_test.sh
 
-TEST_PRIORITY=17 # only devel level
+TEST_PRIORITY=20 # only devel level
 ERROR_TYPE=hard-offline
 EXPECTED_RETURN_CODE="EXIT"
-POISON_ITERATION=3
-TARGET_PAGEFLAG="thp,compound_head=thp,compound_head"
+POISON_ITERATION=20
+FLAGMASK="$(get_backend_pageflags_mask_value thp)"
 THP=512
 
 background_alloc_exit() {
@@ -13,16 +13,37 @@ background_alloc_exit() {
 	done
 }
 
+_prepare() {
+	maskbits="$(echo $FLAGMASK | cut -f1 -d,)"
+	valuebits="$(echo $FLAGMASK | cut -f2 -d,)"
+
+	echo "set hwpoison-filter for thp_anon_head ($FLAGMASK)"
+	set -x
+	echo $maskbits > $DEBUGFSDIR/hwpoison/corrupt-filter-flags-mask
+	echo $valuebits > $DEBUGFSDIR/hwpoison/corrupt-filter-flags-value
+	echo 0 > $DEBUGFSDIR/hwpoison/corrupt-filter-enable
+	set +x
+	trap '' BUS
+	return 0
+}
+
+_cleanup() {
+	trap -- BUS
+	echo 0 > $DEBUGFSDIR/hwpoison/corrupt-filter-enable
+}
+
 _control() {
-    background_alloc_exit &
-    local backpid=$!
+	background_alloc_exit &
+	local backpid=$!
 
-    for i in $(seq $POISON_ITERATION) ; do
-        page-types -r -b $TARGET_PAGEFLAG -Nl | grep -v offset | cut -f1 | while read line ; do
-            $MCEINJECT -e $ERROR_TYPE -a 0x$line > /dev/null
-        done
-    done
+	for i in $(seq $POISON_ITERATION) ; do
+		page-types -p $(pgrep -f test_alloc_generic) -b $FLAGMASK -a 0x700000000+$[512*$THP] -Nrl | \
+			grep -v offset | grep -P "00\t" | cut -f2 | head -n 10 | while read line ; do
+			echo "$MCEINJECT -e $ERROR_TYPE -a 0x$line > /dev/null"
+			$MCEINJECT -e $ERROR_TYPE -a 0x$line > /dev/null
+		done
+	done
 
-    kill -9 $backpid
-    set_return_code EXIT
+	kill -9 $backpid
+	set_return_code EXIT
 }

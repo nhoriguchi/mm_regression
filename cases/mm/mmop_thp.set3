@@ -12,28 +12,39 @@
 NUMA_NODE=2
 THP=10
 
-# TODO: immature testcase
-TEST_PRIORITY=15
-TEST_TYPE=wip
+TEST_PRIORITY=10
+TEST_TYPE=normal
 
 OPERATION_TYPE=<%= param["optype"] %>
 
 <% if param["optype"] == "mlock" %>
-EXPECTED_RETURN_CODE="MLOCKED"
-<% elsif param["optype"] == "mprotect" %>
-EXPECTED_RETURN_CODE=""
-<% end %>
-
 <% if param["flavor"] == "partial" %>
 OPERATION_TYPE="$OPERATION_TYPE:hp_partial"
-EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE PMD_SPLIT"
+<% if param["fork"] == "fork" %>
+EXPECTED_RETURN_CODE="MLOCKED PMD_SPLIT"
+OP_FORK=fork
 <% else %>
-EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE THP_NOT_SPLIT"
+EXPECTED_RETURN_CODE="MLOCKED_FAILED PMD_SPLIT"
+<% end %>
+<% else %>
+<% if param["fork"] == "fork" %>
+EXPECTED_RETURN_CODE="MLOCKED PMD_SPLIT"
+OP_FORK=fork
+<% else %>
+EXPECTED_RETURN_CODE="MLOCKED THP_NOT_SPLIT"
+<% end %>
 <% end %>
 
+<% elsif param["optype"] == "mprotect" %>
+<% if param["flavor"] == "partial" %>
+OPERATION_TYPE="$OPERATION_TYPE:hp_partial"
+<% end %>
+EXPECTED_RETURN_CODE="THP_NOT_SPLIT"
 <% if param["fork"] == "fork" %>
 OP_FORK=fork
 <% end %>
+<% end %>
+
 
 EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
 # busyloop work?
