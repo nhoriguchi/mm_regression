@@ -32,7 +32,7 @@ BACKEND=<%= param["backend"] %>
 ERROR_TYPE=<%= param["error"] %>
 TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
 
-<% if param["backend"] =~ /(ksm|zero)/ %>
+<% if param["backend"] =~ /(buddy|ksm|zero)/ %>
 SKIP_THIS_TEST=true
 <% end %>
 
@@ -50,7 +50,6 @@ random_poison() {
 	echo "random_poison thread running ..."
 	while read line ; do
 		$MCEINJECT -e "$ERROR_TYPE" -a "$line" > /dev/null 2>&1
-		[ "$ERROR_TYPE" == mce-srao ] && sleep 1
 	done < $TMPD/target_pfns
 }
 
@@ -61,9 +60,35 @@ random_unpoison() {
 	done
 }
 
+_prepare() {
+	flagmask="$(get_backend_pageflags_mask_value $BACKEND)"
+	maskbits="$(echo $flagmask | cut -f1 -d,)"
+	valuebits="$(echo $flagmask | cut -f2 -d,)"
+
+	<% if param["backend"] =~ /hugetlb/ %>
+	sysctl vm.nr_hugepages=20
+	<% end %>
+
+	echo "set hwpoison-filter for $BACKEND (mask:$maskbits, value:$valuebits)"
+	echo $maskbits > $DEBUGFSDIR/hwpoison/corrupt-filter-flags-mask
+	echo $valuebits > $DEBUGFSDIR/hwpoison/corrupt-filter-flags-value
+	echo 1 > $DEBUGFSDIR/hwpoison/corrupt-filter-enable
+	trap '' BUS
+	return 0
+}
+
+_cleanup() {
+	trap -- BUS
+	<% if param["backend"] =~ /hugetlb/ %>
+	sysctl vm.nr_hugepages=0
+	<% end %>
+	echo 0 > $DEBUGFSDIR/hwpoison/corrupt-filter-enable
+}
+
 _control() {
 	local pid=
 
+	<% if param["backend"] !~ /(buddy|hugetlb_free)/ %>
 	test_alloc_generic -B $BACKEND -N 32 -L 'mmap access'
 	echo_log "test_alloc_generic -B $BACKEND -N 32 -L 'mmap access busyloop' &"
 	test_alloc_generic -B $BACKEND -N 32 -L 'mmap access busyloop' &
@@ -74,8 +99,9 @@ _control() {
 		return
 	fi
 	get_mm_stats 1 $pid
+	<% end %>
 
-	random_unpoison $pid &
+	random_unpoison &
 	local pid_unpoison=$!
 	echo_log "background unpoisoner ($pid_unpoison) running ..."
 	echo_log "target pageflags: $TARGET_PAGEFLAGS"
@@ -83,18 +109,15 @@ _control() {
 	# if backend is pagecache, takes a few second to be parepared. so better
 	# method to wait is necessary.
 	sleep 2
-	case "$BACKEND" in
-		buddy|hugetlb_free)
-			page-types -Nrl -b "$TARGET_PAGEFLAGS" | grep -v offset | \
-				cut -f1 | sed -e 's/^/0x/' > $TMPD/target_pfns
-			;;
-		*)
-			page-types -Nrl -b "$TARGET_PAGEFLAGS" -p $pid -a 0x700000000+0x10000000 \
-				| grep -v offset | cut -f2 | sed -e 's/^/0x/' > $TMPD/target_pfns
-			;;
-	esac
+	<% if param["backend"] !~ /(buddy|hugetlb_free)/ %>
+	page-types -Nrl -b "$TARGET_PAGEFLAGS" -p $pid -a 0x700000000+0x10000000 \
+		| grep -v offset | cut -f2 | sed -e 's/^/0x/' > $TMPD/target_pfns
+	<% else %>
+	page-types -Nrl -b "$TARGET_PAGEFLAGS" | grep -v offset | \
+		cut -f1 | sed -e 's/^/0x/' > $TMPD/target_pfns
+	<% end %>
 
-	random_poison $pid &
+	random_poison &
 	local pid_poison=$!
 	if [ ! -s $TMPD/target_pfns ] ; then
 		set_return_code NO_TARGET_PFN
@@ -103,9 +126,12 @@ _control() {
 		sleep $TIMEOUT
 	fi
 	kill -9 $pid_poison $pid_unpoison 2> /dev/null
-	get_mm_stats 2 $pid
-	echo "kill -SIGUSR1 $pid"
-	check_process_status $pid && kill -SIGUSR1 $pid
+
+	if [ "$pid" ] ; then
+		get_mm_stats 2 $pid
+		echo "kill -SIGUSR1 $pid"
+		check_process_status $pid && kill -SIGUSR1 $pid
+	fi
 
 	cleanup_hugetlb_config
 
