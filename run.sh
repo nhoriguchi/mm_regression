@@ -110,6 +110,8 @@ run_test() {
 			else
 				if [ -f work/$BASERUNNAME/recipelist ] ; then
 					cp work/$BASERUNNAME/recipelist work/$RUNNAME/recipelist
+				else
+					cp work/$BASERUNNAME/full_recipe_list work/$RUNNAME/recipelist
 				fi
 			fi
 			make --no-print-directory prepare
@@ -133,13 +135,13 @@ prepare_test_project() {
 	fi
 	cat <<EOF > work/$proj/config
 export RUNNAME=$proj
-export RUN_MODE=${RUN_MODE:=normal}
-export SOFT_RETRY=${SOFT_RETRY:=1}
+export RUN_MODE=${RUN_MODE:=normal,devel,stress}
+export SOFT_RETRY=${SOFT_RETRY:=3}
 export HARD_RETRY=${HARD_RETRY:=1}
 export TEST_DESCRIPTION="${TEST_DESCRIPTION:=MM regression test}"
-export UNPOISON=${UNPOISON}
-export FAILRETRY=${FAILRETRY}
-export PRIORITY=${PRIORITY:=0-10}
+export UNPOISON=${UNPOISON:=true}
+export FAILRETRY=${FAILRETRY:=3}
+export PRIORITY=${PRIORITY:=0-20}
 export BACKWARD_KEYWORD=${BACKWARD_KEYWORD}
 export FORWARD_KEYWORD=${FORWARD_KEYWORD}
 export LOGLEVEL=${LOGLEVEL:=1}
