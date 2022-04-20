@@ -4,8 +4,8 @@
 . $TRDIR/lib/thp.sh
 . $TRDIR/lib/ksm.sh
 
-if [ ! -s "$GTMPD/kpf_flags" ] ; then
-	cat <<EOF > $GTMPD/kpf_flags
+if [ ! -s "$GTMPD/environment/kpf_flags" ] ; then
+	cat <<EOF > $GTMPD/environment/kpf_flags
 locked			0
 error			1
 referenced		2
@@ -66,12 +66,12 @@ get_backend_pageflags_mask_value() {
 	local value2=0
 
 	for flg in $(echo $mask | tr ',' ' ') ; do
-		local flbit="$(grep -P "^$flg\t" $GTMPD/kpf_flags | awk '{print $2}')"
+		local flbit="$(grep -P "^$flg\t" $GTMPD/environment/kpf_flags | awk '{print $2}')"
 		mask2=$[mask2 + (1<<$flbit)]
 	done
 
 	for flg in $(echo $value | tr ',' ' ') ; do
-		local flbit="$(grep -P "^$flg\t" $GTMPD/kpf_flags | awk '{print $2}')"
+		local flbit="$(grep -P "^$flg\t" $GTMPD/environment/kpf_flags | awk '{print $2}')"
 		value2=$[value2 + (1<<$flbit)]
 	done
 
