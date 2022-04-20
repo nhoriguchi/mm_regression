@@ -330,7 +330,6 @@ check_test_flag() {
 
 	echo_log "Testcase $TEST_TITLE has TEST_TYPE tags \"$TEST_TYPE\", but RUN_MODE does not contain all of keywords in TEST_TYPE."
 	echo_log "If you really want to run this testcase, please set environment variable RUN_MODE to contain \"$TEST_TYPE\", OR simply set to \"all\"."
-	count_skipped "Filtered by RUN_MODE/TEST_TYPE setting."
 	return 0
 }
 
