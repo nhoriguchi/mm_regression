@@ -1,3 +1,5 @@
+TEST_TYPE=wip
+
 _prepare() {
 	check_binary test_mce-srar || return 1
 
