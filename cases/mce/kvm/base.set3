@@ -12,7 +12,7 @@ TEST_PRIORITY=15
 EXPECTED_RETURN_CODE="GOT_HPA GUEST_PANICKED"
 BACKEND=anonymous
 TARGET_PAGETYPES="lru,mmap,anonymous=lru,mmap,anonymous"
-ERROR_TYPE=mce-srao
+ERROR_TYPE=hard-offline
 _control() { control_mce_kvm_panic; }
 _check() { check_mce_kvm_panic; }
 <% elsif param["flavor"] == "mce-srar" %>
@@ -22,7 +22,7 @@ _control() { control_mce_kvm_action_required; }
 # _check() { check_mce_kvm_action_required; }
 <% elsif param["flavor"] == "mce_on_qemu" %>
 EXPECTED_RETURN_CODE="GOT_TARGET_PFN EXIT"
-ERROR_TYPE=mce-srao
+ERROR_TYPE=hard-offline
 _control() { control_mce_kvm_inject_mce_on_qemu_page; }
 _check() { check_mce_kvm_inject_mce_on_qemu_page; }
 <% end %>
