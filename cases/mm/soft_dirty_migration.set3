@@ -11,6 +11,8 @@
 
 # NEED: khugepaged focused setting
 
+TEST_TYPE=manual
+
 <% if param["backend"] =~ /hugetlb/ %>
 TEST_PRIORITY=20
 <% end %>
