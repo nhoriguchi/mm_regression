@@ -66,7 +66,8 @@ _prepare() {
 	valuebits="$(echo $flagmask | cut -f2 -d,)"
 
 	<% if param["backend"] =~ /hugetlb/ %>
-	sysctl vm.nr_hugepages=20
+	sysctl vm.nr_hugepages=128
+	mount -t hugetlbfs none tmp/hugetlbfs
 	<% end %>
 
 	echo "set hwpoison-filter for $BACKEND (mask:$maskbits, value:$valuebits)"
@@ -80,6 +81,7 @@ _prepare() {
 _cleanup() {
 	trap -- BUS
 	<% if param["backend"] =~ /hugetlb/ %>
+	umount tmp/hugetlbfs
 	sysctl vm.nr_hugepages=0
 	<% end %>
 	echo 0 > $DEBUGFSDIR/hwpoison/corrupt-filter-enable
