@@ -159,7 +159,6 @@ run_test_new() {
 		exit 1
 	fi
 	. work/$proj/config
-	echo "run_test $2 ([$@] ss $SOFT_RETRY $HARD_RETRY)"
 	env | grep RUNNAME
 	export RUNNAME=$proj
 	run_test $2

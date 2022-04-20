@@ -135,13 +135,39 @@ end
 
 class RecipeSet
   def initialize args
-    @options = {}
+    @options = {
+      :action => :split,
+      :all => false,        # show ".tmp"
+      :recipelist => nil,
+      :type => nil,
+      :priority => nil,
+    }
 
-    OptionParser.new do |opts|
-      opts.banner = "Usage: #{$0} [-h|--help]"
-      # opts.on("--all") do |nw|
-      # end
-    end.parse! args
+    if args[0] == "list"
+      @options[:action] = :list
+      args.shift
+      OptionParser.new do |opts|
+        opts.banner = "Usage: recipe.rb list [--all]"
+        opts.on("-a", "--all") do
+          @options[:all] = true
+        end
+        opts.on("-r recipelist", "--recipelist") do |f|
+          @options[:recipelist] = File.read(f).split("\n")
+        end
+        opts.on("-t types", "--type") do |types|
+          @options[:type] = types.split(",")
+        end
+        opts.on("-p priority", "--priority") do |priority|
+          @options[:priority] = priority.split(",").map do |pr|
+            if pr =~ /(\d+)-(\d+)/
+              ($1.to_i..$2.to_i).to_a
+            else
+              pr.to_i
+            end
+          end.flatten
+        end
+      end.parse! args
+    end
   end
 
   def split
@@ -154,44 +180,52 @@ class RecipeSet
     end
   end
 
-  def list
-    tmp = []
+  def generate_list
+    @list = []
     Dir.glob("#{Dir::pwd}/cases/**/*").select do |f|
       File.file?(f)
     end.each do |f|
       next if f =~ /(set2|set3)$/
       f.gsub!("#{Dir::pwd}/", '')
       priority = 10
-      type = "normal"
+      type = ["normal"]
       text = File.read(f, :encoding => 'UTF-8').split("\n")
       text.each do |line|
         if line =~ /TEST_PRIORITY=(\d+)/
           priority = $1.to_i
         end
         if line =~ /TEST_TYPE=([\w,]+)/
-          type = $1
+          type = $1.split(",")
         end
       end
-      tmp << {:id => f, :priority => priority, :type => type}
+      next if @options[:type] and not (type - @options[:type]).empty?
+      next if @options[:priority] and not @options[:priority].include?(priority)
+      next if @options[:recipelist] and not @options[:recipelist].include?(f)
+      @list << {:id => f, :priority => priority, :type => type}
     end
-    tmp.sort! {|a, b| [a[:priority], a[:id]] <=> [b[:priority], b[:id]]}
-    return tmp
+    @list.sort! {|a, b| [a[:priority], a[:id]] <=> [b[:priority], b[:id]]}
+    return @list
   end
-end
 
-if $0 == __FILE__
-  rs = RecipeSet.new ARGV
-  if ARGV.size == 0
-    rs.split
-  elsif ARGV[0] == "list"
-    type_width = rs.list.map {|a| a[:type].size}.max + 1
-    rs.list.each do |a|
+  def show_list
+    return if @options[:action] != :list
+    # pp @options
+    generate_list
+    return if @list.empty?
+    type_width = @list.map {|a| a[:type].size}.max + 1
+    @list.each do |a|
       next if a[:id] =~ /\/config$/
       if ARGV[1] == "all"
       else
         next if a[:id] =~ /\/.*\.tmp$/
       end
-      printf("%-#{type_width}s%d\t%s\n", a[:type], a[:priority], a[:id])
+      printf("%-#{type_width}s\t%d\t%s\n", a[:type].join(","), a[:priority], a[:id])
     end
   end
+end
+
+if $0 == __FILE__
+  rs = RecipeSet.new ARGV
+  rs.split
+  rs.show_list
 end

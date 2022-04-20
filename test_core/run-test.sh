@@ -258,24 +258,28 @@ run_recipes() {
 }
 
 filter_recipe_list() {
-	make recipe_priority > work/$RUNNAME/recipelist_filtered
-	head work/$RUNNAME/recipelist_filtered
-	env | grep -e PRIORITY -e RUN_MODE
+	local recipefile=$1
+	local run_mode=
+	local priority=
+	if [ "$RUN_MODE" ] && [ "$RUN_MODE" != "all" ] ; then
+		run_mode="-t $RUN_MODE"
+	fi
+	if [ "$PRIORITY" ] ; then
+		priority="-p $PRIORITY"
+	fi
+	echo "ruby test_core/lib/recipe.rb list -r $recipefile $run_mode $priority" >&2
+	ruby test_core/lib/recipe.rb list -r $recipefile $run_mode $priority | cut -f3 > $GTMPD/__run_recipes
 }
 
 generate_recipelist() {
 	if [ ! -f "$GTMPD/full_recipe_list" ] ; then
-		make --no-print-directory allrecipes | grep ^cases | sort > $GTMPD/full_recipe_list
+		make --no-print-directory allrecipes | grep ^cases > $GTMPD/full_recipe_list
 	fi
 
 	if [ -s "$GTMPD/full_recipe_list" ] && [ ! -f "$GTMPD/recipelist" ] ; then
 		echo "$GTMPD/recipelist not found, so all testcases in $GTMPD/full_recipe_list is included."
 		cp $GTMPD/full_recipe_list $GTMPD/recipelist
 	fi
-
-	# filter recipelist based on priority and test type
-	# filter_recipe_list
-	# exit 1
 
 	# recipe control, need to have separate function for this
 	if [ "$AGAIN" == true ] ; then
@@ -289,13 +293,14 @@ generate_recipelist() {
 		cp $GTMPD/recipelist $GTMPD/__remaining_recipelist
 	fi
 
-	if [ "$FILTER" ] ; then
-		grep "$FILTER" $GTMPD/__remaining_recipelist > $GTMPD/__run_recipes
-	else
-		cp $GTMPD/__remaining_recipelist $GTMPD/__run_recipes
-	fi
-
+	# filter recipelist based on priority and test type
 	# $GTMPD/__run_recipes is the final recipe list to run.
+	filter_recipe_list $GTMPD/__remaining_recipelist
+
+	if [ "$FILTER" ] ; then
+		grep "$FILTER" $GTMPD/__run_recipes > $GTMPD/__run_recipes2
+		mv $GTMPD/__run_recipes2 $GTMPD/__run_recipes
+	fi
 }
 
 generate_recipelist
