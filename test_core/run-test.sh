@@ -134,7 +134,7 @@ run_recipe() {
 		save_environment_variables
 		# reminder for restart after reboot. If we find this file when starting,
 		# that means the reboot was triggerred during running the testcase.
-		if [ "$TEST_RUN_MODE" ] && [ -f $GTMPD/current_testcase ] && [ "$RECIPE_FILE" = $(cat $GTMPD/current_testcase) ] ; then
+		if [ "$TEST_RUN_MODE" ] && [ -f $GTMPD/__current_testcase ] && [ "$RECIPE_FILE" = $(cat $GTMPD/__current_testcase) ] ; then
 			# restarting from reboot
 			local doit=true
 			if [ -s "$RTMPD/reboot_count" ] ; then
@@ -155,7 +155,7 @@ run_recipe() {
 			fi
 		else
 			echo 0 > $RTMPD/reboot_count
-			echo $RECIPE_FILE > $GTMPD/current_testcase
+			echo $RECIPE_FILE > $GTMPD/__current_testcase
 			echo RUNNING > $RTMPD/run_status
 			date +%s%3N > $RTMPD/start_time
 			sync
@@ -168,7 +168,7 @@ run_recipe() {
 		fi
 		date +%s%3N > $RTMPD/end_time
 		echo FINISHED > $RTMPD/run_status
-		rm -f $GTMPD/current_testcase
+		rm -f $GTMPD/__current_testcase
 		echo -n cases/$recipe_relpath > $GTMPD/__finished_testcase
 		sync
 	fi
