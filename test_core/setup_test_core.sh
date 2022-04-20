@@ -352,6 +352,12 @@ recipe_load_check() {
 	if [ "$loadret" -ne 0 ] ; then
 		count_skipped "Failed to load recipe file."
 		skip=true
+	elif check_test_flag ; then
+		count_skipped "Filtered by RUN_MODE/TEST_TYPE setting."
+		skip=true
+		echo_log "Testcase $TEST_TITLE has TEST_TYPE tags \"$TEST_TYPE\", but RUN_MODE does not contain all of keywords in TEST_TYPE."
+		echo_log "If you really want to run this testcase, please set environment variable RUN_MODE to contain \"$TEST_TYPE\", OR simply set to \"all\"."
+		# TODO: check_inclusion_of_fixedby_patch && break
 	elif [ "$SKIP_THIS_TEST" ] ; then
 		count_skipped "This testcase is marked to be skipped by developer."
 		skip=true
@@ -359,12 +365,6 @@ recipe_load_check() {
 		count_skipped "This testcase is out of range of given priority range."
 		skip=true
 		echo_log "The testcase priority ($TEST_PRIORITY) is not within given priority range [$PRIORITY]."
-	elif check_test_flag ; then
-		count_skipped "Filtered by RUN_MODE/TEST_TYPE setting."
-		skip=true
-		echo_log "Testcase $TEST_TITLE has TEST_TYPE tags \"$TEST_TYPE\", but RUN_MODE does not contain all of keywords in TEST_TYPE."
-		echo_log "If you really want to run this testcase, please set environment variable RUN_MODE to contain \"$TEST_TYPE\", OR simply set to \"all\"."
-		# TODO: check_inclusion_of_fixedby_patch && break
 	fi
 
 	if [ "$skip" = true ] ; then
