@@ -4,6 +4,11 @@
 #! {"thp" => "pmd_split"}
 #! {"thp" => "thp_split"}
 
+if ! which migratepages > /dev/null ; then
+	echo "migratepages command not found, you need install numactl." >&2
+	return 1
+fi
+
 NR_THP=2
 
 MAPTYPE=mmap_numa:preferred_cpu_node=0:preferred_mem_node=0

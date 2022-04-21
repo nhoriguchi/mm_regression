@@ -1,4 +1,4 @@
 if ! which migratepages > /dev/null ; then
-	echo "migratepages command not found" >&2
+	echo "migratepages command not found, you need install numactl." >&2
 	return 1
 fi
