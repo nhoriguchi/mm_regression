@@ -208,14 +208,12 @@ prepare_mm_generic() {
 	# TODO: better location?
 	all_unpoison
 	ipcrm --all > /dev/null 2>&1
-	echo 3 > /proc/sys/vm/drop_caches
 }
 
 cleanup_mm_generic() {
 	# TODO: better location?
 	all_unpoison
 	ipcrm --all > /dev/null 2>&1
-	echo 3 > /proc/sys/vm/drop_caches
 	sync
 
 	if [ "$HUGETLB" ] ; then
