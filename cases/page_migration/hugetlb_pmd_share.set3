@@ -2,8 +2,9 @@
 #! {"migtype" => "mbind"}
 #! {"migtype" => "move_pages"}
 #! {"migtype" => "madv_soft"}
+#! {"migtype" => "madv_hard"}
 
-TEST_TYPE=devel
+TEST_TYPE=wip
 
 . $TRDIR/lib/setup_page_migration.sh
 
@@ -29,13 +30,16 @@ _control() {
 
 	if [ "$MIGRATE_SRC" == migratepages ] ; then
 		do_migratepages $pid1
-	elif [ "$MIGRATE_SRC" == mbind ] ; then
-		kill -SIGUSR1 $pid1
-	elif [ "$MIGRATE_SRC" == move_pages ] ; then
-		kill -SIGUSR1 $pid1
-	elif [ "$MIGRATE_SRC" == madv_soft ] ; then
+	else
 		kill -SIGUSR1 $pid1
 	fi
+	# elif [ "$MIGRATE_SRC" == mbind ] ; then
+	# 	kill -SIGUSR1 $pid1
+	# elif [ "$MIGRATE_SRC" == move_pages ] ; then
+	# 	kill -SIGUSR1 $pid1
+	# elif [ "$MIGRATE_SRC" == madv_soft ] ; then
+	# 	kill -SIGUSR1 $pid1
+	# fi
 
 	get_mm_stats 2 $pid1
 

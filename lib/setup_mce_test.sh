@@ -99,11 +99,13 @@ control_mce_test() {
 				;;
 			"waiting for injection from outside")
 				[ ! "$ERROR_OFFSET" ] && ERROR_OFFSET=0
-file tmp/testfile
-cat  tmp/testfile > /dev/null
-page-types -p $pid -Nrl
-page-types -f tmp/testfile -a 0+10 -Nrl
 				echo_log "$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]"
+local pfn=0x$(page-types -p $pid -a $BASEVFN -Nrl | grep -v offset | cut -f2)
+echo page-types -p $pid -a $BASEVFN -Nrl
+page-types -p $pid -a $BASEVFN -Nrl
+echo "## $pfn ##"
+page-types -a $pfn+1024 -Nrl
+~/systemtap-4.7-29404/bin/staprun stap_show_page.ko pfn=$pfn
 				$MCEINJECT -p $pid -e $ERROR_TYPE -a $[BASEVFN + ERROR_OFFSET]
 				if check_process_status $pid ; then
 					set_return_code INJECT
@@ -111,6 +113,8 @@ page-types -f tmp/testfile -a 0+10 -Nrl
 					set_return_code KILLED_IN_INJECTION
 					return 0
 				fi
+page-types -a $pfn+1024 -Nrl
+~/systemtap-4.7-29404/bin/staprun stap_show_page.ko pfn=$pfn
 				kill -SIGUSR1 $pid
 				;;
 			"after madvise injection")

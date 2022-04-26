@@ -32,7 +32,9 @@ _prepare() {
 }
 
 _cleanup() {
+	rm -f tmp/hugetlbfs/*
 	umount -f tmp/hugetlbfs
+	all_unpoison
 	sysctl vm.nr_hugepages=0
 }
 

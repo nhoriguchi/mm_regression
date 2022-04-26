@@ -66,6 +66,8 @@ int main(int argc, char *argv[]) {
 			numa_move_pages(0, 1, addrs, nodes, status, MPOL_MF_MOVE_ALL);
 		} else if (!strcmp(argv[1], "madv_soft")) {
 			madvise(phugetlb, PS, MADV_SOFT_OFFLINE);
+		} else if (!strcmp(argv[1], "madv_hard")) {
+			madvise(phugetlb, PS, MADV_HWPOISON);
 		}
 	}
 	pause();
