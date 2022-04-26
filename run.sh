@@ -152,15 +152,23 @@ EOF
 	make --no-print-directory prepare
 }
 
+overwrite_test_setting() {
+	local envfile=$1
+	local tmpf=$(mktemp)
+	env | grep -e ^RUNNAME= -e ^RUN_MODE= -e ^SOFT_RETRY= -e ^HARD_RETRY= -e ^TEST_DESCRIPTION= -e ^UNPOISON= -e ^FAILRETRY= -e ^PRIORITY= -e ^BACKWARD_KEYWORD= -e ^FORWARD_KEYWORD= -e ^LOGLEVEL= | sed -e 's/^/export /' > $tmpf
+	. $envfile
+	. $tmpf
+	rm -f $tmpf
+}
+
 run_test_new() {
 	local proj=$1
 	if [ ! -f "work/$proj/config" ] ; then
 		echo "Project config file work/$proj/config not found." >&2
 		exit 1
 	fi
-	. work/$proj/config
-	env | grep RUNNAME
-	export RUNNAME=$proj
+	overwrite_test_setting work/$proj/config
+	env | grep -e ^RUNNAME= -e ^RUN_MODE= -e ^SOFT_RETRY= -e ^HARD_RETRY= -e ^TEST_DESCRIPTION= -e ^UNPOISON= -e ^FAILRETRY= -e ^PRIORITY= -e ^BACKWARD_KEYWORD= -e ^FORWARD_KEYWORD= -e ^LOGLEVEL=
 	run_test $2
 }
 
