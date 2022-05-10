@@ -1,27 +1,52 @@
 # MM regression kernel test tool
 
-## Prerequisite
+This test tool is intended to help kernel development and/or kernel testing related
+to memory management subsystem (especially focusing on HWPOISON subsystem).
+
+# Prerequisite
 
 - `gcc`
 - `ruby`
 - `numactl`
 - `numactl-devel` (on RHEL/Fedora), `libnuma-dev` (on Ubuntu)
 
-## Simple usage
+Some testcase might require other libraries and tools (see individual test recipes).
 
-The following commands run all testcases in foreground process:
+If your system can not meet some of requirements, don't worry.  Testcases with
+unmet requirements should be simply ignored.
+
+# Simple usage
+
+The following examples show typical usages of this test tool.
+You need to run as `root` user.
+
+If you'd like to simply run all defined testcases, run following commands:
 
 ```
 $ git clone https://github.com/Naoya-Horiguchi/mm_regression
 $ cd mm_regression
 $ make
-$ bash run.sh
+$ ./run.sh prepare debug
+$ ./run.sh project run
 ```
 
-You need to run with `root` user.  Practically you might want to run specific
-set of testcases or other testing environment to help your kernel development.
-The following sections explain some concepts, settings and tips to run test
-more flexibly.
+Practically you might want to run specific set of testcases, then you can
+do it by saving a list of testcases to be run to `work/debug/recipelist`.
+
+```
+$ make
+$ ./run.sh prepare debug
+$ ./run.sh recipe list | grep <string> > work/debug/recipelist
+$ ./run.sh project run
+```
+
+Here `./run.sh recipe list` show the list of all testcases, so you can filter
+by typical tools like `grep` and `sed`.
+
+# Test tool internals
+
+The following sections explain some concepts, settings and tips to understand
+and management the test tool.  And they also help you run testing more flexibly.
 
 ## Test project (RUNNAME)
 
@@ -31,6 +56,39 @@ about progress and/or result of the test result.  A test project is named
 via environment variable `RUNNAME`, and all the information of the test project
 is stored under `work/$RUNNAME`.
 
+The above simple examples, `RUNNAME` is set to `debug`, so all data related
+to this test project is stored under `work/debug/`.
+
+### config file
+
+The config file of a test project is located on `work/$RUNNAME/config`.
+This file for example has the following settings:
+
+```
+$ cat work/debug/config
+export RUNNAME=debug
+export RUN_MODE=all
+export SOFT_RETRY=1
+export HARD_RETRY=1
+export TEST_DESCRIPTION="MM regression test"
+export UNPOISON=false
+export FAILRETRY=
+export PRIORITY=0-20
+export BACKWARD_KEYWORD=
+export FORWARD_KEYWORD=
+export LOGLEVEL=1
+```
+
+This file is directly loaded when initializing test and affects how the
+testing runs.
+See "[Tips on running testing](#tips-on-running-testing)" section for
+more details about each environment variables.
+
+Some testcases can have their own control parameter, which can be added
+in the project config file.
+For example, some KVM-related testcases requires environment variable `VM`
+to specify the testing virtual machine.
+
 ## Test case
 
 A test case is associated with a single test recipe file which is located
@@ -38,88 +96,89 @@ under directory `cases` in hierarchial manner. The file path of the recipe
 file is considered as "testcase ID". Some testcases are simliar, so they can
 be generated from template recipe files whose file names have extension of
 `.set3`.  Recipe files generated from template have extension of `.auto3`.
-You can run `make split_recipes` command to generate derived recipe files,
-and you can see all recipe files with `make allrecipes` command.
+You can run `./run.sh recipe split` command to generate derived recipe files,
+and you can see all recipe files with `./run.sh recipe list` command.
+
+See section [Structure of test case](#structure-of-test-case) for details
+about how to write testcases.
 
 ## Recipe list
 
-By default, a test project includes all test cases in its run list.  It
-takes long to run all test cases, so you can choose to run only subset of
-test cases for practical purpose. If you prepare `work/$RUNNAME` with `make
-prepare` command, then the full list of test cases are stored in
-`work/$RUNNAME/full_recipe_list`, so one easy way to create a run list is to
-grep on this file. Typical operations are like below:
+When you create a test project with `./run.sh prepare` command,
+a list of all testcases is stored on `work/$RUNNAME/full_recipe_list`.
+
+When you start running testing, the test tool tries to determine which
+testcases in `full_recipe_list` are executed based on environment variables
+in the config file and system environment.
+If you know that you are interested in only small subset of testcases,
+you can manually construct `work/$RUNNAME/recipelist` by filtering testcases
+(as done in the above simple example).
+
+## Checking status of current testing
+
+To know which is the current test project, run `./run.sh project show` command:
 
 ```
-$ export RUNNAME=testrun
-$ make prepare
-$ grep <keyword> work/$RUNNAME/full_recipe_list > work/$RUNNAME/recipelist
-$ bash run.sh
+$ ./run.sh proj show
+Project Name: debug
+Total testcases: 531
+Target testcases: 531
 ```
 
-If you know the recipe file which you want to run, you can pass it to
-`run.sh` as an argument:
-~~~
-$ bash run.sh cases/mm/compaction
-~~~
-
-## Show summary
-
-The progress/result of a test project is stored under `work/$RUNNAME`, but it's
-not easy to see from it how the test going. To show the summary or progress,
-we provide script `test_core/lib/test_summary.rb`.
+To show the status of the current test project, run `./run.sh project summary` command:
 
 ```
-$ ruby test_core/lib/test_summary.rb work/testrun/
-Progress: 428 / 455 (94%)
-PASS 307, FAIL 29, WARN 4, SKIP 88, NONE 27
+$ ./run.sh proj summary
+Project Name: debug
+Progress: 394 / 525 (75%)
+PASS 350, FAIL 26, WARN 0, SKIP 18, NONE 131
+```
 
-$ ruby test_core/lib/test_summary.rb -C work/testrun/
-PASS 20200814/102319 [10] cases/mm/thp/swap
-FAIL 20200814/102351 [10] cases/mm/thp/anonymous/split_retry_thp-base.auto3
-FAIL 20200814/102431 [10] cases/mm/thp/anonymous/split_retry_thp-double_mapping.auto3
-PASS 20200814/102441 [10] cases/mm/thp/anonymous/split_retry_thp-pmd_split.auto3
+You can show per-testcase detailed summary, set `-p` option.
+
+```
+$ ./run.sh proj summary -p
+Project Name: 220506a
+PASS mm/compaction
+FAIL mm/hugetlb/deferred_dissolve/error-type-hard-offline_dissolve-dequeue.auto3
+PASS mm/hugetlb/deferred_dissolve/error-type-hard-offline_dissolve-free.auto3
+FAIL mm/hugetlb/deferred_dissolve/error-type-soft-offline.auto3
+SKIP mm/hugetlb/deferred_dissolve_fault.auto3
+PASS mm/hugetlb/dissolve_failure
+PASS mm/hugetlb/per_process_usage_counter
 ...
-Progress: 428 / 455 (94%)
-Target: work/testrun
+Progress: 394 / 525 (75%)
 ```
 
-As shown in this example, `-C` option shows detailed (per test case) summary.
+## Restarting and resuming
 
-## Running mode (BACKGROUND)
+When you cease the current testing or the testing system restart during
+testing, you can restart from the aborted testcases by simply running
+`./run.sh project run` commnad.
 
-Some test case might reboot the system. From the viewpoint of test
-automation, you might want to make sure that testing complete with system
-reboot. Background mode, which can be enabled by environment variable
-`BACKGROUND=true`, is helpful for that purpose.
+If you restart all testcases from the beginning of test case list,
+you can set `-a` option to `./run.sh project run` command.
+Sometimes you want to avoid already passed testcases, then add
+both of `-a` option and `-p` option.
 
-When you set `BACKGROUND=true`, `run.sh` returns immediately with
-registering systemd service `test.service` and testing is done under systemd
-process.  Even if the testing system reboots during testing, systemd
-restarts the test service and continues from the test case that was being
-executed on the reboot event.
-
-```
-BACKGROUND=true bash run.sh
-```
+If a testcase caused kernel panic, then restart from the next testcase
+of the aborted testcase, you can set `-w` option.
 
 ## Tips on running testing
 
 There're other control parameters on testing, all of which are specified via
 environment variables.
 
-- `AGAIN`: when using this test tool for debugging purpose, you might need to
-  run a test case multiple times on the same environment. A test project saves
-  its running status under `work/$RUNNAME`, and by default completed test cases
-  are skipped on subsequent call of `run.sh`. So in order to rerun the test case,
-  you need to give `AGAIN=true` as environment variable:
-  ```
-  AGAIN=true bash run.sh
-  ```
-- `SKIP_PASSED`: when part of testcases in your test project didn't pass,
-  you might want to rerun only failed cases. Setting this variable does it.
-- `LOGLEVEL`: controlling log level (default: 1). If you set this 2 (0),
-  more (less) log messages will be printed out.
+- `RUN_MODE`: each test case has at least one test type (specified by
+  `TEST_TYPE` or default type `normal`).  This variable is used to determine
+  whether a testcase is executed or not.  If `TEST_TYPE` of a testcase is
+  included in `RUN_MODE`, the testcase should be executed.
+  Otherwise, the testcases is skipped.
+    - `RUN_MODE=all` is a special value.  With this value, all testcases are
+      executed regardless of test types.
+    - `RUN_MODE` can have multiple values (comma-separated). Then, testcase
+      is determined to run when all types in `TEST_TYPE` is included in
+      `RUN_MODE`.
 - `SOFT_RETRY`: default is 3. You consider a test case as passed when
   the test case passed once until it failed `SOFT_RETRY` times.
 - `HARD_RETRY`: default is 1. You consider a test case as passed when the
@@ -130,9 +189,6 @@ environment variables.
   to 20 and smaller value means higher priority. This environment variable
   is used to limit the test cases to be run based on priority. You can specify
   this parameter like `PRIORITY=0-10,12,15-18`. The default is `0-10`.
-- `RUN_MODE`: some test cases are tagged with keywords for its purpose, and
-  such testcases are supposed to be skipped by default. In order to run them,
-  you have to set variable `RUN_MODE` to one of the keywords in `TEST_TYPE`.
 - `BACKWARD_KEYWORD`: the expected behavior of a test case might depend on
   the version of kernel or some other components. Such test cases define
   the keyword to switch the expected behavior to choose old one and new one.
@@ -144,6 +200,8 @@ environment variables.
   the expected behavior of affected test cases. This variable are used to
   make test cases for developing feature (not merged upstream yet) pass.
   This environment variable is only helpful in development phase.
+- `LOGLEVEL`: controlling log level (default: 1). If you set this 2 (0),
+  more (less) log messages will be printed out.
 
 # For developers
 
