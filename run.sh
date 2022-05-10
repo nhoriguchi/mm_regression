@@ -216,9 +216,11 @@ show_summary() {
 		echo "No work/$proj found."
 		exit 1
 	fi
-	echo "# [$@, $proj]"
-	# TODO: more detail
-	echo "ruby test_core/lib/test_summary.rb $SHOW_FAILURE $SHOW_PROGRESS $SHOW_TIMESUMMARY work/$proj"
+	echo "Project Name: $proj"
+	if [ "$LOGLEVEL" ] && [ "$LOGLEVEL" -ge 2 ] ; then
+		echo "# [$@, $proj]"
+		echo "ruby test_core/lib/test_summary.rb $SHOW_FAILURE $SHOW_PROGRESS $SHOW_TIMESUMMARY work/$proj"
+	fi
 	ruby test_core/lib/test_summary.rb $SHOW_FAILURE $SHOW_PROGRESS $SHOW_TIMESUMMARY work/$proj
 }
 
