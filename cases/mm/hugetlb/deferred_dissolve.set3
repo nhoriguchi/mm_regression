@@ -8,6 +8,8 @@
 TEST_TYPE=devel
 EXPECTED_RETURN_CODE="HUGETLB_POISONED RAW_PAGE_POISONED EXIT"
 
+. $TRDIR/lib/mm.sh
+
 _prepare() {
 	sysctl vm.nr_hugepages=10
 }
