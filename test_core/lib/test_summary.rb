@@ -251,7 +251,7 @@ class TestSummary
     @full_recipe_list.each do |recipe|
       next if ! ["FAIL", "WARN", "SKIP"].include?(@test_summary_hash[recipe].testcase_result)
       tmp = [recipe]
-      tmp << File.read(@test_summary_hash[recipe].tc_dir + "/result").split("\n").select{|line| line =~ /^(FAIL|SKIPPED):/}.map {|line| "  " + line}.join("\n")
+      tmp << File.read(@test_summary_hash[recipe].tc_dir + "/result").split("\n").select{|line| line =~ /^(FAIL|SKIPPED):/}.uniq.map {|line| "  " + line}.join("\n")
       outstr << tmp.join("\n")
     end
     puts outstr.join("\n\n")
