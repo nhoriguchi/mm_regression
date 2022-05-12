@@ -86,8 +86,6 @@ done
 shift $[OPTIND-1]
 
 run_test() {
-	# export AGAIN=true
-	# export BACKGROUND=true
 	export TEST_DESCRIPTION=${TEST_DESCRIPTION:="MM regression test"}
 	export RUNNAME=${RUNNAME:=debug}
 	export SOFT_RETRY=${SOFT_RETRY:=1}
@@ -98,24 +96,33 @@ run_test() {
 
 	make -s build
 
-	if [ "$FAILRETRY" ] && [ "$FAILRETRY" -gt 1 ] ; then
-		# TODO: rename ROUND?
-		[ ! "$ROUND" ] && export ROUND=1
-		BASERUNNAME=$RUNNAME
-		export RUNNAME=$BASERUNNAME/$ROUND
-		make --no-print-directory prepare
-		if [ ! -f  work/$RUNNAME/recipelist ] ; then
-			if [ "$ROUND" -gt 1 ] ; then
-				ruby test_core/lib/test_summary.rb -C work/$BASERUNNAME/$[ROUND-1] | grep -e ^FAIL -e ^WARN | cut -f4 -d' ' > work/$RUNNAME/recipelist
-			else
-				if [ -f work/$BASERUNNAME/recipelist ] ; then
-					cp work/$BASERUNNAME/recipelist work/$RUNNAME/recipelist
-				else
-					cp work/$BASERUNNAME/full_recipe_list work/$RUNNAME/recipelist
-				fi
+    [ ! "$FAILRETRY" ] && export FAILRETRY=1
+
+	if [ ! "$ROUND" ] ; then
+		# find fisrt unfinished round
+		for round in $(seq $FAILRETRY) ; do
+			if [ ! -f "work/$RUNNAME/$round/__finished" ] ; then
+				break
 			fi
-			make --no-print-directory prepare
+		done
+		export ROUND=$round
+	fi
+	echo "ROUND: $ROUND"
+
+	BASERUNNAME=$RUNNAME
+	export RUNNAME=$BASERUNNAME/$ROUND
+	make --no-print-directory prepare
+	if [ ! -f  work/$RUNNAME/recipelist ] ; then
+		if [ "$ROUND" -gt 1 ] ; then
+			ruby test_core/lib/test_summary.rb -C work/$BASERUNNAME/$[ROUND-1] | grep -e ^FAIL -e ^WARN | cut -f4 -d' ' > work/$RUNNAME/recipelist
+		else
+			if [ -f work/$BASERUNNAME/recipelist ] ; then
+				cp work/$BASERUNNAME/recipelist work/$RUNNAME/recipelist
+			else
+				cp work/$BASERUNNAME/full_recipe_list work/$RUNNAME/recipelist
+			fi
 		fi
+		make --no-print-directory prepare
 	fi
 
 	if [ "$1" ] ; then
