@@ -27,7 +27,7 @@
 #     project show [<PROJ>]           show info about current|given project
 #     project run [opts] [<PROJ>]     run current|given project
 #     project summary [opts] [<PROJ>] show summary of current|given project
-#     project delete [<PROJ>]         delete current|given project
+#     project clean [<PROJ>]          cleanup  current|given project
 #   version                           show tool version
 #   test:                             (deprecated) run test
 #
@@ -368,13 +368,21 @@ case $1 in
 				echo "run_test_new $proj $4"
 				run_test_new $proj $4
 				;;
-			d|de|del|dele|delet|delete)
+			c|cl|cle|clea|clean)
 				proj="$(get_project $3)"
 				if [ ! -d "work/$proj" ] ; then
 					echo "No work/$proj found."
 					exit 1
 				fi
-				echo ""
+				echo "Type 'yes' if you really delete directories under work/$proj:"
+				read input
+				if [ "$input" == yes ] ; then
+					if find work/$proj -maxdepth 1 -mindepth 1 -type d | xargs rm -r ; then
+						echo "data directory under work/$proj/ was removed."
+					fi
+				else
+					echo "cancelled."
+				fi
 				;;
 			*)
 				show_help
