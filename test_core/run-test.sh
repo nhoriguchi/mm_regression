@@ -96,7 +96,6 @@ run_recipe() {
 	local recipe_relpath=$(echo $RECIPE_FILE | sed 's/.*cases\///')
 	export TEST_TITLE=$recipe_relpath
 	export RTMPD=$GTMPD/$recipe_relpath
-	export TMPF=$TMPD
 
 	if [ ! -s "$RECIPE_FILE" ] ; then
 		echo "Recipe file not found: '$RECIPE_FILE'"

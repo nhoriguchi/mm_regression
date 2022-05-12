@@ -223,6 +223,12 @@ prepare() {
 	local prepfunc
 	local ret=0
 
+	cp /proc/meminfo $TMPD/meminfo_at_prepare
+	if [ "$(grep HardwareCorrupted /proc/meminfo | awk '{print $2}')" -gt 1000000000 ] ; then
+		echo "Something critical on HardwareCorruptd counter in /proc/meminfo"
+		return 1
+	fi
+
 	while true ; do # mocking goto
 		if [ "$TEST_PREPARE" ] ; then
 			prepfunc=$TEST_PREPARE
