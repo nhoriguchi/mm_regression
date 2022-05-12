@@ -266,7 +266,6 @@ filter_recipe_list() {
 	if [ "$PRIORITY" ] ; then
 		priority="-p $PRIORITY"
 	fi
-	echo "ruby test_core/lib/recipe.rb list -r $recipefile $run_mode $priority" >&2
 	ruby test_core/lib/recipe.rb list -r $recipefile $run_mode $priority | cut -f3 > $GTMPD/__run_recipes
 }
 

@@ -65,7 +65,7 @@
 #   - ROUND
 #
 show_help() {
-    sed -n 2,$[$BASH_LINENO-4]p $BASH_SOURCE | grep "^#" | sed 's/^#/ /'
+	sed -n 2,$[$BASH_LINENO-4]p $BASH_SOURCE | grep "^#" | sed 's/^#/ /'
 	exit 0
 }
 
@@ -96,7 +96,7 @@ run_test() {
 
 	make -s build
 
-    [ ! "$FAILRETRY" ] && export FAILRETRY=1
+	[ ! "$FAILRETRY" ] && export FAILRETRY=1
 
 	if [ ! "$ROUND" ] ; then
 		# find fisrt unfinished round
@@ -122,7 +122,6 @@ run_test() {
 				cp work/$BASERUNNAME/full_recipe_list work/$RUNNAME/recipelist
 			fi
 		fi
-		make --no-print-directory prepare
 	fi
 
 	if [ "$1" ] ; then
@@ -165,6 +164,7 @@ overwrite_test_setting() {
 	env | grep -e ^RUNNAME= -e ^RUN_MODE= -e ^SOFT_RETRY= -e ^HARD_RETRY= -e ^TEST_DESCRIPTION= -e ^UNPOISON= -e ^FAILRETRY= -e ^PRIORITY= -e ^BACKWARD_KEYWORD= -e ^FORWARD_KEYWORD= -e ^LOGLEVEL= | sed -e 's/^/export /' > $tmpf
 	. $envfile
 	. $tmpf
+	env | grep -e ^RUNNAME= -e ^RUN_MODE= -e ^SOFT_RETRY= -e ^HARD_RETRY= -e ^TEST_DESCRIPTION= -e ^UNPOISON= -e ^FAILRETRY= -e ^PRIORITY= -e ^BACKWARD_KEYWORD= -e ^FORWARD_KEYWORD= -e ^LOGLEVEL=
 	rm -f $tmpf
 }
 
@@ -175,7 +175,6 @@ run_test_new() {
 		exit 1
 	fi
 	overwrite_test_setting work/$proj/config
-	env | grep -e ^RUNNAME= -e ^RUN_MODE= -e ^SOFT_RETRY= -e ^HARD_RETRY= -e ^TEST_DESCRIPTION= -e ^UNPOISON= -e ^FAILRETRY= -e ^PRIORITY= -e ^BACKWARD_KEYWORD= -e ^FORWARD_KEYWORD= -e ^LOGLEVEL=
 	run_test $2
 }
 
@@ -374,6 +373,7 @@ case $1 in
 
 				echo "run_test_new $proj $4"
 				run_test_new $proj $4
+				echo "Done. Run './run.sh project summary -p' to show thef result."
 				;;
 			c|cl|cle|clea|clean)
 				proj="$(get_project $3)"
@@ -411,5 +411,5 @@ case $1 in
 		echo "no command given"
 		show_help
 		exit 0
-	;;
+		;;
 esac
