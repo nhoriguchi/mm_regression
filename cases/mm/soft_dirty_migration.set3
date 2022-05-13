@@ -11,7 +11,7 @@
 
 # NEED: khugepaged focused setting
 
-TEST_TYPE=manual
+TEST_TYPE=obsolete
 
 <% if param["backend"] =~ /hugetlb/ %>
 TEST_PRIORITY=20
@@ -81,6 +81,7 @@ _control() {
 
 			# This keep soft dirtiness
 			test_numa_move_pages 1 $pid 1 100
+			test_numa_move_pages 1 $pid 0 100
 
 			get_mm_stats 3 $pid
 			if check_migration_pagemap $TMPD/pagetypes.1 $TMPD/pagetypes.3 ; then
