@@ -1,0 +1,80 @@
+# memory failure events on hugepages under migration, mentioned in the thread
+# https://lore.kernel.org/linux-mm/20220511151955.3951352-1-naoya.horiguchi@linux.dev/T
+
+. $TRDIR/lib/mce.sh
+
+TEST_TYPE=devel
+
+EXPECTED_RETURN_CODE="EXIT"
+
+ITERATION=100
+NR_HUGETLB=100
+
+corrupt_filter_on() {
+	echo 0x28800 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-mask
+	echo 0x08800 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-value
+	echo 1 > /sys/kernel/debug/hwpoison/corrupt-filter-enable
+}
+
+corrupt_filter_off() {
+	echo 0 > /sys/kernel/debug/hwpoison/corrupt-filter-enable
+	echo 0 > /sys/kernel/debug/hwpoison/corrupt-filter-flags-mask
+}
+
+_prepare() {
+	sysctl vm.nr_hugepages=$NR_HUGETLB
+	save_nr_corrupted_before
+}
+
+_cleanup() {
+	corrupt_filter_off
+	sysctl vm.nr_hugepages=0
+	save_nr_corrupted_inject
+	page-types -b hwpoison -x
+	save_nr_corrupted_unpoison
+}
+
+_check() {
+	check_nr_hwcorrupted
+}
+
+try_race() {
+	sysctl vm.nr_hugepages=$NR_HUGETLB
+	grep -i huge /proc/meminfo
+	test_alloc_generic -B hugetlb_anon -N 10 -L "start mmap access:wait_after" > /dev/null 2>&1 &
+	local pid=$!
+	touch $TMPD/.a
+
+	# corrupt_filter_on
+	(
+		for i in $(seq 100) ; do
+			page-types -p $pid -b huge,compound_head=huge,compound_head -Nrl
+			migratepages $pid 0 1 > /dev/null 2>&1
+			migratepages $pid 1 0 > /dev/null 2>&1
+			echo "---> $i"
+		done
+	) > $TMPD/.x &
+	local pid1=$!
+
+	sleep 0.$RANDOM
+	page-types -p $pid -b huge,compound_head,hwpoison=huge,compound_head -NX
+
+	sleep 0.1
+
+	kill -9 $pid $pid1
+	# corrupt_filter_off
+	rm $TMPD/.x
+}
+
+_control() {
+	echo_log "start hugepage_pingpong"
+	grep ^migrat /proc/vmstat | tee $TMPD/vmstat.pgmigrate1
+
+	for i in $(seq $ITERATION) ; do
+		echo "## try_race: $i"
+		try_race
+	done
+
+	grep ^migrat /proc/vmstat | tee $TMPD/vmstat.pgmigrate2
+	set_return_code EXIT
+}
