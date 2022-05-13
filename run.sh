@@ -103,7 +103,11 @@ run_test() {
 
 	if [ ! "$ROUND" ] ; then
 		for round in $(seq $FAILRETRY) ; do
-			if [ ! "$AGAIN" ] && [ -f "work/$RUNNAME/$round/__finished" ] ; then
+			if [ "$AGAIN" ] ; then
+				rm -f work/$RUNNAME/$round/__finished work/$RUNNAME/$round/recipelist
+			fi
+
+			if [ -f "work/$RUNNAME/$round/__finished" ] ; then
 				continue
 			fi
 
