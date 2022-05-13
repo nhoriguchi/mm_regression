@@ -236,8 +236,8 @@ static void create_regular_file(void) {
 		memset(buf, 'a', PS);
 		for (i = 0; i < nr_p; i++)
 			write(fd, buf, PS);
-		fsync(fd);
 	}
+	fsync(fd);
 }
 
 /*
