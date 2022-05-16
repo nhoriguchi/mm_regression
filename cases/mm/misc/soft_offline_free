@@ -38,9 +38,7 @@ iteration2() {
 }
 
 _control() {
-	echo "page-types -b buddy -Nl | grep -P \"^10000\t\""
-	page-types -b buddy -Nl | grep -P ^10000 | tee $TMPD/ppp
-	page-types -b buddy -Nl | tee $TMPD/ppp
+	page-types -b buddy -Nl > $TMPD/ppp
 
 	if [ ! -s $TMPD/ppp ] ; then
 		echo 'injection point not found'
