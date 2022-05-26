@@ -23,6 +23,11 @@ HUGEPAGESIZE=2048
 THP=$[$MEMTOTAL/$HUGEPAGESIZE/2]
 THP_ALLOCATED=$[THP*4/5]
 
+if [ "$THP" -gt 20000 ] ; then
+	echo "Memory might be too large for stable testing, so skip this for now."
+	return 1
+fi
+
 <% if param["op"] == "busy" %>
 ACTION="$ACTION:busyloop"
 <% end %>
