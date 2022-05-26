@@ -138,4 +138,9 @@ else
     [ ! "$QUIET" ] && echo "Injecting MCE ($ERRORTYPE) to physical address pfn:$TARGET"
 fi
 inject_error $ERRORTYPE $TARGET 2>&1
-[ "$DOUBLE" = true ] && inject_error $ERRORTYPE $TARGET 2>&1
+ret=$?
+if [ "$DOUBLE" = true ] ; then
+	inject_error $ERRORTYPE $TARGET 2>&1
+	ret=$?
+fi
+exit $ret
