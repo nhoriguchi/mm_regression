@@ -48,7 +48,9 @@ commit_counts() {
 	add_counts $GTMPD/__later     $(cat $RTMPD/_later)
 }
 
+# TODO: rename this
 FALSENEGATIVE=false
+KNOWN_FAILURE=false
 
 echo_log() {
     if [ "$LOGLEVEL" ] && [ "$LOGLEVEL" -ge 1 ] ; then
@@ -110,9 +112,9 @@ count_failure() {
 	local label="$__TESTCOUNT_LABEL"
 	[ "$@" ] && label="$@"
 	__TESTCOUNT_LABEL=""
-    if [ "$FALSENEGATIVE" = true ] ; then
+    if [ "$FALSENEGATIVE" = true ] || [ "$KNOWN_FAILURE" = true ] ; then
         add_counts $RTMPD/_later 1
-        echo_log $nonewline "LATER: FAIL: $label"
+        echo_log $nonewline "EXPECTED: FAIL: $label"
         return 0
     else
         add_counts $RTMPD/_failure 1
