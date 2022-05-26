@@ -53,7 +53,7 @@ try_race() {
 			migratepages $pid 1 0 > /dev/null 2>&1
 			echo "---> $i"
 		done
-	) > $TMPD/.x &
+	) > /dev/null 2>&1 &
 	local pid1=$!
 
 	sleep 0.$RANDOM
@@ -63,7 +63,6 @@ try_race() {
 
 	kill -9 $pid $pid1
 	# corrupt_filter_off
-	rm $TMPD/.x
 }
 
 _control() {
