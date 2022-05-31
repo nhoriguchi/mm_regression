@@ -45,10 +45,14 @@ int main(int argc, char **argv) {
 	if (!strcmp(argv[4], "memset"))
 		memset_ = 1;
 
-	pipefd = open(argv[5], O_WRONLY);
-	if (pipefd == -1) {
-		puts("opening pipe failed");
-		return 1;
+	if (!strcmp(argv[5], "")) {
+		pipefd = 1;
+	} else {
+		pipefd = open(argv[5], O_WRONLY);
+		if (pipefd == -1) {
+			puts("opening pipe failed");
+			return 1;
+		}
 	}
 
 	if (!strcmp(argv[6], "file")) {
