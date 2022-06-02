@@ -1,3 +1,5 @@
+#! {"type" => "free", "offline" => "hard"}
+#! {"type" => "free", "offline" => "soft"}
 #! {"type" => "file", "offline" => "hard"}
 #! {"type" => "file", "offline" => "soft"}
 #! {"type" => "file", "offline" => "hard", "access" => "write"}
@@ -29,9 +31,13 @@ NR_MADVISE=1
 EXPECTED_RETURN_CODE="MADVC_PASS EXIT"
 FORK=fork
 <% else %>
+<% if param["type"] == "free" %>
+EXPECTED_RETURN_CODE="ERROR_HANDLE_PASSED"
+<% else %>
 EXPECTED_RETURN_CODE="OFFLINE_PASS EXIT"
 NR_MADVISE=0
 FORK=.
+<% end %>
 <% end %>
 
 <% if param["access"] == "write" %>
@@ -55,6 +61,7 @@ _prepare() {
 		return 1
 	fi
 
+	echo 0 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages || return 1
 	echo 4 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages || return 1
 
 	[ ! -d "$HUGETLBFSDIR" ] && mkdir -p "$HUGETLBFSDIR"
@@ -78,10 +85,28 @@ _cleanup() {
 	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
 }
 
+<% if param["type"] == "free" %>
+_control() {
+	local pfn="0x$(page-types -b compound_head,huge=compound_head,huge -Nrl | grep -v offset | head -n1 | cut -f1)"
+
+	if [ "$pfn" == 0x ] ; then
+		set_return_code NO_HUGETLB
+		return 1
+	fi
+
+	echo "Target pfn: $pfn"
+	echo $[$pfn * 4096] > /sys/devices/system/memory/${OFFLINE}_offline_page
+	if [ $? -eq 0 ] ; then
+		set_return_code ERROR_HANDLE_PASSED
+	else
+		set_return_code ERROR_HANDLE_FAILED
+	fi
+}
+<% else %>
 _control() {
 	echo "+++ offline:$OFFLINE fork:$FORK, access:$ACCESS"
-	echo hugetlb_1gb "$NR_MADVISE" "$OFFLINE" "$FORK" "$ACCESS" "$TMPD/.pipe" "$HUGETLBTYPE"
-	hugetlb_1gb "$NR_MADVISE" "$OFFLINE" "$FORK" "$ACCESS" "$TMPD/.pipe" "$HUGETLBTYPE" &
+	echo hugetlb_1gb "$NR_MADVISE" "$OFFLINE" "$FORK" "$ACCESS" \"\" "$HUGETLBTYPE"
+	hugetlb_1gb "$NR_MADVISE" "$OFFLINE" "$FORK" "$ACCESS" "" "$HUGETLBTYPE" > $TMPD/.pipe &
 	local pid=$!
 	# trace-cmd record -p function_graph -P $pid -g free_gigantic_page sleep 10 &
 
@@ -113,7 +138,7 @@ _control() {
 			"faultin 0")
 				page-types -p $pid -Nrl -a 0x700000000
 				echo "$MCEINJECT -p $pid -e ${OFFLINE}-offline -a 0x700000000"
-				$MCEINJECT -p $pid -e ${OFFLINE}-offline -a 0x700000000
+				$MCEINJECT -p $pid -e ${OFFLINE}-offline -a $[0x700000000 + 32]
 				if [ "$?" -eq 0 ] ; then
 					set_return_code OFFLINE_PASS
 				else
@@ -133,11 +158,16 @@ _control() {
 	done
 	set_return_code EXIT
 }
+<% end %>
 
 _check() {
 	save_nr_corrupted_unpoison
 	check_nr_hwcorrupted
 	<% if param["offline"] == "hard" or param["offline"] == "madvhard" %>
+	<% if param["type"] == "free" %>
+	check_kernel_message "recovery action for free huge page: Recovered"
+	<% else %>
 	check_kernel_message "recovery action for huge page: Recovered"
+	<% end %>
 	<% end %>
 }
