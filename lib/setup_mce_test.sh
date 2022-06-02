@@ -26,11 +26,19 @@ prepare_mce_test() {
 
 	save_nr_corrupted_before
 
+	if [ "$WARN_EXPECTED" = true ] ; then
+		sysctl kernel.panic_on_warn=0
+	fi
+
 	echo 1 > $DEBUGFSDIR/mce/fake_panic
 }
 
 cleanup_mce_test() {
 	echo 0 > $DEBUGFSDIR/mce/fake_panic
+
+	if [ "$WARN_EXPECTED" = true ] ; then
+		sysctl kernel.panic_on_warn=1
+	fi
 
 	# This chech is only meaningful only if test programs are run in sync mode.
 	if [ "$TEST_PROGRAM" ] ; then

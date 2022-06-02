@@ -152,7 +152,9 @@ HUGEPAGESIZE=2048 # kB
 <% elsif param["backend"] == "ksm" %>
 FALSENEGATIVE=false
 <% elsif param["backend"] =~ /(zero|huge_zero)/ %>
+PRIORITY=18
 FALSENEGATIVE=true
+WARN_EXPECTED=true
 <% elsif param["backend"] == "buddy" %>
 unset TEST_PROGRAM
 

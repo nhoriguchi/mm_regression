@@ -40,6 +40,10 @@ THP=100
 HUGETLB=300
 HUGEPAGESIZE=2048
 
+<% if param["backend"] == "huge_zero" %>
+WARN_EXPECTED=true
+<% end %>
+
 <% if param["backend"] == "ksm" %>
 KSM=true
 <% end %>
@@ -75,11 +79,21 @@ _prepare() {
 	echo $valuebits > $DEBUGFSDIR/hwpoison/corrupt-filter-flags-value
 	echo 1 > $DEBUGFSDIR/hwpoison/corrupt-filter-enable
 	trap '' BUS
+
+	if [ "$WARN_EXPECTED" = true ] ; then
+		sysctl kernel.panic_on_warn=0
+	fi
+
 	return 0
 }
 
 _cleanup() {
 	trap -- BUS
+
+	if [ "$WARN_EXPECTED" = true ] ; then
+		sysctl kernel.panic_on_warn=1
+	fi
+
 	<% if param["backend"] =~ /hugetlb/ %>
 	umount tmp/hugetlbfs
 	sysctl vm.nr_hugepages=0

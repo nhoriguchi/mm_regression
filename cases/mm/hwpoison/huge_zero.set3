@@ -7,6 +7,14 @@ ERROR=<%= param["error"] %>
 
 EXPECTED_RETURN_CODE="EXIT"
 
+_prepare() {
+	sysctl kernel.panic_on_warn=0
+}
+
+_cleanup() {
+	sysctl kernel.panic_on_warn=1
+}
+
 _control() {
 	test_alloc_generic -B huge_zero -N 2 -L "mmap access:type=read:wait_after memory_error_injection:error_type=${ERROR}:access_after_injection" &
 	local pid=$!
