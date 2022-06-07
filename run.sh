@@ -365,8 +365,7 @@ case $1 in
 							;;
 					esac
 				done
-
-				proj="$(get_project $3)"
+				proj="$(get_project $1)"
 				if [ ! -d "work/$proj" ] ; then
 					echo "No work/$proj found."
 					exit 1
