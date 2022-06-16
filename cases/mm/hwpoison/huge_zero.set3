@@ -6,6 +6,7 @@
 ERROR=<%= param["error"] %>
 
 EXPECTED_RETURN_CODE="EXIT"
+WARN_EXPECTED=true
 
 _prepare() {
 	sysctl kernel.panic_on_warn=0
@@ -19,8 +20,8 @@ _control() {
 	test_alloc_generic -B huge_zero -N 2 -L "mmap access:type=read:wait_after memory_error_injection:error_type=${ERROR}:access_after_injection" &
 	local pid=$!
 	sleep 0.1
-	page-types -p $pid -a 0x700000000+1024 -Nrl | tee $TMPD/pagemap1
+	page-types -p $pid -a 0x700000000+10 -Nrl | tee $TMPD/pagemap1
 	kill -SIGUSR1 $pid
-	page-types -p $pid -a 0x700000000+1024 -Nrl | tee $TMPD/pagemap2
+	page-types -p $pid -a 0x700000000+10 -Nrl | tee $TMPD/pagemap2
 	set_return_code EXIT
 }

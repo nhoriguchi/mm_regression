@@ -1,0 +1,120 @@
+#! {"type" => "copy"}
+#! {"type" => "mremap"}
+#! {"type" => "madvise_dontneed"}
+
+TEST_TYPE=devel
+TEST_PRIORITY=16
+
+HUGETLBTYPE=anon
+MADVISE=madvise:advice=hwpoison:wait_after:tag=hwpoison_inject
+ACCESS=access:type=memwrite:tag=after_injection
+
+<% if param["type"] == "copy" %>
+EXPECTED_RETURN_CODE="HWPOISONED CHILD_HAS_HWPOISON_ENTRY EXIT"
+<% elsif param["type"] == "mremap" %>
+EXPECTED_RETURN_CODE="HWPOISONED MREMAP_PASS EXIT"
+<% elsif param["type"] == "madvise_dontneed" %>
+EXPECTED_RETURN_CODE="HWPOISONED DONTNEED_PASS EXIT"
+<% end %>
+
+. $TRDIR/lib/setup_1GB_hugetlb.sh
+. $TRDIR/lib/setup_mmgeneric.sh
+. $TRDIR/lib/mce.sh
+
+PIPETIMEOUT=30
+
+_prepare() {
+	prepare_mm_generic || return 1
+	save_nr_corrupted_before
+	prepare_1GB_hugetlb || return 1
+}
+
+_cleanup() {
+	save_nr_corrupted_inject
+	cleanup_mm_generic
+	cleanup_1GB_hugetlb
+}
+
+_control() {
+	<% if param["type"] == "copy" %>
+	echo "hugetlb_1gb -p $PIPE allocate:type=$HUGETLBTYPE access $MADVISE fork:wait_before $ACCESS pause"
+	hugetlb_1gb -p $PIPE allocate:type=$HUGETLBTYPE access $MADVISE fork pause:tag=after_fork $ACCESS pause &
+	<% elsif param["type"] == "mremap" %>
+	echo "hugetlb_1gb -p $PIPE allocate:type=$HUGETLBTYPE access $MADVISE mremap pause:tag=after_mremap $ACCESS pause"
+	hugetlb_1gb -p $PIPE allocate:type=$HUGETLBTYPE access $MADVISE mremap pause:tag=after_mremap $ACCESS pause &
+	<% elsif param["type"] == "madvise_dontneed" %>
+	hugetlb_1gb -p $PIPE allocate:type=$HUGETLBTYPE access $MADVISE madvise:advice=dontneed pause:tag=after_dontneed $ACCESS pause &
+	<% end %>
+	local pid=$!
+
+	while read -t5 line <> $PIPE ; do
+		echo ">> $line"
+		case "$line" in
+			"after_madvise_hwpoison_inject")
+				page-types -p $pid -a 0x700000000+10 -Nrl | tee $TMPD/pagemap.1
+				if grep -q "_X_" $TMPD/pagemap.1 ; then
+					set_return_code HWPOISONED
+				else
+					set_return_code HWPOISON_FAILED
+				fi
+				sleep 0.1
+				kill -SIGUSR1 $pid
+				;;
+			"forked "*)
+				local cpid="$(echo $line | cut -f2 -d' ')"
+				page-types -p $pid -a 0x700000000+10 -Nrl | tee $TMPD/pagemap.2a
+				page-types -p $cpid -a 0x700000000+10 -Nrl | tee $TMPD/pagemap.2b
+				if grep -q "_X_" $TMPD/pagemap.2b ; then
+					set_return_code CHILD_HAS_HWPOISON_ENTRY
+				else
+					set_return_code CHILD_DOESNT_HAVE_HWPOISON_ENTRY
+				fi
+				kill -SIGUSR1 $cpid
+				;;
+			"pause_after_fork")
+				page-types -p $pid -a 0x700000000+10 -Nrl
+				grep ^700000000 /proc/$pid/numa_maps
+				grep -A25 ^700000000 /proc/$pid/smaps
+				kill -SIGUSR1 $pid
+				;;
+			"pause_after_mremap")
+				page-types -p $pid -a 0x700000000+10 -Nrl | tee $TMPD/pagemap.2a
+				page-types -p $pid -a 0x700040000+10 -Nrl | tee $TMPD/pagemap.2b
+				if grep -q "_X_" $TMPD/pagemap.2b ; then
+					set_return_code MREMAP_PASS
+				else
+					set_return_code MREMAP_FAIL
+				fi
+				kill -SIGUSR1 $pid
+				;;
+			"pause_after_dontneed")
+				page-types -p $pid -a 0x700000000+10 -Nrl | tee $TMPD/pagemap.2
+				if grep -q "_X_" $TMPD/pagemap.2 ; then
+					set_return_code DONTNEED_FAIL
+				else
+					set_return_code DONTNEED_PASS
+				fi
+				kill -SIGUSR1 $pid
+				;;
+			"pause")
+				kill -SIGUSR1 $pid
+				;;
+			*)
+				;;
+		esac
+	done
+	kill_all_subprograms $BASHPID
+	set_return_code EXIT
+}
+
+_check() {
+	save_nr_corrupted_unpoison
+	check_nr_hwcorrupted
+	<% if param["offline"] == "hard" or param["offline"] == "madvhard" %>
+	<% if param["type"] == "free" %>
+	check_kernel_message "recovery action for free huge page: Recovered"
+	<% else %>
+	check_kernel_message "recovery action for huge page: Recovered"
+	<% end %>
+	<% end %>
+}

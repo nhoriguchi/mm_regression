@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <numaif.h>
 #include <signal.h>
+#include <string.h>
 #include <errno.h>
 
 #define ADDR_INPUT	0x700000000000UL
@@ -19,14 +20,22 @@ int main(int argc, char *argv[]) {
 	pid_t pid = strtol(argv[2], NULL, 0);
 	int dst = strtol(argv[3], NULL, 0); /* destination node */
 	int pct = strtol(argv[4], NULL, 0); /* only pct % of the given range are moved */
+	int stat = 0;
+
+	if (argc > 5 && !strcmp(argv[5], "stat"))
+		stat = 1;
 	
 	addrs  = malloc(sizeof(char *) * nr_p + 1);
 	status = malloc(sizeof(char *) * nr_p + 1);
-	nodes  = malloc(sizeof(char *) * nr_p + 1);
+	if (stat)
+		nodes = NULL;
+	else
+		nodes  = malloc(sizeof(char *) * nr_p + 1);
 	
 	for (i = 0; i < nr_p * pct / 100; i++) {
 		addrs[i] = (void *)ADDR_INPUT + i * PS;
-		nodes[i] = dst;
+		if (!stat)
+			nodes[i] = dst;
 		status[i] = 0;
 	}
 	ret = move_pages(pid, nr_p, addrs, nodes, status,

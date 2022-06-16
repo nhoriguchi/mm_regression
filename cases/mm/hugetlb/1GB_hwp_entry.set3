@@ -1,0 +1,65 @@
+#! {"type" => "file"}
+#! {"type" => "anon"}
+#! {"type" => "shmem"}
+
+TEST_TYPE=devel
+TEST_PRIORITY=16
+
+HUGETLBTYPE=<%= param["type"] %>
+MADVISE=madvise:advice=hwpoison:wait_after=1000
+ACCESS=access:type=memwrite:tag=after_injection
+
+EXPECTED_RETURN_CODE="HWPOISONED EXIT"
+
+. $TRDIR/lib/setup_1GB_hugetlb.sh
+. $TRDIR/lib/setup_mmgeneric.sh
+. $TRDIR/lib/mce.sh
+
+PIPETIMEOUT=30
+
+_prepare() {
+	prepare_mm_generic || return 1
+	save_nr_corrupted_before
+	prepare_1GB_hugetlb || return 1
+}
+
+_cleanup() {
+	save_nr_corrupted_inject
+	cleanup_mm_generic
+	cleanup_1GB_hugetlb
+}
+
+_control() {
+	echo "hugetlb_1gb -p $PIPE allocate:type=$HUGETLBTYPE access $MADVISE $ACCESS pause"
+	hugetlb_1gb -p $PIPE allocate:type=$HUGETLBTYPE access $MADVISE pause $ACCESS pause &
+	local pid=$!
+
+	while read -t5 line <> $PIPE ; do
+		echo ">> $line"
+		case "$line" in
+			"pause")
+				set_return_code HWPOISONED
+				page-types -p $pid -a 0x700000000+10 -Nrl
+				grep ^700000000 /proc/$pid/numa_maps
+				grep -A25 ^700000000 /proc/$pid/smaps
+				test_numa_move_pages 1 $pid 1 100 stat
+				break
+				;;
+			*)
+				;;
+		esac
+	done
+	set_return_code EXIT
+}
+
+_check() {
+	save_nr_corrupted_unpoison
+	check_nr_hwcorrupted
+	<% if param["offline"] == "hard" or param["offline"] == "madvhard" %>
+	<% if param["type"] == "free" %>
+	check_kernel_message "recovery action for free huge page: Recovered"
+	<% else %>
+	check_kernel_message "recovery action for huge page: Recovered"
+	<% end %>
+	<% end %>
+}

@@ -1,12 +1,31 @@
 #! {"error-type" => "soft-offline"}
 #! {"error-type" => "hard-offline", "dissolve" => "dequeue"}
 #! {"error-type" => "hard-offline", "dissolve" => "free"}
+#! {"error-type" => "hard-offline", "dissolve" => "unpoison"}
+#! {"error-type" => "hard-offline", "multi-error" => "true"}
 
 # Related to discussion
 #   https://lore.kernel.org/linux-mm/7362f9ee-81fa-702a-7a03-1a91ecf0b58e@oracle.com/
 
 TEST_TYPE=devel
 EXPECTED_RETURN_CODE="HUGETLB_POISONED RAW_PAGE_POISONED EXIT"
+
+<% if param["dissolve"] == "dequeue" %>
+TEST_TYPE=wip
+EXPECTED_RETURN_CODE="HUGETLB_POISONED RAW_PAGE_POISONED EXIT"
+<% elsif param["dissolve"] == "free" %>
+TEST_TYPE=devel
+EXPECTED_RETURN_CODE="HUGETLB_POISONED RAW_PAGE_POISONED EXIT"
+<% elsif param["dissolve"] == "unpoison" %>
+TEST_TYPE=devel
+EXPECTED_RETURN_CODE="HUGETLB_POISONED EXIT"
+<% elsif param["multi-error"] == "true" %>
+TEST_TYPE=devel
+EXPECTED_RETURN_CODE="UGETLB_POISONED RAW_PAGE_POISONED MULTIPLE_RAW_PAGE_POISONED EXIT"
+<% else %>
+TEST_TYPE=wip
+EXPECTED_RETURN_CODE="EXIT"
+<% end %>
 
 . $TRDIR/lib/mm.sh
 
@@ -42,9 +61,10 @@ _control() {
 		return 1
 	fi
 
-	<% if param["dissolve"] == "dequeue" %>
 	# remove reservation
 	kill -9 $pid
+
+	<% if param["dissolve"] == "dequeue" %>
 	# this allocation try to dequeue hwpoisoned free page in free list,
 	# which causes deferred dissolve.
 	test_alloc_generic -B hugetlb_anon -N 9 -L "mmap access:wait_after" &
@@ -53,13 +73,21 @@ _control() {
 	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.3
 
 	<% elsif param["dissolve"] == "free" %>
-	# remove reservation
-	kill -9 $pid
 	sysctl vm.nr_hugepages=0
 	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.3
 
 	<% elsif param["dissolve"] == "unpoison" %>
-	echo "TODO: not implemented yet"
+	page-types -a ${targetpfn}+512 -b hwpoison -rlN -x | tee $TMPD/pagemap.3b
+	sysctl vm.nr_hugepages=0
+	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.3
+
+	<% elsif param["multi-error"] == "true" %>
+	for i in $(seq 3 3 100) ; do
+		echo $[($targetpfn + $i) * 4096] > /sys/devices/system/memory/hard_offline_page
+	done
+	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.4
+	sysctl vm.nr_hugepages=0
+	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.3
 	<% end %>
 
 	grep -i huge /proc/meminfo
@@ -69,6 +97,14 @@ _control() {
 	if grep -q -E "^${checkpfn}.*______X____" $TMPD/pagemap.3 ; then
 		set_return_code RAW_PAGE_POISONED
 	fi
+
+	<% if param["multi-error"] == "true" %>
+	checkpfn="$(printf "%lx\n" $[$targetpfn + 3])"
+	# hwpoisoned should not be a buddy page
+	if grep -q -E "^${checkpfn}.*______X____" $TMPD/pagemap.3 ; then
+		set_return_code MULTIPLE_RAW_PAGE_POISONED
+	fi
+	<% end %>
 
 	set_return_code EXIT
 }

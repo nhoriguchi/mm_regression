@@ -3,7 +3,7 @@
 #! {"type" => "anon", "offline" => "hard"}
 #! {"type" => "anon", "offline" => "soft"}
 
-TEST_TYPE=wip
+TEST_TYPE=devel
 TEST_PRIORITY=16
 
 . $TRDIR/lib/setup_mce_test.sh || exit 1
@@ -15,6 +15,7 @@ OFFLINE=<%= param["offline"] %>
 
 EXPECTED_RETURN_CODE="EXIT"
 
+. $TRDIR/lib/setup_1GB_hugetlb.sh
 . $TRDIR/lib/setup_mmgeneric.sh
 . $TRDIR/lib/mce.sh
 
@@ -26,44 +27,22 @@ RACE_ITERATIONS=10
 _prepare() {
 	prepare_mm_generic || return 1
 	save_nr_corrupted_before
-
-	if [ ! -f "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages" ] ; then
-		echo "no 1GB hugetlb directory. abort." >&2
-		return 1
-	fi
-
-	echo 0 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages || return 1
-	echo 4 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages || return 1
-	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_overcommit_hugepages
-
-	[ ! -d "$HUGETLBFSDIR" ] && mkdir -p "$HUGETLBFSDIR"
-	mount -t hugetlbfs -o pagesize=1G,size=1G none "$HUGETLBFSDIR"
-	find /sys/kernel/mm/hugepages/hugepages-1048576kB -type f | grep hugepages$ | while read f ; do
-		echo "$f $(cat $f)"
-	done
-
-	if [ "$(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)" -lt 2 ] ; then
-		echo "enough 1GB hugetlb not allocated. abort." >&2
-		return 1
-	fi
+	prepare_1GB_hugetlb || return 1
 }
 
 _cleanup() {
 	save_nr_corrupted_inject
 	cleanup_mm_generic
-
-	rm -rf $HUGETLBFSDIR/*
-	umount "$HUGETLBFSDIR"
-	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
+	cleanup_1GB_hugetlb
 }
 
 _control() {
 	for i in $(seq $RACE_ITERATIONS) ; do
-		echo "+++ offline:$OFFLINE fork:$FORK, access:$ACCESS"
-		hugetlb_1gb_iterate_mapping anon > $TMPD/.pipe &
+		hugetlb_1gb iterate_mapping:type=$HUGETLBTYPE &
 		local pid=$!
 		sleep 0.$RANDOM
 
+		# right way to get target hugepage?
 		page-types -b compound_head,huge=compound_head,huge -rlN | grep -v offset | cut -f-3 | tee $TMPD/pagemap.1
 		local pfn=0x$(head -n1 $TMPD/pagemap.1 | cut -f1)
 		echo "targetpfn: $pfn"
@@ -71,6 +50,8 @@ _control() {
 			echo "$MCEINJECT -q -e ${OFFLINE}-offline -a $pfn"
 			$MCEINJECT -q -e ${OFFLINE}-offline -a $pfn
 		fi
+		page-types -b compound_head,huge=compound_head,huge -rlN | grep -v offset
+		grep pgmig /proc/vmstat
 		kill_all_subprograms $BASHPID
 		all_unpoison
 		echo 4 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
@@ -81,8 +62,8 @@ _control() {
 
 _check() {
 	save_nr_corrupted_unpoison
-	check_nr_hwcorrupted
-	<% if param["offline"] == "hard" or param["offline"] == "madvhard" %>
-	check_kernel_message "recovery action for huge page: Recovered"
-	<% end %>
+	# check_nr_hwcorrupted
+	# <% if param["offline"] == "hard" or param["offline"] == "madvhard" %>
+	# check_kernel_message "recovery action for huge page: Recovered"
+	# <% end %>
 }

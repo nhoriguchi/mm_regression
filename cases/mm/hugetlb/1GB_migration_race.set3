@@ -1,0 +1,69 @@
+#! {"type" => "file", "migration" => "move_pages"}
+#! {"type" => "file", "migration" => "migratepages"}
+#! {"type" => "anon", "migration" => "move_pages"}
+#! {"type" => "anon", "migration" => "migratepages"}
+
+TEST_TYPE=devel
+TEST_PRIORITY=16
+
+. $TRDIR/lib/setup_mce_test.sh || exit 1
+
+HUGETLBFSDIR=tmp/hugetlbfs
+
+HUGETLBTYPE=<%= param["type"] %>
+
+EXPECTED_RETURN_CODE="EXIT"
+
+. $TRDIR/lib/setup_1GB_hugetlb.sh
+. $TRDIR/lib/setup_mmgeneric.sh
+
+PIPETIMEOUT=30
+HUGEPAGESIZE=1048576
+
+RACE_ITERATIONS=10
+
+_prepare() {
+	prepare_mm_generic || return 1
+	prepare_1GB_hugetlb || return 1
+}
+
+_cleanup() {
+	cleanup_mm_generic
+	cleanup_1GB_hugetlb
+}
+
+_control() {
+	for i in $(seq $RACE_ITERATIONS) ; do
+		hugetlb_1gb iterate_mapping:type=$HUGETLBTYPE &
+		local pid=$!
+		sleep 0.$RANDOM
+
+		for j in $(seq 20) ; do
+			page-types -b compound_head,huge=compound_head,huge -rlN | grep -v offset
+			<% if param["migration"] == "move_pages" %>
+			test_numa_move_pages 1 $pid 1 1
+			<% else %>
+			migratepages $pid 0 1
+			<% end %>
+			page-types -b compound_head,huge=compound_head,huge -rlN | grep -v offset
+			<% if param["migration"] == "move_pages" %>
+			test_numa_move_pages 1 $pid 0 1
+			<% else %>
+			migratepages $pid 1 0
+			<% end %>
+		done
+
+		kill_all_subprograms $BASHPID
+		echo 4 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
+	done
+
+	set_return_code EXIT
+}
+
+_check() {
+	save_nr_corrupted_unpoison
+	check_nr_hwcorrupted
+	<% if param["offline"] == "hard" or param["offline"] == "madvhard" %>
+	check_kernel_message "recovery action for huge page: Recovered"
+	<% end %>
+}

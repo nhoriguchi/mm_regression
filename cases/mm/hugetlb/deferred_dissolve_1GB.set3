@@ -1,92 +1,138 @@
 #! {"error-type" => "soft-offline"}
 #! {"error-type" => "hard-offline", "dissolve" => "dequeue"}
 #! {"error-type" => "hard-offline", "dissolve" => "free"}
+#! {"error-type" => "hard-offline", "dissolve" => "unpoison"}
+#! {"error-type" => "hard-offline", "multi-error" => "true"}
+##! {"error-type" => "none", "dissolve" => "free"}
 
+TEST_PRIORITY=17
+
+<% if param["dissolve"] == "dequeue" %>
+TEST_TYPE=wip
+EXPECTED_RETURN_CODE="HUGETLB_POISONED RAW_PAGE_POISONED EXIT"
+<% elsif param["dissolve"] == "free" %>
 TEST_TYPE=devel
 EXPECTED_RETURN_CODE="HUGETLB_POISONED RAW_PAGE_POISONED EXIT"
+<% elsif param["dissolve"] == "unpoison" %>
+TEST_TYPE=devel
+EXPECTED_RETURN_CODE="HUGETLB_POISONED EXIT"
+<% elsif param["multi-error"] == "true" %>
+TEST_TYPE=devel
+EXPECTED_RETURN_CODE="UGETLB_POISONED RAW_PAGE_POISONED MULTIPLE_RAW_PAGE_POISONED EXIT"
+<% else %>
+TEST_TYPE=wip
+EXPECTED_RETURN_CODE="EXIT"
+<% end %>
 
+. $TRDIR/lib/setup_1GB_hugetlb.sh
 . $TRDIR/lib/mm.sh
 
 _prepare() {
-	if [ ! -f "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages" ] ; then
-		echo "no 1GB hugetlb directory. abort." >&2
-		return 1
-	fi
+	prepare_1GB_hugetlb || return 1
 
-	echo 0 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages || return 1
-	echo 4 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages || return 1
-	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_overcommit_hugepages
-
-	find /sys/kernel/mm/hugepages/hugepages-1048576kB -type f | grep hugepages$ | while read f ; do
-		echo "$f $(cat $f)"
-	done
-
-	if [ "$(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)" -lt 2 ] ; then
-		echo "enough 1GB hugetlb not allocated. abort." >&2
-		return 1
+	if [ -s "$STAP_DIR" ] && [ -s "$STAP_DIR/stap" ] ; then
+		if [ ! -s "$GTMPD/stap_unpoison.ko" ] ; then
+			$STAP_DIR/stap -g -p4 -m unpoison \
+						   -DSTP_OVERLOAD_THRESHOLD=10000000 \
+						   --suppress-time-limits \
+						   -DMAXACTION=1000000 \
+						   $TRDIR/lib/stap/unpoison.stp \
+				|| return 1
+			mv unpoison.ko $GTMPD/
+		fi
 	fi
 }
 
 _cleanup() {
-	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
+	cleanup_1GB_hugetlb
+}
+
+check_page_status() {
+	local pfn=$1
+	local file=$2
 }
 
 _control() {
 	local nr_gp=$(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)
 
-	hugetlb_1gb_anon $nr_gp reserve "$TMPD/.pipe" &
+	hugetlb_1gb -n $nr_gp -p $PIPE allocate:type=anon pause &
 	local pid=$!
-	read -t10 line <> $TMPD/.pipe
+	read -t10 line <> $PIPE
 	echo "--- $line ---"
 
 	page-types -b compound_head,huge=compound_head,huge -rlN | grep -v offset | cut -f-3 | tee $TMPD/pagemap.1
 	local targetpfn=0x$(head -n1 $TMPD/pagemap.1 | cut -f1)
 	echo targetpfn: $targetpfn
-	# local targetpfn="0x$(page-types -b compound_head,huge,mmap=compound_head,huge,mmap -Nrl | grep -v offset | head -n1 | cut -f1)"
 	<% if param["error-type"] == "soft-offline" %>
 	echo $[($targetpfn + 1) * 4096] > /sys/devices/system/memory/soft_offline_page
+	page-types -b compound_head,huge=compound_head,huge -rlN | grep -v offset | cut -f-3 | tee $TMPD/pagemap.1b
+	# soft offline should fail due to dissolve failure.
 	<% elsif param["error-type"] == "hard-offline" %>
 	echo $[($targetpfn + 1) * 4096] > /sys/devices/system/memory/hard_offline_page
 	<% end %>
 	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.2
 
+	<% if param["error-type"] != "none" %>
 	# check hwpoison page is still a hugepage.
 	if grep -q ___H_G_X___ $TMPD/pagemap.2 ; then
 		set_return_code HUGETLB_POISONED
 	else
+		set_return_code HUGETLB_NOT_POISONED
 		return 1
 	fi
+	<% end %>
 
-	<% if param["dissolve"] == "dequeue" %>
+	show_1GB_pool
 	# remove reservation
 	kill -9 $pid
-	# this allocation try to dequeue hwpoisoned free page in free list,
-	# which causes deferred dissolve.
-	hugetlb_1gb_anon $[nr_gp] allocate "$TMPD/.pipe" &
-	read -t10 line <> $TMPD/.pipe
+
+	echo "dissolve: <%= param["dissolve"] %>"
+	<% if param["dissolve"] == "dequeue" %>
+	# this allocation tries to dequeue the hwpoisoned free page in free list,
+	# which should causes deferred dissolve.
+	echo 10 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_overcommit_hugepages
+	hugetlb_1gb -n $nr_gp -p $PIPE allocate:type=anon access pause &
+	read -t10 line <> $PIPE
 	echo "--- $line ---"
 	# hwpoisoned hugepage should be dissolved here.
 	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.3
 
 	<% elsif param["dissolve"] == "free" %>
-	# remove reservation
-	kill -9 $pid
+	sleep 1
+	echo "shrink hugepage pool to trigger dissolve"
+
 	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
 	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.3
 
 	<% elsif param["dissolve"] == "unpoison" %>
-	echo "TODO: not implemented yet"
+	page-types -a ${targetpfn}+512 -b hwpoison -rlN -x | tee $TMPD/pagemap.3b
+	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
+	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.3
+
+	<% elsif param["multi-error"] == "true" %>
+	for i in $(seq 3 3 100) ; do
+		echo $[($targetpfn + $i) * 4096] > /sys/devices/system/memory/hard_offline_page
+	done
+	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.4
+	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
+	page-types -a ${targetpfn}+512 -rlN | tee $TMPD/pagemap.3
 	<% end %>
 
-	find /sys/kernel/mm/hugepages/hugepages-1048576kB -type f | grep hugepages$ | while read f ; do
-		echo "$f $(cat $f)"
-	done
+	show_1GB_pool
 
 	local checkpfn="$(printf "%lx\n" $[$targetpfn + 1])"
 	# hwpoisoned should not be a buddy page
 	if grep -q -E "^${checkpfn}.*______X____" $TMPD/pagemap.3 ; then
 		set_return_code RAW_PAGE_POISONED
 	fi
+
+	<% if param["multi-error"] == "true" %>
+	checkpfn="$(printf "%lx\n" $[$targetpfn + 3])"
+	# hwpoisoned should not be a buddy page
+	if grep -q -E "^${checkpfn}.*______X____" $TMPD/pagemap.3 ; then
+		set_return_code MULTIPLE_RAW_PAGE_POISONED
+	fi
+	<% end %>
 
 	set_return_code EXIT
 }

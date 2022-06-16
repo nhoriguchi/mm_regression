@@ -2,19 +2,31 @@
 #! {"type" => "free", "offline" => "soft"}
 #! {"type" => "file", "offline" => "hard"}
 #! {"type" => "file", "offline" => "soft"}
-#! {"type" => "file", "offline" => "hard", "access" => "write"}
-#! {"type" => "file", "offline" => "soft", "access" => "write"}
+#! {"type" => "file", "offline" => "hard", "access" => "memwrite"}
+#! {"type" => "file", "offline" => "soft", "access" => "memwrite"}
+#! {"type" => "file", "offline" => "hard", "access" => "syswrite"}
+#! {"type" => "file", "offline" => "soft", "access" => "syswrite"}
 #! {"type" => "anon", "offline" => "hard"}
 #! {"type" => "anon", "offline" => "soft"}
+#! {"type" => "anon", "offline" => "hard", "access" => "memwrite"}
+#! {"type" => "anon", "offline" => "soft", "access" => "memwrite"}
+#! {"type" => "anon", "offline" => "hard", "access" => "syswrite"}
+#! {"type" => "anon", "offline" => "soft", "access" => "syswrite"}
 #! {"type" => "shmem", "offline" => "hard"}
 #! {"type" => "shmem", "offline" => "soft"}
 
 #! {"type" => "file", "offline" => "madvhard"}
 #! {"type" => "file", "offline" => "madvsoft"}
-#! {"type" => "file", "offline" => "madvhard", "access" => "write"}
-#! {"type" => "file", "offline" => "madvsoft", "access" => "write"}
+#! {"type" => "file", "offline" => "madvhard", "access" => "memwrite"}
+#! {"type" => "file", "offline" => "madvsoft", "access" => "memwrite"}
+#! {"type" => "file", "offline" => "madvhard", "access" => "syswrite"}
+#! {"type" => "file", "offline" => "madvsoft", "access" => "syswrite"}
 #! {"type" => "anon", "offline" => "madvhard"}
 #! {"type" => "anon", "offline" => "madvsoft"}
+#! {"type" => "anon", "offline" => "madvhard", "access" => "memwrite"}
+#! {"type" => "anon", "offline" => "madvsoft", "access" => "memwrite"}
+#! {"type" => "anon", "offline" => "madvhard", "access" => "syswrite"}
+#! {"type" => "anon", "offline" => "madvsoft", "access" => "syswrite"}
 #! {"type" => "shmem", "offline" => "madvhard"}
 #! {"type" => "shmem", "offline" => "madvsoft"}
 
@@ -26,26 +38,44 @@ HUGETLBFSDIR=tmp/hugetlbfs
 HUGETLBTYPE=<%= param["type"] %>
 OFFLINE=<%= param["offline"] %>
 
-<% if param["offline"] == "madvhard" or param["offline"] == "madvsoft" %>
-NR_MADVISE=1
-EXPECTED_RETURN_CODE="MADVC_PASS EXIT"
-FORK=fork
-<% else %>
+<% if param["offline"] == "madvhard" %>
+MADVISE=madvise:advice=hwpoison:wait_after=1000
+<% elsif param["offline"] == "madvsoft" %>
+MADVISE=madvise:advice=soft-offline:wait_after=1000
+<% end %>
+
+<% if param["access"] == "syswrite" %>
+ACCESS=access:type=syswrite:tag=after_injection
+<% elsif param["access"] == "memwrite" %>
+ACCESS=access:type=memwrite:tag=after_injection
+<% end %>
+
 <% if param["type"] == "free" %>
 EXPECTED_RETURN_CODE="ERROR_HANDLE_PASSED"
 <% else %>
-EXPECTED_RETURN_CODE="OFFLINE_PASS EXIT"
-NR_MADVISE=0
-FORK=.
-<% end %>
+  <% if param["offline"] == "madvhard" %>
+  EXPECTED_RETURN_CODE="MADV_PASS"
+  <% elsif param["offline"] == "madvsoft" %>
+  EXPECTED_RETURN_CODE="MADV_PASS"
+  <% elsif param["offline"] == "hard" %>
+  EXPECTED_RETURN_CODE="OFFLINE_PASS"
+  <% elsif param["offline"] == "soft" %>
+  EXPECTED_RETURN_CODE="OFFLINE_PASS"
+  <% end %>
+
+  <% if param["offline"] == "madvhard" or param["offline"] == "hard" %>
+    <% if param["access"] == "memwrite" %>
+    EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE SIGBUS"
+    <% elsif param["access"] == "syswrite" %>
+    KNOWN_FAILURE=true
+    EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ACCESS_ERROR_ADDRESS"
+	<% else %>
+    EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
+	<% end %>
+  <% end %>
 <% end %>
 
-<% if param["access"] == "write" %>
-ACCESS=write
-<% else %>
-ACCESS=memset
-<% end %>
-
+. $TRDIR/lib/setup_1GB_hugetlb.sh
 . $TRDIR/lib/setup_mmgeneric.sh
 . $TRDIR/lib/mce.sh
 
@@ -55,34 +85,13 @@ HUGEPAGESIZE=1048576
 _prepare() {
 	prepare_mm_generic || return 1
 	save_nr_corrupted_before
-
-	if [ ! -f "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages" ] ; then
-		echo "no 1GB hugetlb directory. abort." >&2
-		return 1
-	fi
-
-	echo 0 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages || return 1
-	echo 4 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages || return 1
-
-	[ ! -d "$HUGETLBFSDIR" ] && mkdir -p "$HUGETLBFSDIR"
-	mount -t hugetlbfs -o pagesize=1G,size=1G none "$HUGETLBFSDIR"
-	find /sys/kernel/mm/hugepages/hugepages-1048576kB -type f | grep hugepages$ | while read f ; do
-		echo "$f $(cat $f)"
-	done
-
-	if [ "$(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)" -lt 2 ] ; then
-		echo "enough 1GB hugetlb not allocated. abort." >&2
-		return 1
-	fi
+	prepare_1GB_hugetlb || return 1
 }
 
 _cleanup() {
 	save_nr_corrupted_inject
 	cleanup_mm_generic
-
-	rm -rf $HUGETLBFSDIR/*
-	umount "$HUGETLBFSDIR"
-	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
+	cleanup_1GB_hugetlb
 }
 
 <% if param["type"] == "free" %>
@@ -104,59 +113,53 @@ _control() {
 }
 <% else %>
 _control() {
-	echo "+++ offline:$OFFLINE fork:$FORK, access:$ACCESS"
-	echo hugetlb_1gb "$NR_MADVISE" "$OFFLINE" "$FORK" "$ACCESS" \"\" "$HUGETLBTYPE"
-	hugetlb_1gb "$NR_MADVISE" "$OFFLINE" "$FORK" "$ACCESS" "" "$HUGETLBTYPE" > $TMPD/.pipe &
+	<% if param["offline"] == "madvhard" or param["offline"] == "madvsoft" %>
+	echo "hugetlb_1gb allocate:type=$HUGETLBTYPE access $MADVISE $ACCESS > $TMPD/.pipe"
+	hugetlb_1gb -p $TMPD/.pipe allocate:type=$HUGETLBTYPE access $MADVISE $ACCESS > $TMPD/.pipe &
+	<% else %>
+	echo "hugetlb_1gb allocate:type=$HUGETLBTYPE access pause:tag=wait_injection $ACCESS > $TMPD/.pipe"
+	hugetlb_1gb -p $TMPD/.pipe allocate:type=$HUGETLBTYPE access pause:tag=wait_injection $ACCESS &
+	<% end %>
 	local pid=$!
-	# trace-cmd record -p function_graph -P $pid -g free_gigantic_page sleep 10 &
 
-	while read -t5 line <> $TMPD/.pipe ; do
-		echo ">> $line"
-		case "$line" in
-			"madvise 1: 0")
-				set_return_code MADV1_PASS
-				;;
-			"madvise 1: -1")
-				set_return_code MADV1_FAIL
-				;;
-			"madvise 2: 0")
-				set_return_code MADV2_PASS
-				;;
-			"madvise 2: -1")
-				set_return_code MADV2_FAIL
-				;;
-			"child madvise 1: 0")
-				set_return_code MADVC_PASS
-				;;
-			"child madvise 1: -1")
-				set_return_code MADVC_FAIL
-				;;
-			"faultin 1")
-				page-types -p $pid -Nrl -a 0x700000000
-				kill -SIGUSR1 $pid
-				;;
-			"faultin 0")
-				page-types -p $pid -Nrl -a 0x700000000
-				echo "$MCEINJECT -p $pid -e ${OFFLINE}-offline -a 0x700000000"
-				$MCEINJECT -p $pid -e ${OFFLINE}-offline -a $[0x700000000 + 32]
-				if [ "$?" -eq 0 ] ; then
-					set_return_code OFFLINE_PASS
-				else
-					set_return_code OFFLINE_FAIL
-				fi
-				sleep 0.1
-				kill -SIGUSR1 $pid
-				;;
-			"wrote after page-offline")
-				page-types -p $pid -Nrl -a 0x700000000
-				kill -SIGUSR1 $pid
-				break
-				;;
-			*)
-				;;
-		esac
+	while true ; do
+		if ! check_process_status $pid ; then
+			set_return_code EXIT
+			return
+		elif read -t5 line <> ${PIPE} ; then
+			echo ">> $line"
+			case "$line" in
+				"madvise returned 0")
+					set_return_code MADV_PASS
+					;;
+				"madvise returned -1")
+					set_return_code MADV_FAIL
+					;;
+				"pause_wait_injection")
+					page-types -p $pid -Nrl -a 0x700000000+10
+					echo "$MCEINJECT -p $pid -e ${OFFLINE}-offline -a 0x700000000"
+					$MCEINJECT -p $pid -e ${OFFLINE}-offline -a $[0x700000000 + 2]
+					if [ "$?" -eq 0 ] ; then
+						set_return_code OFFLINE_PASS
+					else
+						set_return_code OFFLINE_FAIL
+					fi
+					sleep 0.1
+					page-types -p $pid -Nrl -a 0x700000000+10
+					kill -SIGUSR1 $pid
+					;;
+				"Received SIGBUS")
+					set_return_code SIGBUS
+					sleep 0.1
+					;;
+				"access_after_injection returned 0")
+					set_return_code ACCESS_ERROR_ADDRESS
+					;;
+				*)
+					;;
+			esac
+		fi
 	done
-	set_return_code EXIT
 }
 <% end %>
 

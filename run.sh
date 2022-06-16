@@ -64,6 +64,10 @@
 #   - SKIP_WARN
 #   - ROUND
 #
+# TODO:
+#   - restart seting from specified point (by removing $GTMPD/__finished then
+#     updating $GTMPD/__finished_testcase)
+#
 show_help() {
 	sed -n 2,$[$BASH_LINENO-4]p $BASH_SOURCE | grep "^#" | sed 's/^#/ /'
 	exit 0
