@@ -91,11 +91,9 @@ run_test() {
 	export SOFT_RETRY=${SOFT_RETRY:=1}
 	export HARD_RETRY=${HARD_RETRY:=1}
 	export RUN_MODE=${RUN_MODE:=normal}
-
 	export PATH=$PWD/build:$PATH
 
 	local BASERUNNAME=$RUNNAME
-
 	make -s build
 
 	[ "$1" ] && export FILTER="$1"
@@ -373,7 +371,7 @@ case $1 in
 
 				echo "run_test_new $proj $4"
 				run_test_new $proj $4
-				echo "Done. Run './run.sh project summary -p' to show thef result."
+				echo "Done. Run './run.sh project summary -p' to show the result."
 				;;
 			c|cl|cle|clea|clean)
 				proj="$(get_project $3)"

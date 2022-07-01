@@ -1169,7 +1169,7 @@ static int __do_split_thp_chunk(struct mem_chunk *mc, void *args) {
 		if (ret < 0)
 			err("split_thp");
 		else
-			printf("madvise returnd %d\n", ret);
+			printf("madvise returned %d\n", ret);
 	}
 }
 
