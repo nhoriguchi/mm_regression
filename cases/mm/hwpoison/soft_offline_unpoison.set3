@@ -12,6 +12,7 @@ _prepare() {
 }
 
 _cleanup() {
+	all_unpoison
 	echo "7 4 1 7" > /proc/sys/kernel/printk
 }
 
@@ -46,7 +47,7 @@ _control() {
 	corrupt_buddy_pages
 	<% elsif param["backend"] == "free_hugetlb" %>
 	for i in $(seq 10) ; do
-		sysctl vm.nr_hugepages=1000
+		sysctl vm.nr_hugepages=100000
 		corrupt_free_hugetlb
 		sysctl vm.nr_hugepages=0
 	done
