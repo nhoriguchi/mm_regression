@@ -142,6 +142,13 @@ prepare_test_project() {
 	else
 		mkdir -p work/$proj
 	fi
+
+	if [[ "$proj" =~ ^debug ]] ; then
+		FAILRETRY=1
+		RUN_MODE=normal,devel,stress,wip
+		TEST_DESCRIPTION="debug"
+	fi
+
 	cat <<EOF > work/$proj/config
 export RUNNAME=$proj
 export RUN_MODE=${RUN_MODE:=normal,devel,stress}
