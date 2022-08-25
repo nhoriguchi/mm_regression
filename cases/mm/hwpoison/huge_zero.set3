@@ -1,4 +1,7 @@
-# TODO: merge with base.set3 ?
+# TODO: errors on huge zero page is not properly handled yet, and once
+# this testcase is run, any subsequent testcases could encounter bugs
+# coming from hwpoisoned huge zero page.
+TEST_TYPE=wip
 
 #! {"error" => "madv_hard"}
 #! {"error" => "madv_soft"}
@@ -13,7 +16,8 @@ _prepare() {
 }
 
 _cleanup() {
-	sysctl kernel.panic_on_warn=1
+	page-types -b hwpoison -x
+	# sysctl kernel.panic_on_warn=1
 }
 
 _control() {
@@ -23,5 +27,17 @@ _control() {
 	page-types -p $pid -a 0x700000000+10 -Nrl | tee $TMPD/pagemap1
 	kill -SIGUSR1 $pid
 	page-types -p $pid -a 0x700000000+10 -Nrl | tee $TMPD/pagemap2
+	page-types -b thp,zero=thp,zero -Nrl | tee $TMPD/pagemap3
+	local pfn=0x$(grep __H___X__t_z__ $TMPD/pagemap3 | cut -f1)
+
+	echo "allocate huge zero page again"
+	test_alloc_generic -B huge_zero -N 2 -L "mmap access:type=read:wait_after" &
+	pid=$!
+	sleep 0.1
+	page-types -p $pid -a 0x700000000+10 -Nrl | tee $TMPD/pagemap4
+
+	# unpoison
+	page-types -b hwpoison -x -Nrl
+	page-types -a $pfn+512 -Nrl
 	set_return_code EXIT
 }
