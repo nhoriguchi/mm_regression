@@ -1,0 +1,53 @@
+# This testcase mention the issue of commit c0531714d6e3: mm/hugetlb:
+# check gigantic_page_runtime_supported() in return_unused_surplus_pages()
+# https://github.com/torvalds/linux/commit/c0531714d6e3fd720b7dacc2de2d0503a995bcdc
+#
+# There shouldn't be surplus hugepages when we do reserve 1GB hugepage,
+# shrink free hugepage pool, then cancel the reservation.
+
+cd $(dirname $BASH_SOURCE)
+TEST_TYPE=normal
+
+SYSDIR=/sys/kernel/mm/hugepages/hugepages-1048576kB
+
+_prepare() {
+	echo 2 > $SYSDIR/nr_hugepages || return 1
+	nr_gp=$(cat $SYSDIR/nr_hugepages)
+}
+
+_cleanup() {
+	echo 0 > $SYSDIR/nr_hugepages
+}
+
+_control() {
+	echo "hugetlb_1gb -n $nr_gp -p $PIPE allocate:type=anon pause &"
+	hugetlb_1gb -n $nr_gp -p $PIPE allocate:type=anon pause &
+	local pid=$!
+
+	while true ; do
+		read -t10 line <> $PIPE
+		if [ ! "$line" ] ; then
+			break;
+		elif [ "$line" = pause ] ; then
+			# shrink pool
+			echo 0 > $SYSDIR/nr_hugepages
+			# unreserve hugepages
+			kill -9 $pid
+			break
+		fi
+	done
+
+	cp $SYSDIR/nr_hugepages $TMPD/nr_hugepages
+	cp $SYSDIR/free_hugepages $TMPD/free_hugepages
+	cp $SYSDIR/resv_hugepages $TMPD/resv_hugepages
+	cp $SYSDIR/surplus_hugepages $TMPD/surplus_hugepages
+}
+
+_check() {
+	count_testcount
+	if [ "$(cat $TMPD/surplus_hugepages)" -eq $nr_gp ] ; then
+		count_failure "surplus count wrongly incremented."
+	else
+		count_success "no surplus pages as expected."
+	fi
+}
