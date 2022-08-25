@@ -1,5 +1,6 @@
 #! {"type" => "file"}
 #! {"type" => "anon"}
+#! {"type" => "anon", "vmemmap" => "optimized"}
 #! {"type" => "shmem"}
 
 TEST_TYPE=devel
@@ -21,12 +22,18 @@ _prepare() {
 	prepare_mm_generic || return 1
 	save_nr_corrupted_before
 	prepare_1GB_hugetlb || return 1
+	<% if param["vmemmap"] == "optimized" %>
+	sysctl vm.hugetlb_optimize_vmemmap=1 || return 1
+	<% end %>
 }
 
 _cleanup() {
 	save_nr_corrupted_inject
 	cleanup_mm_generic
 	cleanup_1GB_hugetlb
+	<% if param["vmemmap"] == "optimized" %>
+	sysctl vm.hugetlb_optimize_vmemmap=0
+	<% end %>
 }
 
 _control() {
@@ -55,11 +62,9 @@ _control() {
 _check() {
 	save_nr_corrupted_unpoison
 	check_nr_hwcorrupted
-	<% if param["offline"] == "hard" or param["offline"] == "madvhard" %>
 	<% if param["type"] == "free" %>
 	check_kernel_message "recovery action for free huge page: Recovered"
 	<% else %>
 	check_kernel_message "recovery action for huge page: Recovered"
-	<% end %>
 	<% end %>
 }

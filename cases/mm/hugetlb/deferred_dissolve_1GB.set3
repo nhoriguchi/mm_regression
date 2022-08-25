@@ -30,6 +30,16 @@ EXPECTED_RETURN_CODE="EXIT"
 _prepare() {
 	prepare_1GB_hugetlb || return 1
 
+	if [ ! -s "$STAP_DIR" ] ; then
+		echo "environment variable STAP_DIR not set." >&2
+		return 1
+	fi
+
+	if [ ! -s "$STAP_DIR/stap" ] ; then
+		echo "Systemtap binary not found ($STAP_DIR/stap)"
+		return 1
+	fi
+
 	if [ -s "$STAP_DIR" ] && [ -s "$STAP_DIR/stap" ] ; then
 		if [ ! -s "$GTMPD/stap_unpoison.ko" ] ; then
 			$STAP_DIR/stap -g -p4 -m unpoison \
@@ -45,11 +55,6 @@ _prepare() {
 
 _cleanup() {
 	cleanup_1GB_hugetlb
-}
-
-check_page_status() {
-	local pfn=$1
-	local file=$2
 }
 
 _control() {

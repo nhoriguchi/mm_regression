@@ -1,0 +1,21 @@
+%{
+#include <linux/mm.h>
+#include <linux/page_ref.h>
+%}
+
+function unpoison(pfn:long) %{
+	unsigned long pfn = (unsigned long)STAP_ARG_pfn;
+	struct page *page = pfn_to_page(pfn);
+
+	if (TestClearPageHWPoison(page)) {
+		printk("- unpoison %lx\n", pfn);
+		set_page_count(page, 1);
+		put_page(page);
+	}
+%}
+
+global pfn = 0;
+probe begin {
+	unpoison(pfn);
+	exit();
+}
