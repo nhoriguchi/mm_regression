@@ -1,0 +1,23 @@
+%{
+#include <linux/mm.h>
+#include <linux/hugetlb.h>
+%}
+
+function set_unreliable(pfn:long) %{
+	unsigned long pfn = (unsigned long)STAP_ARG_pfn;
+	struct page *page = pfn_to_page(pfn);
+	struct page *head = compound_head(page);
+
+	if (PageHWPoison(head)) {
+		SetHPageRawHwpUnreliable(head);
+		_stp_printf("-X-> pfn %lx, flags %lx, priv %lx\n", pfn, page->flags, page->private);
+	}
+%}
+
+global pfn = 0;
+probe begin {
+	if (pfn != 0) {
+		set_unreliable(pfn);
+	}
+	exit();
+}
