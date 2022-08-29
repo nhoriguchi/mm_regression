@@ -16,7 +16,7 @@ check_dax() {
 				# echo "$[start + size] <= $[pfn]"
 				continue
 			fi
-			printf "pfn:%lx is on pmem (start:%lx, size=%lx)" $[pfn>>12] $start $size
+			printf "pfn:%lx is on pmem (start:%lx, size=%lx)\n" $[pfn>>12] $start $size
 			return 0
 		done
 		printf "pfn:%lx is not on pmem\n" $[pfn>>12]

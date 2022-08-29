@@ -32,8 +32,8 @@ _cleanup() {
 }
 
 _control() {
-	echo "mount /dev/$PMEMDEV $PMEMDIR"
-	mount /dev/$PMEMDEV $PMEMDIR
+	echo "mount -o dax /dev/$PMEMDEV $PMEMDIR"
+	mount -o dax /dev/$PMEMDEV $PMEMDIR
 	if [ "$?" -ne 0 ] ; then
 		set_return_code MOUNT_FAIL
 		return 0

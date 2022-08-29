@@ -1,0 +1,67 @@
+#! {"fs" => "ext4", "flavor" => "pte"}
+#! {"fs" => "ext4", "flavor" => "pmd"}
+#! {"fs" => "xfs", "flavor" => "pte"}
+#! {"fs" => "xfs", "flavor" => "pmd"}
+
+. $TRDIR/lib/mm.sh
+
+TEST_TYPE=devel
+
+NR_THP=3
+
+PMEMDIR=$TDIR/pmem
+
+_prepare() {
+	umount -f $PMEMDIR
+	local oldpmemdir=$(mount | grep "^/dev/$PMEMDEV " | cut -f3 -d' ')
+	[ "$oldpmemdir" ] && umount -f $oldpmemdir
+
+	mkdir -p $PMEMDIR
+	<% if param["fs"] == "ext4" %>
+	mkfs.ext4 /dev/$PMEMDEV || return 1
+	mount -t ext4 -o dax /dev/$PMEMDEV $PMEMDIR || return 1
+	<% elsif param["fs"] == "xfs" %>
+	mkfs.xfs -f -m rmapbt=1 -d su=2m,sw=1 /dev/$PMEMDEV || return 1
+	mount -o dax /dev/$PMEMDEV $PMEMDIR || return 1
+	<% end %>
+}
+
+_cleanup() {
+	rm -f $PMEMDIR/*
+	umount -f $PMEMDIR
+	rm -rf $PMEMDIR/
+}
+
+<% if param["flavor"] == "pte" %>
+# SIGKILL is sent in memory error handling even for Action Optional error.
+EXPECTED_RETURN_CODE="PROCESS_KILLED DAX_HWPOISON_RECOVERED"
+INJECT_OP="memory_error_injection:error_type=madv_hard"
+_control() {
+	echo test_alloc_generic -B pagecache -n 1 -w $PMEMDIR -f data -L "mmap access $INJECT_OP munmap"
+	test_alloc_generic -B pagecache -n 1 -w $PMEMDIR -f data -L "mmap access $INJECT_OP munmap"
+	if [ $? -eq 0 ] ; then
+		set_return_code PROCESS_NOT_KILLED
+	else
+		set_return_code PROCESS_KILLED
+	fi
+}
+<% elsif param["flavor"] == "pmd" %>
+EXPECTED_RETURN_CODE="PROCESS_KILLED DAX_HWPOISON_RECOVERED"
+INJECT_OP="memory_error_injection:error_type=madv_hard"
+_control() {
+	echo test_alloc_generic -B pagecache -N $NR_THP -w $PMEMDIR -f data -L 'mmap access $INJECT_OP munmap'
+	test_alloc_generic -B pagecache -N $NR_THP -w $PMEMDIR -f data -L "mmap access $INJECT_OP munmap"
+	if [ $? -eq 0 ] ; then
+		set_return_code PROCESS_NOT_KILLED
+	else
+		set_return_code PROCESS_KILLED
+	fi
+}
+<% end %>
+
+_check() {
+	echo "checking error recovery message in dmesg"
+	if grep -q "recovery action for dax page: Recovered" $TMPD/dmesg_diff ; then
+		set_return_code DAX_HWPOISON_RECOVERED
+	fi
+}

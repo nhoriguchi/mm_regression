@@ -5,7 +5,7 @@
 
 TEST_TYPE=devel
 
-PMEMDIR=/mnt/pmem
+PMEMDIR=$TDIR/pmem
 NAMESPACE=
 
 <% if param["reflink"] == "0" %>
@@ -13,7 +13,10 @@ REFLINK=<%= param["reflink"] %>
 EXPECTED_RETURN_CODE="MOUNT_PASS DAX"
 <% else %>
 REFLINK=<%= param["reflink"] %>
-EXPECTED_RETURN_CODE="MOUNT_FAIL"
+# XFS with both of reflink and DAX enabled can be mounted after commit
+# 35fcd75af3ed ("xfs: fail dax mount if reflink is enabled on a partition")
+# EXPECTED_RETURN_CODE="MOUNT_FAIL"
+EXPECTED_RETURN_CODE="MOUNT_PASS DAX"
 <% end %>
 
 _prepare() {
