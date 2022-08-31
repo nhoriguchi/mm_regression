@@ -1,93 +1,133 @@
 #! {"type" => "acpi"}
 #! {"type" => "sysfs"}
+#! {"type" => "acpi", "hugetlb" => "free"}
+#! {"type" => "sysfs", "hugetlb" => "free"}
+#! {"type" => "acpi", "hugetlb" => "hwpoisoned"}
+#! {"type" => "sysfs", "hugetlb" => "hwpoisoned"}
 
 # Requires to give environment variable VM=
 
 TEST_TYPE=wip,kvm
 TEST_PRIORITY=10
 
-EXPECTED_RETURN_CODE="HOTPLUG_PASS HOTREMOVE_PASS HOTPLUG_PASS"
-
 . $TRDIR/lib/kvm.sh || return 1
 
 _prepare() {
-	vm_shutdown_wait $VM
-	vm_start_wait $VM || return 1
+	if [ ! "$VM" ] ; then
+		echo "Environment variable VM= not set. skip this"
+		return 1
+	fi
+
+	# vm_shutdown_wait $VM
+	# vm_start_wait $VM || return 1
 	start_vm_console_monitor $TMPD/vmconsole $VM
-}
 
-_cleanup() {
-	[ "$_VM_CONSOLE" ] && pkill -9 -f $_VM_CONSOLE
-	show_guest_console
-	vm_shutdown_wait $VM
-}
-
-_control() {
-	cat <<EOF > $TMPD/.mem.xml
+	<% if param["type"] == "acpi" %>
+	cat <<EOF > $TMPD/mem.xml
 <memory model='dimm'>
   <target>
-    <size unit='MiB'>256</size>
+    <size unit='MiB'>128</size>
     <node>0</node>
   </target>
 </memory>
 EOF
 
-	ssh $VM lsmem | tee $TMPD/lsmem.1
+	ssh $VM "echo \"7 7 7 7\" > /proc/sys/kernel/printk"
 
-	virsh attach-device $VM $TMPD/.mem.xml --live
+	ssh $VM lsmem | tee $TMPD/lsmem.1
+	virsh attach-device $VM $TMPD/mem.xml --live
 	if [ $? -eq 0 ] ; then
 		set_return_code HOTPLUG_PASS
 	else
 		set_return_code HOTPLUG_FAIL
 		return 1
 	fi
+	<% end %>
 
+	<% if param["hugetlb"] %>
+	ssh $VM sysctl vm.nr_hugepages=1000000
+	<% if param["hugetlb"] == "hwpoisoned" %>
+	nr_hp=$(ssh $VM sysctl vm.nr_hugepages | awk '{print $3}')
+	# reserve up all free hugepage
+	scp lib/test_alloc_generic $VM:test_alloc_generic
+	ssh $VM "pkill -f test_alloc_generic"
+	ssh $VM "./test_alloc_generic -B hugetlb_anon -N $nr_hp -L \"mmap:wait_after\"" &
+	sleep 0.2
+	ssh $VM "page-types -b huge"
+	ssh $VM "grep ^HugePages /proc/meminfo"
+	<% end %>
+	<% end %>
+}
+
+_cleanup() {
+	<% if param["hugetlb"] %>
+	ssh $VM sysctl vm.nr_hugepages=0
+	<% if param["hugetlb"] == "hwpoisoned" %>
+	ssh $VM "pkill -f test_alloc_generic"
+	<% end %>
+	<% end %>
+
+	<% if param["type"] == "acpi" %>
+	echo "detaching additional memory blocks"
+	virsh detach-device $VM $TMPD/mem.xml --live
+	<% else %>
+	ssh $VM "modprobe hpwoison-inject; page-types -b hwpoison -x"
+	local targetblock=$(cat $TMPD/good_memblock)
+	ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
+	<% end %>
+
+	[ "$_VM_CONSOLE" ] && pkill -9 -f $_VM_CONSOLE
+	show_guest_console
+	# vm_shutdown_wait $VM
+}
+
+<% if param["type"] == "acpi" %>
+EXPECTED_RETURN_CODE="HOTPLUG_PASS HOTREMOVE_PASS HOTPLUG_PASS"
+
+_control() {
 	ssh $VM lsmem | tee $TMPD/lsmem.2
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.2
 
 	diff -U0 $TMPD/lsmem.1 $TMPD/lsmem.2 > $TMPD/lsmem.diff
 	# when no diff?
-	local newpaddr="$(grep ^-0x0 $TMPD/lsmem.diff | sed 's/[-+]/ /g' | awk '{print $2}' | tail -n1)"
-	newpaddr=$[newpaddr + 1]
+	local newpaddr="$(grep ^0x0 $TMPD/lsmem.2 | sed 's/[-+]/ /g' | awk '{print $2}' | tail -n1)"
+	local blksize="0x$(ssh $VM cat /sys/devices/system/memory/block_size_bytes)"
+	newpaddr=$[newpaddr - (newpaddr % blksize)]
 	printf "newpfn start with 0x%lx\n" $newpaddr
+	ssh $VM "page-types -a $[newpaddr >> 12]+10 -Nrl"
 	ssh $VM "echo $newpaddr > /sys/devices/system/memory/hard_offline_page"
 	ssh $VM "page-types -b hwpoison -Nrl"
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.a
 
-	<% if param["type"] == "acpi" %>
-	echo "detaching additional memory blocks"
-	virsh detach-device $VM $TMPD/.mem.xml --live
-	<% else %>
-	local blksize="0x$(cat /sys/devices/system/memory/block_size_bytes)"
-	local targetblock=$[$newpaddr / $blksize]
-	echo "offline memory block $targetblock"
-	echo offline > /sys/devices/system/memory/memory$targetblock/state
+	<% if param["hugetlb"] == "hwpoisoned" %>
+	# remove reservation to make hotremove succeed.
+	ssh $VM "pkill -f test_alloc_generic"
+	ssh $VM grep ^HugePages /proc/meminfo
 	<% end %>
+
+	echo "===== detaching additional memory blocks"
+	virsh detach-device $VM $TMPD/mem.xml --live
 	if [ $? -eq 0 ] ; then
 		set_return_code HOTREMOVE_PASS
 	else
 		set_return_code HOTREMOVE_FAIL
+		return 1
 	fi
-
+	sleep 3
 	ssh $VM lsmem | tee $TMPD/lsmem.3
 	ssh $VM "page-types -b hwpoison -Nrl"
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.3
 
-	<% if param["type"] == "acpi" %>
-	echo "re-attaching the memory again"
-	virsh attach-device $VM $TMPD/.mem.xml --live
-	<% else %>
-	echo "re-online memory block $targetblock"
-	echo online > /sys/devices/system/memory/memory$targetblock/state
-	<% end %>
+	echo "===== re-attaching the memory again"
+	virsh attach-device $VM $TMPD/mem.xml --live
 	if [ $? -eq 0 ] ; then
 		set_return_code HOTPLUG_PASS
 	else
 		set_return_code HOTPLUG_FAIL
 	fi
-
+	sleep 3
 	ssh $VM lsmem | tee $TMPD/lsmem.4
-	ssh $VM "page-types -b hwpoison"
+	ssh $VM "page-types -b hwpoison -Nrl"
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.4
 }
 
@@ -118,3 +158,90 @@ _check() {
 		count_failure "HardwareCorrupted was incremented again by reattaching memory blocks. ($hc2, $hc4)"
 	fi
 }
+<% else %>
+EXPECTED_RETURN_CODE="HOTREMOVE_PASS HOTPLUG_FAIL"
+
+find_good_memblock_to_hotremove() {
+	cat <<EOF > $TMPD/.script
+maxpaddr="\$(lsmem | grep ^0x0 | sed 's/[-+]/ /g' | awk '{print \$2}' | tail -n1)"
+maxpaddr=\$[maxpaddr + 1]
+blksize="0x\$(cat /sys/devices/system/memory/block_size_bytes)"
+blksizep=\$[blksize >> 12]
+maxblk=\$[maxpaddr / blksize]
+for blk in \$(seq \$maxblk -1 1) ; do
+	if [ ! -d /sys/devices/system/memory/memory\$blk/ ] ; then
+		continue
+	fi
+	if [ "\$(cat /sys/devices/system/memory/memory\$blk/state)" = offline ] ; then
+		continue
+	fi
+	page-types -a \$[blk * blksizep]+\$blksizep -r -b reserved,slab | grep total > /tmp/1
+	count=\$(grep total /tmp/1 | awk '{print \$2}')
+	if [ "\$count" -eq 0 ] ; then
+		echo \$blk
+		exit 0
+	fi
+done
+EOF
+	scp $TMPD/.script $VM:/tmp/a.sh
+	ssh $VM bash /tmp/a.sh > $TMPD/good_memblock
+}
+
+_control() {
+	find_good_memblock_to_hotremove
+	if [ -s "$TMPD/good_memblock" ] ; then
+		local targetblock=$(cat $TMPD/good_memblock)
+	else
+		echo "Failed to get good memblock to hotremove."
+		return 1
+	fi
+
+	ssh $VM lsmem | tee $TMPD/lsmem.1
+
+	local blksize="0x$(ssh $VM cat /sys/devices/system/memory/block_size_bytes)"
+	local newpaddr=$[targetblock * blksize]
+	printf "newpfn start with 0x%lx\n" $newpaddr
+	ssh $VM "echo $newpaddr > /sys/devices/system/memory/hard_offline_page"
+	ssh $VM "page-types -b hwpoison -Nrl"
+	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.a
+
+	<% if param["hugetlb"] == "hwpoisoned" %>
+	# remove reservation to make hotremove succeed.
+	ssh $VM "pkill -f test_alloc_generic"
+	ssh $VM grep ^HugePages /proc/meminfo
+	<% end %>
+
+	echo "===== offline memory block $targetblock"
+	ssh $VM "echo offline > /sys/devices/system/memory/memory$targetblock/state"
+	if [ $? -eq 0 ] ; then
+		set_return_code HOTREMOVE_PASS
+	else
+		set_return_code HOTREMOVE_FAIL
+		return 1
+	fi
+
+	ssh $VM lsmem | tee $TMPD/lsmem.3
+	ssh $VM "page-types -b hwpoison -Nrl"
+	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.3
+
+	echo "===== re-online memory block $targetblock"
+	ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
+	if [ $? -eq 0 ] ; then
+		set_return_code HOTPLUG_PASS
+	else
+		set_return_code HOTPLUG_FAIL
+	fi
+
+	ssh $VM lsmem | tee $TMPD/lsmem.4
+	ssh $VM "page-types -b hwpoison -Nrl"
+	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.4
+}
+
+_check() {
+	local hca=$(awk '{print $2}' $TMPD/meminfo.a)
+	local hc3=$(awk '{print $2}' $TMPD/meminfo.3)
+	local hc4=$(awk '{print $2}' $TMPD/meminfo.4)
+
+	echo "hca:$hca, hc3:$hc3, hc4:$hc4"
+}
+<% end %>
