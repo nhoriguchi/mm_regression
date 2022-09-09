@@ -217,6 +217,10 @@ show_summary() {
 			SHOW_PROGRESS=-p
 			shift 1
 			;;
+		-P|--progress-verbose)
+			SHOW_PROGRESS=-P
+			shift 1
+			;;
 		-t|--timesummary)
 			SHOW_TIMESUMMARY=-t
 			shift 1
