@@ -11,9 +11,9 @@ TEST_TYPE=wip
 . $TRDIR/lib/mm.sh
 . $TRDIR/lib/mce.sh
 
-EXPECTED_RETURN_CODE="PAGE_OFFLINE_OK MEMORY_OFFLINE_OK REONLINE_OK EXIT"
+EXPECTED_RETURN_CODE="PAGE_OFFLINE_OK MEMORY_OFFLINE_OK REONLINE_FAILED EXIT"
 
-export SOFT_RETRY=$[SOFT_RETRY + 3]
+# export SOFT_RETRY=$[SOFT_RETRY + 3]
 
 TARGETMEMSIZE=$[$MEMFREE * 80 / 100 / 2048]
 
@@ -62,6 +62,11 @@ find_block() {
 		# echo "<$i>" >&2
 		# echo "page-types -a $[0x8000 * $i]+0x8000 -b $flags" >&2
 		page-types -a $[0x8000 * $i]+0x8000 -r -b $flags | grep total | awk '{print $2}' > $TMPD/xfyyz
+		page-types -a $[0x8000 * $i]+0x8000 -r -b slab,reserved,pgtable | grep total | awk '{print $2}' > $TMPD/xfyyz.unmovable
+		if [ "$(cat $TMPD/xfyyz.unmovable)" -gt 0 ] ; then
+			continue
+		fi
+		# echo "total $i $(cat $TMPD/xfyyz)" >&2
 		if [ -s "$TMPD/xfyyz" ] && [ "$(cat $TMPD/xfyyz)" -gt "$max" ] ; then
 			max=$(cat $TMPD/xfyyz)
 			blknum=$i
@@ -88,7 +93,19 @@ _cleanup() {
 }
 
 _check() {
-	check_nr_hwcorrupted
+	local cnt1=$(show_nr_corrupted 1)
+	local cnt2=$(show_nr_corrupted 2)
+	local cnt3=$(show_nr_corrupted 3)
+
+	# HardwareCorrupted counter in offlined memory block should be still held.
+    count_testcount
+    if [ "$cnt1" == "$cnt2" ] || [ "$cnt2" -eq 0 ] ; then
+        count_failure "hwpoison inject didn't raise \"HardwareCorrupted\" value ($cnt1 -> $cnt2)"
+    elif [ "$cnt2" != "$cnt3" ] ; then
+        count_failure "\"HardwareCorrupted\" shouldn't be decremented by sysfs-based memory offline ($cnt1 -> $cnt2 -> $cnt3)"
+    else
+        count_success "\"HardwareCorrupted\" was raised expectedly ($cnt1 -> $cnt2 -> $cnt3)"
+    fi
 }
 
 get_target_memblk() {

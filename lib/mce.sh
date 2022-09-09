@@ -54,22 +54,28 @@ check_mce_capability() {
 # number, which bash cannot handle as numerical values. So we do here
 # comparation as string
 __check_nr_hwcorrupted() {
+	local cnt1=$(show_nr_corrupted 1)
+	local cnt2=$(show_nr_corrupted 2)
+	local cnt3=$(show_nr_corrupted 3)
+
     count_testcount
-    if [ "$(show_nr_corrupted 1)" == "$(show_nr_corrupted 2)" ] ; then
-        count_failure "hwpoison inject didn't raise \"HardwareCorrupted\" value ($(show_nr_corrupted 1) -> $(show_nr_corrupted 2))"
-    elif [ "$(show_nr_corrupted 1)" != "$(show_nr_corrupted 3)" ] ; then
-        count_failure "accounting \"HardwareCorrupted\" did not back to original value ($(show_nr_corrupted 1) -> $(show_nr_corrupted 2) -> $(show_nr_corrupted 3))"
+    if [ "$cnt1" == "$cnt2" ] ; then
+        count_failure "hwpoison inject didn't raise \"HardwareCorrupted\" value ($cnt1 -> $cnt2)"
+    elif [ "$cnt1" != "$cnt3" ] ; then
+        count_failure "accounting \"HardwareCorrupted\" did not back to original value ($cnt1 -> $cnt2 -> $cnt3)"
     else
-        count_success "accounting \"HardwareCorrupted\" was raised and reduced back to original value ($(show_nr_corrupted 1) -> $(show_nr_corrupted 2) -> $(show_nr_corrupted 3))"
+        count_success "accounting \"HardwareCorrupted\" was raised and reduced back to original value ($cnt1 -> $cnt2 -> $cnt3)"
     fi
 }
 
 __check_nr_hwcorrupted_consistent() {
+	local cnt1=$(show_nr_corrupted 1)
+	local cnt3=$(show_nr_corrupted 3)
     count_testcount
-    if [ "$(show_nr_corrupted 1)" == "$(show_nr_corrupted 3)" ] ; then
+    if [ "$cnt1" == "$cnt3" ] ; then
         count_success "accounting \"HardwareCorrupted\" consistently."
     else
-        count_failure "accounting \"HardwareCorrupted\" did not back to original value ($(show_nr_corrupted 1) -> $(show_nr_corrupted 3))"
+        count_failure "accounting \"HardwareCorrupted\" did not back to original value ($cnt1 -> $cnt3)"
     fi
 }
 

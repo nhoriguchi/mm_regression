@@ -5,7 +5,11 @@
 
 TEST_TYPE=wip
 
+<% if param["type"] == "free-hugepage" %>
 EXPECTED_RETURN_CODE="HUGETLB_POISONED MEMORY_HOTREMOVE_PASS"
+<% else %>
+EXPECTED_RETURN_CODE="HUGETLB_POISONED MEMORY_HOTREMOVE_FAIL"
+<% end %>
 
 # occupy 80% of free memory with hugetlb pool.
 NR_HUGETLB=$[MEMFREE * 80 / 100 / 2048]
@@ -128,13 +132,18 @@ _control() {
 		set_return_code MEMORY_HOTREMOVE_PASS
 		echo "Status of block ${targetblock}: $(cat /sys/devices/system/memory/memory${targetblock}/online)"
 		local targetpfn="$(cat $TMPD/targetpfn)"
-		page-types -a ${targetpfn}+4 -Nlr
+		page-types -a ${targetpfn}+512 -Nlr | head
 		echo "Reonline block ${targetblock}"
 		echo 1 > /sys/devices/system/memory/memory${targetblock}/online
+		if [ $? -eq 0 ] ; then
+			set_return_code MEMORY_HOTADD_PASS
+		else
+			set_return_code MEMORY_HOTADD_FAIL
+		fi
 	else
 		set_return_code MEMORY_HOTREMOVE_FAIL
 	fi
 
 	local targetpfn="$(cat $TMPD/targetpfn)"
-	page-types -a ${targetpfn}+4 -Nlr
+	page-types -a ${targetpfn}+512 -Nlr | head
 }
