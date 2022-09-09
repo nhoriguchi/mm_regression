@@ -187,6 +187,7 @@ class RecipeSet
     end.each do |f|
       next if f =~ /(set2|set3)$/
       f.gsub!("#{Dir::pwd}/", '')
+      id = f.gsub("cases/", '')
       priority = 10
       type = ["normal"]
       text = File.read(f, :encoding => 'UTF-8').split("\n")
@@ -200,8 +201,8 @@ class RecipeSet
       end
       next if @options[:type] and not (type - @options[:type]).empty?
       next if @options[:priority] and not @options[:priority].include?(priority)
-      next if @options[:recipelist] and not @options[:recipelist].include?(f)
-      @list << {:id => f, :priority => priority, :type => type}
+      next if @options[:recipelist] and not @options[:recipelist].include?(id)
+      @list << {:id => id, :priority => priority, :type => type}
     end
     @list.sort! {|a, b| [a[:priority], a[:id]] <=> [b[:priority], b[:id]]}
     return @list

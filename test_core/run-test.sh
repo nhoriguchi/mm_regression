@@ -92,10 +92,10 @@ stop_test_running() {
 trap stop_test_running SIGTERM SIGINT
 
 run_recipe() {
-	export RECIPE_FILE="$1"
-	local recipe_relpath=$(echo $RECIPE_FILE | sed 's/.*cases\///')
-	export TEST_TITLE=$recipe_relpath
-	export RTMPD=$GTMPD/$recipe_relpath
+	local recipe_id=$1
+	export RECIPE_FILE="cases/$recipe_id"
+	export TEST_TITLE=$recipe_id
+	export RTMPD=$GTMPD/$recipe_id
 
 	if [ ! -s "$RECIPE_FILE" ] ; then
 		echo "Recipe file not found: '$RECIPE_FILE'"
@@ -129,7 +129,7 @@ run_recipe() {
 	ret=$?
 	echo_log "===> testcase '$TEST_TITLE' start" | tee /dev/kmsg
 
-	if recipe_load_check $recipe_relpath $ret | tee -a $RTMPD/result ; then
+	if recipe_load_check $recipe_id $ret | tee -a $RTMPD/result ; then
 		save_environment_variables
 		# reminder for restart after reboot. If we find this file when starting,
 		# that means the reboot was triggerred during running the testcase.
@@ -168,7 +168,7 @@ run_recipe() {
 		date +%s%3N > $RTMPD/end_time
 		echo FINISHED > $RTMPD/run_status
 		rm -f $GTMPD/__current_testcase
-		echo -n cases/$recipe_relpath > $GTMPD/__finished_testcase
+		echo -n $recipe_id > $GTMPD/__finished_testcase
 		sync
 	fi
 	set +o pipefail

@@ -9,4 +9,4 @@ fi
 . $(dirname $BASH_SOURCE)/recipe.sh
 
 mkdir -p work/$RUNNAME
-make --no-print-directory allrecipes | grep ^cases > work/$RUNNAME/full_recipe_list
+make --no-print-directory allrecipes > work/$RUNNAME/full_recipe_list
