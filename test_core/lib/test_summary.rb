@@ -9,7 +9,8 @@ class TestCaseSummary
     @runname = run_dir
     @tc_dir = run_dir + '/' + tc_dir
     @testcaseid = "#{tc_dir.gsub(run_dir + '/', '')}"
-    @priority = 10 # default
+    @test_type = "normal" # default test type
+    @priority = 10 # default priority
     @run_status = "NONE"
     @testcount = 0
     @success = 0
@@ -101,9 +102,7 @@ class RunSummary
       rlist = "#{dir}/full_recipe_list"
     end
 
-    @recipelist = File.readlines(rlist).map do |r|
-      r.chomp.gsub(/^cases\//, '')
-    end
+    @recipelist = File.read(rlist).split("\n")
     @recipelist.delete_if {|rc| File.basename(rc) == "config"}
 
     @dir = dir

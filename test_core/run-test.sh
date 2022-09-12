@@ -80,7 +80,7 @@ if [ "$USER" = root ] ; then
 	sysctl -q kernel.softlockup_all_cpu_backtrace=1
 	sysctl -q kernel.core_pattern="|/bin/false"
 	sysctl -q fs.suid_dumpable=0
-	systemctl stop systemd-journald.service
+	# systemctl stop systemd-journald.service
 fi
 
 stop_test_running() {
@@ -90,6 +90,16 @@ stop_test_running() {
 }
 
 trap stop_test_running SIGTERM SIGINT
+
+prepare_run_recipe() {
+	local recipes=$1
+	for rid in $(cat $recipes) ; do
+		local rfile=cases/$rid
+		local rtmpd=$GTMPD/$rid
+		mkdir -p $rtmpd > /dev/null 2>&1
+		cp $rfile $rtmpd/_recipe
+	done
+}
 
 run_recipe() {
 	local recipe_id=$1
@@ -266,12 +276,13 @@ filter_recipe_list() {
 	if [ "$PRIORITY" ] ; then
 		priority="-p $PRIORITY"
 	fi
+	echo "ruby test_core/lib/recipe.rb list -r $recipefile $run_mode $priority"
 	ruby test_core/lib/recipe.rb list -r $recipefile $run_mode $priority | cut -f3 > $GTMPD/__run_recipes
 }
 
 generate_recipelist() {
 	if [ ! -f "$GTMPD/full_recipe_list" ] ; then
-		make --no-print-directory allrecipes | grep ^cases > $GTMPD/full_recipe_list
+		make --no-print-directory allrecipes > $GTMPD/full_recipe_list
 	fi
 
 	if [ -s "$GTMPD/full_recipe_list" ] && [ ! -f "$GTMPD/recipelist" ] ; then
@@ -318,6 +329,7 @@ if [ "$BACKGROUND" ] ; then # kick background service and kick now
 		systemctl start test.service
 	fi
 else
+	prepare_run_recipe $GTMPD/recipelist
 	run_recipes ": $(cat $GTMPD/__run_recipes | tr '\n' ' ')"
 	echo "All testcases in project $RUNNAME finished." | tee /dev/kmsg
 	touch work/$RUNNAME/__finished

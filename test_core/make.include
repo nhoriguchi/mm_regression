@@ -41,7 +41,6 @@ coverage:
 
 version:
 	@git --no-pager log -n1 --pretty="Test version: format:%H %s"
-	@git --no-pager --git-dir test_core/.git log -n1 --pretty="Test Core version: format:%H %s"
 	@true
 
 allrecipes:
