@@ -27,6 +27,7 @@
 #     project show [<PROJ>]           show info about current|given project
 #     project run [opts] [<PROJ>]     run current|given project
 #     project summary [opts] [<PROJ>] show summary of current|given project
+#     project check_finished [<PROJ>] check whether current|given project is finished or not
 #     project clean [<PROJ>]          cleanup  current|given project
 #   version                           show tool version
 #   test:                             (deprecated) run test
@@ -137,11 +138,7 @@ run_test() {
 prepare_test_project() {
 	local proj=$1
 
-	if [ -d "work/$proj" ] ; then
-		echo "TODO: gracefully update existing project $proj"
-	else
-		mkdir -p work/$proj
-	fi
+	mkdir -p work/$proj
 
 	if [[ "$proj" =~ ^debug ]] ; then
 		FAILRETRY=1
@@ -301,8 +298,6 @@ case $1 in
 			echo "$(cat work/$proj/recipelist | wc -l) in $(cat work/$proj/full_recipe_list | wc -l) testcases are the target."
 			echo "See work/$proj/recipelist."
 		fi
-		echo "############ NEED IMPROVEMENT ############"
-		echo "config files is forcibly overwritten, not expected"
 		;;
 	pro|proj|proje|projec|project|ru|run|runn|runna|runnam|runname)
 		case $2 in
@@ -402,6 +397,22 @@ case $1 in
 					fi
 				else
 					echo "cancelled."
+				fi
+				;;
+			check_finished)
+				proj="$(get_project $3)"
+				if [ ! -d "work/$proj" ] ; then
+					echo "No work/$proj found." >&2
+					exit 1
+				fi
+				. work/$proj/config
+				if [ -e work/${proj}/$FAILRETRY/__finished ] ; then
+					echo DONE
+					exit 0
+				else
+					echo NOTDONE
+					# Different from input failure (like unknown project)
+					exit 7
 				fi
 				;;
 			*)

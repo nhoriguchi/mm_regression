@@ -130,21 +130,21 @@ check_return_code() {
 # Return true when we do skip the testcase, return false otherwise.
 check_testcase_already_run() {
 	if [ "$SKIP_PASS" ] ; then
-		if grep -q "^TESTCASE_RESULT: .*: PASS$" $RTMPD/result ; then
+		if grep -q "^TESTCASE_RESULT: .*: PASS$" $RTMPD/result 2> /dev/null ; then
 			echo_verbose "SKIP_PASS is set, so skip passed testcase."
 			return 0
 		fi
 	fi
 
 	if [ "$SKIP_FAIL" ] ; then
-		if grep -q "^TESTCASE_RESULT: .*: FAIL$" $RTMPD/result ; then
+		if grep -q "^TESTCASE_RESULT: .*: FAIL$" $RTMPD/result 2> /dev/null  ; then
 			echo_verbose "SKIP_FAIL is set, so skip passed testcase."
 			return 0
 		fi
 	fi
 
 	if [ "$SKIP_WARN" ] ; then
-		if [ -e $RTMPD/result ] && ( ! grep -q "^TESTCASE_RESULT: " $RTMPD/result ) ; then
+		if [ -e $RTMPD/result ] && ( ! grep -q "^TESTCASE_RESULT: " $RTMPD/result 2> /dev/null  ) ; then
 			echo_verbose "SKIP_WARN is set, so skip warned testcase."
 			return 0
 		fi

@@ -191,14 +191,15 @@ run_recipes() {
 	local elms="$(echo $@ | cut -f2- -d:)"
 	# echo "- parsing [$basedir] $elms"
 
-	if [ -f "$basedir/config" ] ; then
+	if [ -f "cases/$basedir/config" ] ; then
 		# TODO: this is a hack for dir_cleanup, to be simplified.
-		local tmp="$(echo $basedir | sed 's|cases|work/'${RUNNAME:=debug}'|')"
+		# local tmp="$(echo $basedir | sed 's|cases|work/'${RUNNAME:=debug}'|')"
+		local tmp="work/${RUNNAME:=debug}/$basedir"
 		mkdir -p $tmp
 		echo $BASHPID > $tmp/BASHPID
-		. "$basedir/config"
+		. "cases/$basedir/config"
 		if [ "$?" -ne 0 ] ; then
-			echo "skip this directory due to the failure in $basedir/config"
+			echo "skip this directory due to the failure in cases/$basedir/config"
 			return 1
 		fi
 	fi

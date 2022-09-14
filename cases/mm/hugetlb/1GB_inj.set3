@@ -126,7 +126,7 @@ _control() {
 		if ! check_process_status $pid ; then
 			set_return_code EXIT
 			return
-		elif read -t5 line <> ${PIPE} ; then
+		elif read -t10 line <> ${PIPE} ; then
 			echo ">> $line"
 			case "$line" in
 				"madvise returned 0")
@@ -155,9 +155,16 @@ _control() {
 				"access_after_injection returned 0")
 					set_return_code ACCESS_ERROR_ADDRESS
 					;;
+				"pause_wait_injection returned 0")
+					# Odd timing dependency ...
+					sleep 1
+					;;
 				*)
 					;;
 			esac
+		else
+			echo "timeout"
+			break;
 		fi
 	done
 }

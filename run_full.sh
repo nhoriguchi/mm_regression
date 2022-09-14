@@ -1,6 +1,6 @@
 cat <<EOF > /tmp/subprojects
 huge_zero huge_zero
-hotrmeove hotremove
+hotremove hotremove
 acpi_hotplug acpi_hotplug
 1gb_hugetlb 1GB
 mce mce/einj mce/uc/sr
@@ -9,21 +9,45 @@ pmem pmem
 normal
 EOF
 
-# run_order="
+# TODO: kvm は beaker 環境のみ
 cat <<EOF > /tmp/run_order
 1gb_hugetlb
-hotremove,reboot
-acpi_hotplug,kvm,reboot
 normal
 pmem
-kvm,kvm
+kvm,needvm
+hotremove,reboot
+acpi_hotplug,needvm,reboot
 mce,reboot
 huge_zero,reboot
 EOF
 
+if [ "$__DEBUG" ] ; then
+	cat <<EOF > /tmp/subprojects2
+1gbA 1GB_hwp_entry
+1gbB 1GB_hwpoison_race
+1gbC 1GB_inj/type-anon
+1gbD 1GB_inj/type-file
+normal
+EOF
+
+	cat <<EOF > /tmp/run_order2
+1gbA,reboot
+1gbB
+1gbC,reboot
+1gbD
+EOF
+
+	cat <<EOF > /tmp/run_order
+normal
+EOF
+fi
+
+# TODO: mm/hugetlb/1GB_inj/type-anon_offline-hard.auto3 で長時間詰まるようだ。
+# TODO: guest need ruby
+
 #
 # Usage
-#   ./run_full.sh <project_basename> [prepare|run|show|summary]
+#   ./run_full.sh <project_basename> [prepare|run|show|summary|check_finished]
 #
 # Description
 #   - This script is supposed to be called on host server and the testing
@@ -52,6 +76,8 @@ projbase=$1
 
 cmd=$2
 [ ! "$cmd" ] && echo "No command given." && show_help
+
+shift 2
 
 filter_file() {
 	local input=$1
@@ -91,6 +117,12 @@ vm_running() {
 	# [ "$(virsh domstate ${VM})" = "running" ] && return 0 || return 1
 }
 
+vm_ssh_connectable_one() {
+	local vm=$1
+
+	ssh -o ConnectTimeout=3 $vm date > /dev/null 2>&1
+}
+
 vm_start_wait_noexpect() {
 	local vm=$1
 	local _tmpd=$(mktemp -d)
@@ -103,7 +135,7 @@ vm_start_wait_noexpect() {
 	fi
 
 	for i in $(seq 60) ; do
-		if ssh -o ConnectTimeout=3 $vm date > /dev/null 2>&1 ; then
+		if vm_ssh_connectable_one $vm ; then
 			echo "done $$"
 			return 0
 		fi
@@ -116,9 +148,11 @@ vm_start_wait_noexpect() {
 
 if [ "$VM" ] ; then
 	vm_start_wait_noexpect $VM
+	export PMEMDEV=$(ssh $VM ndctl list | jq -r '.[] | select(.mode=="fsdax") | [.blockdev] | @csv' | head -n1 | tr -d '"')
 fi
 
 if [ "$cmd" = prepare ] ; then
+	make
 	bash run.sh recipe list > /tmp/recipe
 	cat /tmp/subprojects | while read spj keywords ; do
 		filter_file /tmp/recipe ${projbase} $spj $keywords
@@ -127,6 +161,9 @@ if [ "$cmd" = prepare ] ; then
 		rsync -ae ssh ./ $VM:mm_regression || exit 1
 		rsync -ae ssh lib/test_alloc_generic $VM:test_alloc_generic || exit 1
 		rsync -ae ssh work/$projbase/ $VM:mm_regression/work/$projbase/ || exit 1
+		# TODO: page-types might depend on GLIBC version
+		TMPD=/tmp bash lib/set_vm_numa_settings.sh $VM 8 8
+		vm_start_wait_noexpect $VM
 	fi
 	for spj in $(cat /tmp/subprojects | cut -f1 -d' ') ; do
 		wc work/${projbase}/$spj/recipelist
@@ -139,44 +176,59 @@ elif [ "$cmd" = run ] ; then
 		for tmp in $(echo $line | tr ',' ' ') ; do
 			if [ "$tmp" = reboot ] ; then
 				reboot=true
-			elif [ "$tmp" = kvm ] ; then
+			elif [ "$tmp" = needvm ] ; then
 				kvm=true
 			else
 				spj=$tmp
 			fi
 		done
-		echo "subproject:$spj, cmds:${reboot:+reboot} ${kvm:+kvm}"
+		[ ! "$spj" ] && continue
+		echo "subproject:$spj, cmds:${reboot:+reboot},${kvm:+kvm}"
 		if [ ! "$VM" ] ; then # running testcases on the current server
 			if [ "$kvm" ] ; then
 				echo "KVM-related testset $spj is skipped when VM= is not set."
 				continue
 			fi
-			echo "bash run.sh project run $3 ${projbase}/$spj"
-			bash run.sh project run $3 ${projbase}/$spj
+			echo "bash run.sh project run $@ ${projbase}/$spj"
+			bash run.sh project run $@ ${projbase}/$spj
 			continue
 		fi
 		vm_start_wait_noexpect $VM
 		if [ "$kvm" ] ; then
 			[ "$spj" = kvm ] && echo "KVM relay testing is not implemented yet." && continue
-			echo "bash run.sh project run $3 ${projbase}/$spj"
-			bash run.sh project run $3 ${projbase}/$spj
+			echo "Running testset $spj on the host server."
+			echo "bash run.sh project run $@ ${projbase}/$spj"
+			bash run.sh project run $@ ${projbase}/$spj
 		else
-			echo "Running testset $spj on the guest $VM"
-			# sync current working on testing server to host server
-			rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
-			failretry="$(grep FAILRETRY= work/${projbase}/$spj/config | cut -f2 -d=)"
-			finished_before="$([ -e work/${projbase}/$spj/$failretry/__finished ] && echo DONE || echo NOTDONE )"
-			ssh $VM mm_regression/run.sh project run $3 ${projbase}/$spj
-			echo "rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase [$reboot]"
-			rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
+			finished_before="$(bash run.sh proj check_finished ${projbase}/$spj)"
+			while true ; do
+				vm_start_wait_noexpect $VM
+				echo "Running testset $spj on the guest $VM"
+				# sync current working on testing server to host server
+				rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
+				finished="$(bash run.sh proj check_finished ${projbase}/$spj)"
+				echo "Finished: $finished"
+				if [ "$finished" = DONE ] ; then
+					break
+				fi
+				ssh -t $VM "PMEMDEV=$PMEMDEV bash mm_regression/run.sh project run $@ ${projbase}/$spj"
+				# Sometimes ssh connection is disconnected with error, so
+				# we need check that VM can continue to test or need rebooting.
+				if ! vm_ssh_connectable_one $vm ; then
+					virsh destroy $VM
+					sleep 5
+				fi
+			done
+
 			if [ "$reboot" ] ; then
-				finished_after="$([ -e work/${projbase}/$spj/$failretry/__finished ] && echo DONE || echo NOTDONE )"
+				finished_after="$(bash run.sh proj check_finished ${projbase}/$spj)"
 				# reboot only when this subproject is finished at this running.
 				# If it's already finished (judged by the existence of the file
 				# work/<subproj>/<maxretry>/__finished
 				if [ "$finished_before" = NOTDONE ] && [ "$finished_after" = DONE ] ; then
-					echo "rebooting $VM ..."
-					ssh $VM reboot
+					echo "shutting down $VM ..."
+					virsh destroy $VM
+					sleep 5
 				fi
 			fi
 		fi
@@ -185,14 +237,39 @@ elif [ "$cmd" = show ] ; then
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
-	for spj in $(cat /tmp/subprojects | cut -f1 -d' ') ; do
+	for spj in $(cat /tmp/run_order | cut -f1 -d,) ; do
 		./run.sh project show ${projbase}/$spj
 	done
 elif [ "$cmd" = summary ] ; then
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
-	for spj in $(cat /tmp/subprojects | cut -f1 -d' ') ; do
-		./run.sh project sum $3 ${projbase}/$spj
+	for spj in $(cat /tmp/run_order | cut -f1 -d,) ; do
+		./run.sh project sum $@ ${projbase}/$spj
 	done
+elif [ "$cmd" = summary2 ] ; then
+	if [ "$VM" ] ; then
+		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
+	fi
+	echo > /tmp/.summary2
+	for spj in $(cat /tmp/run_order | cut -f1 -d,) ; do
+		./run.sh project sum -P ${projbase}/$spj >> /tmp/.summary2
+	done
+	echo "Summary Table:"
+	ruby test_core/lib/summary_table.rb /tmp/.summary2
+elif [ "$cmd" = check_finished ] ; then
+	if [ "$VM" ] ; then
+		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
+	fi
+	for spj in $(cat /tmp/run_order | cut -f1 -d,) ; do
+		./run.sh project check_finished ${projbase}/$spj
+		if [ $? -eq 7 ] ; then
+			# some subprojects are not done yet.
+			echo "subproject:$spj NOTDONE"
+			exit 7
+		fi
+		echo "subproject:$spj DONE"
+	done
+	# all subprojects are done.
+	exit 0
 fi

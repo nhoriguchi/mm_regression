@@ -18,6 +18,8 @@ _prepare() {
 		return 1
 	fi
 
+	set_vm_maxmemory $VM || return 1
+
 	# vm_shutdown_wait $VM
 	# vm_start_wait $VM || return 1
 	start_vm_console_monitor $TMPD/vmconsole $VM
@@ -42,6 +44,16 @@ EOF
 		set_return_code HOTPLUG_FAIL
 		return 1
 	fi
+
+	ssh $VM lsmem | tee $TMPD/lsmem.1a
+	if diff -q -U3 $TMPD/lsmem.1 $TMPD/lsmem.1a ; then
+		echo "virsh attach succeeded, but memory is not extended."
+		return 1
+	fi
+
+	ssh $VM "./test_alloc_generic -B anonymous -N 3000 -L \"mmap access:wait_after\"" &
+	sleep 1
+	ssh $VM "page-types -a 0x240000,"
 	<% end %>
 
 	<% if param["hugetlb"] %>
@@ -132,10 +144,10 @@ _control() {
 }
 
 _check() {
-	local hc2=$(awk '{print $2}' $TMPD/meminfo.2)
-	local hca=$(awk '{print $2}' $TMPD/meminfo.a)
-	local hc3=$(awk '{print $2}' $TMPD/meminfo.3)
-	local hc4=$(awk '{print $2}' $TMPD/meminfo.4)
+	local hc2=$(awk '{print $2}' $TMPD/meminfo.2)  # initial
+	local hca=$(awk '{print $2}' $TMPD/meminfo.a)  # hwpoison injected
+	local hc3=$(awk '{print $2}' $TMPD/meminfo.3)  # memblock detached
+	local hc4=$(awk '{print $2}' $TMPD/meminfo.4)  # memblock reattached
 
 	count_testcount
 	if [ "$[hc2 + 4]" -eq "$hca" ] ; then
@@ -212,7 +224,7 @@ _control() {
 	<% end %>
 
 	echo "===== offline memory block $targetblock"
-	ssh $VM "echo offline > /sys/devices/system/memory/memory$targetblock/state"
+	ssh -t $VM "echo offline > /sys/devices/system/memory/memory$targetblock/state"
 	if [ $? -eq 0 ] ; then
 		set_return_code HOTREMOVE_PASS
 	else

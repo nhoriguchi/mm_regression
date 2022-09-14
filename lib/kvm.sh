@@ -283,3 +283,21 @@ start_guest_memeater() {
 	fi
 	return 0
 }
+
+set_vm_maxmemory() {
+	local vm=$1
+
+	virsh dumpxml $vm > $TMPD/vm.xml || return 1
+	if grep -q "<maxMemory " $TMPD/vm.xml ; then
+		# already set
+		return 0;
+	fi
+
+	virsh destroy $vm || return 1
+	head -n3 $TMPD/vm.xml > $TMPD/.vm1.xml
+	echo "<maxMemory slots='16' unit='KiB'>125829120</maxMemory>" >> $TMPD/.vm1.xml
+	sed -ne '4,$p' $TMPD/vm.xml > $TMPD/.vm2.xml
+	cat $TMPD/.vm1.xml $TMPD/.vm2.xml > $TMPD/vm.xml
+	virsh define $TMPD/vm.xml
+	virsh start $vm
+}
