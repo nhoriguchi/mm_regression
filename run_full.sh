@@ -201,8 +201,11 @@ elif [ "$cmd" = run ] ; then
 			bash run.sh project run $@ ${projbase}/$spj
 		else
 			finished_before="$(bash run.sh proj check_finished ${projbase}/$spj)"
-			while true ; do
+			count=3
+			while [ "$count" -gt 0 ] ; do
+				count=$[count - 1]
 				vm_start_wait_noexpect $VM
+				sleep 5
 				echo "Running testset $spj on the guest $VM"
 				# sync current working on testing server to host server
 				rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/

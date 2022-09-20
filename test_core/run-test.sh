@@ -334,6 +334,7 @@ else
 	run_recipes ": $(cat $GTMPD/__run_recipes | tr '\n' ' ')"
 	echo "All testcases in project $RUNNAME finished." | tee /dev/kmsg
 	touch work/$RUNNAME/__finished
+	sync
 	ruby test_core/lib/test_summary.rb work/$RUNNAME
 
 	if [ -f /etc/systemd/system/test.service ] ; then
