@@ -42,18 +42,19 @@ normal
 EOF
 fi
 
-# TODO: mm/hugetlb/1GB_inj/type-anon_offline-hard.auto3 で長時間詰まるようだ。
-# TODO: guest need ruby
-
 #
 # Usage
-#   ./run_full.sh <project_basename> [prepare|run|show|summary|check_finished]
+#   ./run_full.sh <project_basename> [options] [prepare|run|show|summary|check_finished]
 #
 # Description
 #   - This script is supposed to be called on host server and the testing
 #     server is the guest specified by VM=.
 #   - Assuming that the remote testing server should have this test tool
 #     just under home directory.
+#
+# Options:
+#   -r|--run-order <file>    provide run_order file from command line
+#   -h|--help
 #
 # TODO:
 #   - run subset of subproject only
@@ -70,6 +71,22 @@ show_help() {
 }
 
 cd $(dirname $BASH_SOURCE)
+
+RUN_ORDER=/tmp/run_order
+while true ; do
+	case $1 in
+		-r|--run-order)
+			RUN_ORDER="$2"
+			shift 2
+			;;
+		-h|--help)
+			show_help
+			;;
+		*)
+			break
+			;;
+	esac
+done
 
 projbase=$1
 [ ! "$projbase" ] && echo "No project given." && show_help
@@ -172,7 +189,7 @@ if [ "$cmd" = prepare ] ; then
 elif [ "$cmd" = run ] ; then
 	export VM=$(cat work/$projbase/vm)
 
-	for line in $(cat /tmp/run_order) ; do
+	for line in $(cat $RUN_ORDER) ; do
 		spj=
 		reboot=
 		kvm=
@@ -244,7 +261,7 @@ elif [ "$cmd" = show ] ; then
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
-	for spj in $(cat /tmp/run_order | cut -f1 -d,) ; do
+	for spj in $(cat $RUN_ORDER | cut -f1 -d,) ; do
 		./run.sh project show ${projbase}/$spj
 	done
 elif [ "$cmd" = summary ] ; then
@@ -252,7 +269,7 @@ elif [ "$cmd" = summary ] ; then
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
-	for spj in $(cat /tmp/run_order | cut -f1 -d,) ; do
+	for spj in $(cat $RUN_ORDER | cut -f1 -d,) ; do
 		./run.sh project sum $@ ${projbase}/$spj
 	done
 elif [ "$cmd" = summary2 ] ; then
@@ -261,7 +278,7 @@ elif [ "$cmd" = summary2 ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
 	echo > /tmp/.summary2
-	for spj in $(cat /tmp/run_order | cut -f1 -d,) ; do
+	for spj in $(cat $RUN_ORDER | cut -f1 -d,) ; do
 		./run.sh project sum -P ${projbase}/$spj >> /tmp/.summary2
 	done
 	echo "Summary Table:"
@@ -271,7 +288,7 @@ elif [ "$cmd" = check_finished ] ; then
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
-	for spj in $(cat /tmp/run_order | cut -f1 -d,) ; do
+	for spj in $(cat $RUN_ORDER | cut -f1 -d,) ; do
 		./run.sh project check_finished ${projbase}/$spj
 		if [ $? -eq 7 ] ; then
 			# some subprojects are not done yet.
