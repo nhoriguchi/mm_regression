@@ -110,6 +110,13 @@ run_test() {
 				rm -f work/$RUNNAME/$round/__finished work/$RUNNAME/$round/recipelist
 			fi
 
+			# If round=x starts even though round=x-1 is not finished,
+			# the previous round is likely to be cancelled by user.
+			# So let's abort failretry iteration.
+			if [ "$round" -gt 1 ] && [ ! -f "work/$RUNNAME/$[round-1]/__finished" ] ; then
+				break
+			fi
+
 			if [ -f "work/$RUNNAME/$round/__finished" ] ; then
 				continue
 			fi
@@ -127,6 +134,11 @@ run_test() {
 						cp work/$BASERUNNAME/full_recipe_list work/$RUNNAME/recipelist
 					fi
 				fi
+			fi
+
+			# No testcase to be run in retried rounds, so need to run.
+			if [ "$ROUND" -gt 1 ] && [ ! -s "work/$RUNNAME/recipelist" ] ; then
+				break
 			fi
 
 			echo "Test round: $ROUND"
