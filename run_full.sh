@@ -11,14 +11,21 @@ EOF
 
 # TODO: kvm は beaker 環境のみ
 cat <<EOF > /tmp/run_order
+stress
+performance
+reboot
 1gb_hugetlb
 normal
 pmem
 kvm,needvm
-hotremove,reboot
-acpi_hotplug,needvm,reboot
-mce,reboot
-huge_zero,reboot
+reboot
+huge_zero
+reboot
+hotremove
+reboot
+acpi_hotplug,needvm
+reboot
+mce
 EOF
 
 if [ "$__DEBUG" ] ; then
@@ -31,9 +38,11 @@ normal
 EOF
 
 	cat <<EOF > /tmp/run_order2
-1gbA,reboot
+1gbA
+reboot
 1gbB
-1gbC,reboot
+1gbC
+reboot
 1gbD
 EOF
 
@@ -190,13 +199,24 @@ if [ "$cmd" = prepare ] ; then
 elif [ "$cmd" = run ] ; then
 	export VM=$(cat work/$projbase/vm)
 
+	# checking run option
+	again=
+	for opt in $@ ; do
+		if [ "$opt" = "-a" ] ; then
+			again=true
+		fi
+	done
+
 	for line in $(cat $RUN_ORDER) ; do
 		spj=
-		reboot=
 		kvm=
 		for tmp in $(echo $line | tr ',' ' ') ; do
 			if [ "$tmp" = reboot ] ; then
-				reboot=true
+				if [ "$FINISHED" = true ] && [ "$VM" ] ; then
+					virsh destroy $VM
+					sleep 5
+					FINISHED=
+				fi
 			elif [ "$tmp" = needvm ] ; then
 				kvm=true
 			else
@@ -204,7 +224,7 @@ elif [ "$cmd" = run ] ; then
 			fi
 		done
 		[ ! "$spj" ] && continue
-		echo "subproject:$spj, cmds:${reboot:+reboot},${kvm:+kvm}"
+		echo "subproject:$spj, cmds:${kvm:+kvm}"
 		if [ ! "$VM" ] ; then # running testcases on the current server
 			if [ "$kvm" ] ; then
 				echo "KVM-related testset $spj is skipped when VM= is not set."
@@ -230,10 +250,14 @@ elif [ "$cmd" = run ] ; then
 				echo "Running testset $spj on the guest $VM"
 				# sync current working on testing server to host server
 				rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
-				finished="$(bash run.sh proj check_finished ${projbase}/$spj)"
-				echo "Finished: $finished"
-				if [ "$finished" = DONE ] ; then
-					break
+				if [ ! "$again" ] ; then
+					finished="$(bash run.sh proj check_finished ${projbase}/$spj)"
+					echo "Finished: $finished"
+					if [ "$finished" = DONE ] ; then
+						break
+					fi
+				else
+					again=
 				fi
 				ssh -t $VM "STAP_DIR=$STAP_DIR PMEMDEV=$PMEMDEV bash mm_regression/run.sh project run $@ ${projbase}/$spj"
 				# Sometimes ssh connection is disconnected with error, so
@@ -244,16 +268,13 @@ elif [ "$cmd" = run ] ; then
 				fi
 			done
 
-			if [ "$reboot" ] ; then
-				finished_after="$(bash run.sh proj check_finished ${projbase}/$spj)"
-				# reboot only when this subproject is finished at this running.
-				# If it's already finished (judged by the existence of the file
-				# work/<subproj>/<maxretry>/__finished
-				if [ "$finished_before" = NOTDONE ] && [ "$finished_after" = DONE ] ; then
-					echo "shutting down $VM ..."
-					virsh destroy $VM
-					sleep 5
-				fi
+			finished_after="$(bash run.sh proj check_finished ${projbase}/$spj)"
+			# reboot only when this subproject is finished at this running.
+			# If it's already finished (judged by the existence of the file
+			# work/<subproj>/<maxretry>/__finished
+			if [ "$finished_before" = NOTDONE ] && [ "$finished_after" = DONE ] ; then
+				echo "Subproject $spj finished."
+				FINISHED=true
 			fi
 		fi
 	done
