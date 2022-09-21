@@ -217,6 +217,10 @@ elif [ "$cmd" = run ] ; then
 				kvm=true
 			else
 				spj=$tmp
+				if [ ! -d "work/$projbase/$spj" ] ; then
+					echo "Undefined subproject '$spj', skipped"
+					spj=
+				fi
 			fi
 		done
 		[ ! "$spj" ] && continue
