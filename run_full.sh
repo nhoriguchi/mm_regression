@@ -62,6 +62,7 @@ fi
 #
 # Environment variable
 #   - VM
+#   - STAP_DIR
 #   - PMEMDEV
 #   - DAXDEV
 #
@@ -234,7 +235,7 @@ elif [ "$cmd" = run ] ; then
 				if [ "$finished" = DONE ] ; then
 					break
 				fi
-				ssh -t $VM "PMEMDEV=$PMEMDEV bash mm_regression/run.sh project run $@ ${projbase}/$spj"
+				ssh -t $VM "STAP_DIR=$STAP_DIR PMEMDEV=$PMEMDEV bash mm_regression/run.sh project run $@ ${projbase}/$spj"
 				# Sometimes ssh connection is disconnected with error, so
 				# we need check that VM can continue to test or need rebooting.
 				if ! vm_ssh_connectable_one $vm ; then
