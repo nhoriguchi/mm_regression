@@ -141,7 +141,6 @@ vm_running() {
 	fi
 
 	return 0
-	# [ "$(virsh domstate ${VM})" = "running" ] && return 0 || return 1
 }
 
 vm_ssh_connectable_one() {
@@ -154,16 +153,13 @@ vm_start_wait_noexpect() {
 	local vm=$1
 	local _tmpd=$(mktemp -d)
 
-	if vm_running $vm ; then
-		echo "[$vm] domain already running."
-	else
+	if ! vm_running $vm ; then
 		echo "[$vm] starting domain ... "
 		virsh start $vm > /dev/null 2>&1
 	fi
 
 	for i in $(seq 60) ; do
 		if vm_ssh_connectable_one $vm ; then
-			echo "done $$"
 			return 0
 		fi
 		sleep 1
@@ -237,7 +233,7 @@ elif [ "$cmd" = run ] ; then
 		vm_start_wait_noexpect $VM
 		if [ "$kvm" ] ; then
 			[ "$spj" = kvm ] && echo "KVM relay testing is not implemented yet." && continue
-			echo "Running testset $spj on the host server."
+			echo "Running testset \"$spj\" on the host server."
 			echo "bash run.sh project run $@ ${projbase}/$spj"
 			bash run.sh project run $@ ${projbase}/$spj
 		else
@@ -262,7 +258,8 @@ elif [ "$cmd" = run ] ; then
 				ssh -t $VM "STAP_DIR=$STAP_DIR PMEMDEV=$PMEMDEV bash mm_regression/run.sh project run $@ ${projbase}/$spj"
 				# Sometimes ssh connection is disconnected with error, so
 				# we need check that VM can continue to test or need rebooting.
-				if ! vm_ssh_connectable_one $vm ; then
+				if ! vm_ssh_connectable_one $VM ; then
+					echo "[$VM] VM stopped forcibly"
 					virsh destroy $VM
 					sleep 5
 				fi
