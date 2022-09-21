@@ -31,7 +31,7 @@
 #! {"type" => "shmem", "offline" => "madvsoft"}
 
 TEST_TYPE=devel
-TEST_PRIORITY=16
+TEST_PRIORITY=14
 
 HUGETLBFSDIR=tmp/hugetlbfs
 

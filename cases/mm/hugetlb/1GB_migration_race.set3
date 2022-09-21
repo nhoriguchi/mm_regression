@@ -4,7 +4,7 @@
 #! {"type" => "anon", "migration" => "migratepages"}
 
 TEST_TYPE=devel
-TEST_PRIORITY=16
+TEST_PRIORITY=18
 
 . $TRDIR/lib/setup_mce_test.sh || exit 1
 

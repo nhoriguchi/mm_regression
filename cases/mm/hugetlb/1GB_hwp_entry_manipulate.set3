@@ -3,7 +3,7 @@
 #! {"type" => "madvise_dontneed"}
 
 TEST_TYPE=devel
-TEST_PRIORITY=16
+TEST_PRIORITY=13
 
 HUGETLBTYPE=anon
 MADVISE=madvise:advice=hwpoison:wait_after:tag=hwpoison_inject

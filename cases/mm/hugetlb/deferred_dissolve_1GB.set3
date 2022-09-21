@@ -5,7 +5,7 @@
 #! {"error-type" => "hard-offline", "multi-error" => "true"}
 ##! {"error-type" => "none", "dissolve" => "free"}
 
-TEST_PRIORITY=17
+TEST_PRIORITY=14
 
 <% if param["dissolve"] == "dequeue" %>
 TEST_TYPE=wip

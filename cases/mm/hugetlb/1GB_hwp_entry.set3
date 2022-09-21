@@ -4,7 +4,7 @@
 #! {"type" => "shmem"}
 
 TEST_TYPE=devel
-TEST_PRIORITY=16
+TEST_PRIORITY=13
 
 HUGETLBTYPE=<%= param["type"] %>
 MADVISE=madvise:advice=hwpoison:wait_after=1000
