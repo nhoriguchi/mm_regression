@@ -148,7 +148,7 @@ vm_start_wait_noexpect() {
 
 if [ "$VM" ] ; then
 	vm_start_wait_noexpect $VM
-	export PMEMDEV=$(ssh $VM ndctl list | jq -r '.[] | select(.mode=="fsdax") | [.blockdev] | @csv' | head -n1 | tr -d '"')
+	export PMEMDEV=$(ssh $VM ndctl list 2> /dev/null | jq -r '.[] | select(.mode=="fsdax") | [.blockdev] | @csv' | head -n1 | tr -d '"')
 fi
 
 if [ "$cmd" = prepare ] ; then
@@ -158,6 +158,7 @@ if [ "$cmd" = prepare ] ; then
 		filter_file /tmp/recipe ${projbase} $spj $keywords
 	done
 	if [ "$VM" ] ; then
+		echo $VM > work/$projbase/vm
 		rsync -ae ssh ./ $VM:mm_regression || exit 1
 		rsync -ae ssh lib/test_alloc_generic $VM:test_alloc_generic || exit 1
 		rsync -ae ssh work/$projbase/ $VM:mm_regression/work/$projbase/ || exit 1
@@ -169,6 +170,8 @@ if [ "$cmd" = prepare ] ; then
 		wc work/${projbase}/$spj/recipelist
 	done
 elif [ "$cmd" = run ] ; then
+	export VM=$(cat work/$projbase/vm)
+
 	for line in $(cat /tmp/run_order) ; do
 		spj=
 		reboot=
@@ -237,6 +240,7 @@ elif [ "$cmd" = run ] ; then
 		fi
 	done
 elif [ "$cmd" = show ] ; then
+	export VM=$(cat work/$projbase/vm)
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
@@ -244,6 +248,7 @@ elif [ "$cmd" = show ] ; then
 		./run.sh project show ${projbase}/$spj
 	done
 elif [ "$cmd" = summary ] ; then
+	export VM=$(cat work/$projbase/vm)
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
@@ -251,6 +256,7 @@ elif [ "$cmd" = summary ] ; then
 		./run.sh project sum $@ ${projbase}/$spj
 	done
 elif [ "$cmd" = summary2 ] ; then
+	export VM=$(cat work/$projbase/vm)
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
@@ -261,6 +267,7 @@ elif [ "$cmd" = summary2 ] ; then
 	echo "Summary Table:"
 	ruby test_core/lib/summary_table.rb /tmp/.summary2
 elif [ "$cmd" = check_finished ] ; then
+	export VM=$(cat work/$projbase/vm)
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
