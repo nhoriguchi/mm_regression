@@ -162,6 +162,7 @@ _control() {
 				*)
 					;;
 			esac
+			sleep 0.1
 		else
 			echo "timeout"
 			break;

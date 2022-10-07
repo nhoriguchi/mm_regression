@@ -30,6 +30,8 @@ _cleanup() {
 	reonline_memblocks
 }
 
+PIPETIMEOUT=30
+
 _control() {
     local pid="$1"
     local line="$2"
