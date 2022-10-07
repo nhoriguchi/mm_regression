@@ -7,7 +7,7 @@ prepare_1GB_hugetlb() {
 	fi
 
 	echo 0 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages || return 1
-	echo 4 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages || return 1
+	echo 10 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages || return 1
 	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_overcommit_hugepages
 
 	[ ! -d "$HUGETLBFSDIR" ] && mkdir -p "$HUGETLBFSDIR"
@@ -31,8 +31,14 @@ cleanup_1GB_hugetlb() {
 }
 
 show_1GB_pool() {
-	echo "total: $(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)"
-	echo "free: $(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/free_hugepages)"
-	echo "resv: $(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/resv_hugepages)"
-	echo "surp: $(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/surplus_hugepages)"
+	local vm=$1
+
+	if [ "$vm" ] ; then
+		ssh $vm "cat /sys/kernel/mm/hugepages/hugepages-1048576kB/{nr_hugepages,free_hugepages,resv_hugepages,surplus_hugepages}"
+	else
+		echo "total: $(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)"
+		echo "free: $(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/free_hugepages)"
+		echo "resv: $(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/resv_hugepages)"
+		echo "surp: $(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/surplus_hugepages)"
+	fi
 }

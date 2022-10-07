@@ -1,15 +1,15 @@
-#! {"type" => "acpi"}
-#! {"type" => "sysfs"}
 #! {"type" => "acpi", "hugetlb" => "free"}
-#! {"type" => "sysfs", "hugetlb" => "free"}
 #! {"type" => "acpi", "hugetlb" => "hwpoisoned"}
+#! {"type" => "sysfs", "hugetlb" => "free"}
 #! {"type" => "sysfs", "hugetlb" => "hwpoisoned"}
+#! {"type" => "sysfs", "hugetlb" => "hwpoisoned", "unpoison" => "true"}
 
 # Requires to give environment variable VM=
 
 TEST_TYPE=devel
 TEST_PRIORITY=10
 
+. $TRDIR/lib/setup_1GB_hugetlb.sh || return 1
 . $TRDIR/lib/kvm.sh || return 1
 
 _prepare() {
@@ -20,21 +20,17 @@ _prepare() {
 
 	set_vm_maxmemory $VM || return 1
 
-	# vm_shutdown_wait $VM
-	# vm_start_wait $VM || return 1
 	start_vm_console_monitor $TMPD/vmconsole $VM
 
 	<% if param["type"] == "acpi" %>
 	cat <<EOF > $TMPD/mem.xml
 <memory model='dimm'>
   <target>
-    <size unit='MiB'>128</size>
+    <size unit='GiB'>2</size>
     <node>1</node>
   </target>
 </memory>
 EOF
-
-	ssh $VM "echo \"7 7 7 7\" > /proc/sys/kernel/printk"
 
 	ssh $VM lsmem | tee $TMPD/lsmem.1
 	virsh attach-device $VM $TMPD/mem.xml --live
@@ -46,45 +42,45 @@ EOF
 	fi
 
 	ssh $VM lsmem | tee $TMPD/lsmem.1a
-	if diff -q -U3 $TMPD/lsmem.1 $TMPD/lsmem.1a ; then
+	if diff -q -U3 $TMPD/lsmem.1 $TMPD/lsmem.1a > /dev/null ; then
 		echo "virsh attach succeeded, but memory is not extended."
 		return 1
 	fi
-	ssh $VM "./test_alloc_generic -B anonymous -N 3000 -L \"mmap access:wait_after\"" &
-	sleep 1
-	ssh $VM "page-types -a 0x240000,"
 	<% end %>
 
-	<% if param["hugetlb"] %>
-	ssh $VM sysctl vm.nr_hugepages=1000000
+	echo "ssh $VM \"echo 10 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages\""
+	ssh $VM "echo 10 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages"
+	nr_hp=$(ssh $VM cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)
+	echo "nr_hugepages in $VM: $nr_hp"
+
 	<% if param["hugetlb"] == "hwpoisoned" %>
-	nr_hp=$(ssh $VM sysctl vm.nr_hugepages | awk '{print $3}')
 	# reserve up all free hugepage
-	scp lib/test_alloc_generic $VM:test_alloc_generic
-	ssh $VM "pkill -f test_alloc_generic"
-	ssh $VM "./test_alloc_generic -B hugetlb_anon -N $nr_hp -L \"mmap:wait_after\"" &
+	scp lib/hugetlb_1gb $VM:hugetlb_1gb
+	ssh $VM "pkill -f hugetlb_1gb"
+	ssh $VM "./hugetlb_1gb -n $nr_hp allocate:type=anon pause" &
 	sleep 0.2
-	ssh $VM "page-types -b huge"
-	ssh $VM "grep ^HugePages /proc/meminfo"
-	<% end %>
+	ssh $VM "page-types -b compound_head,huge=compound_head,huge -rl"
+	show_1GB_pool $VM
 	<% end %>
 }
 
 _cleanup() {
-	<% if param["hugetlb"] %>
-	ssh $VM sysctl vm.nr_hugepages=0
+	cleanup_1GB_hugetlb
 	<% if param["hugetlb"] == "hwpoisoned" %>
-	ssh $VM "pkill -f test_alloc_generic"
+	ssh $VM "pkill -f hugetlb_1gb"
 	<% end %>
-	<% end %>
+
+	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
 
 	<% if param["type"] == "acpi" %>
 	echo "detaching additional memory blocks"
 	virsh detach-device $VM $TMPD/mem.xml --live
 	<% else %>
-	ssh $VM "modprobe hpwoison-inject; page-types -b hwpoison -x"
+	ssh $VM "modprobe hwpoison-inject; page-types -b hwpoison -x"
 	local targetblock=$(cat $TMPD/good_memblock)
-	ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
+	if [ "$targetblock" ] ; then
+		ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
+	fi
 	<% end %>
 
 	[ "$_VM_CONSOLE" ] && pkill -9 -f $_VM_CONSOLE
@@ -99,20 +95,42 @@ _control() {
 	ssh $VM lsmem | tee $TMPD/lsmem.2
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.2
 
-	diff -U0 $TMPD/lsmem.1 $TMPD/lsmem.2 > $TMPD/lsmem.diff
-	# when no diff?
-	local newpaddr="$(grep ^0x0 $TMPD/lsmem.2 | sed 's/[-+]/ /g' | awk '{print $2}' | tail -n1)"
+	# assuming that physical address range of the attached memory should
+	# be located in the largest address side.
+	# TODO: how to get this from the running system?
+	local start_pfn=0x250000
+	ssh $VM page-types -b compound_head,huge=compound_head,huge -Nrl -a ${start_pfn}, | grep -v offset | tee $TMPD/page-types.2
+
+	if [ "$(cat $TMPD/page-types.2 | wc -l)" -eq 0 ] ; then
+		echo "Failed to allocate 1GB hugepage on attached memory."
+		return 1
+	fi
+	local newpfn="0x$(head -n1 $TMPD/page-types.2 | cut -f1)"
 	local blksize="0x$(ssh $VM cat /sys/devices/system/memory/block_size_bytes)"
-	newpaddr=$[newpaddr - (newpaddr % blksize)]
-	printf "newpfn start with 0x%lx\n" $newpaddr
-	ssh $VM "page-types -a $[newpaddr >> 12]+10 -Nrl"
-	ssh $VM "echo $newpaddr > /sys/devices/system/memory/hard_offline_page"
+	local pages_in_block="$[blksize >> 12]"
+	local blocks_in_1gb="$[(1<<30) / blksize]"
+	local target_memblk="$[(newpfn << 12) / blksize]"
+
+	echo "target 1GB hugepage starts at pfn:$newpfn"
+	newpfn=$[newpfn - (newpfn % pages_in_block)]
+	printf "target memory block starts at pfn:0x%lx\n" $newpfn
+	if [ "$blocks_in_1gb" -eq 0 ] ; then
+		printf "target 1GB hugepage covers memory block %d\n" $target_memblk
+	else
+		printf "target 1GB hugepage covers memory block %d to %d\n" $target_memblk $[target_memblk + blocks_in_1gb - 1]
+	fi
+
+	echo "===== Injecting error on $newpfn"
+	ssh $VM "echo $[newpfn << 12] > /sys/devices/system/memory/hard_offline_page"
+
+	ssh $VM "page-types -b compound_head,huge=compound_head,huge -Nrl"
 	ssh $VM "page-types -b hwpoison -Nrl"
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.a
 
 	<% if param["hugetlb"] == "hwpoisoned" %>
 	# remove reservation to make hotremove succeed.
-	ssh $VM "pkill -f test_alloc_generic"
+	echo "Cancel reserving gigantic pages"
+	ssh $VM "pkill -f hugetlb_1gb"
 	ssh $VM grep ^HugePages /proc/meminfo
 	<% end %>
 
@@ -126,6 +144,7 @@ _control() {
 	fi
 	sleep 3
 	ssh $VM lsmem | tee $TMPD/lsmem.3
+	ssh $VM "page-types -b compound_head,huge=compound_head,huge -Nrl"
 	ssh $VM "page-types -b hwpoison -Nrl"
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.3
 
@@ -138,6 +157,7 @@ _control() {
 	fi
 	sleep 3
 	ssh $VM lsmem | tee $TMPD/lsmem.4
+	ssh $VM "page-types -b compound_head,huge=compound_head,huge -Nrl"
 	ssh $VM "page-types -b hwpoison -Nrl"
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.4
 }
@@ -153,6 +173,7 @@ _check() {
 		count_success
 	else
 		count_failure "HardwareCorrupted not incremented by error injection. ($hc2, $hca)"
+		return
 	fi
 
 	count_testcount
@@ -160,6 +181,7 @@ _check() {
 		count_success
 	else
 		count_failure "HardwareCorrupted did not get back to the original value by memory hotremove. ($hc2, $hc3)"
+		return
 	fi
 
 	count_testcount
@@ -170,56 +192,63 @@ _check() {
 	fi
 }
 <% else %>
+<% if param["hugetlb"] == "hwpoisoned" %>
+<% if param["unpoison"] == "true" %>
+EXPECTED_RETURN_CODE="HOTREMOVE_PASS HOTPLUG_PASS"
+<% else %>
+EXPECTED_RETURN_CODE="HOTREMOVE_FAIL"
+<% end %>
+<% else %>
 EXPECTED_RETURN_CODE="HOTREMOVE_PASS HOTPLUG_FAIL"
+<% end %>
 
 find_good_memblock_to_hotremove() {
+	# Assuming that 1GB hugepage is large enough to cover some memory blocks.
+	# So choose the memory block start with head page of some 1GB hugepage.
 	cat <<EOF > $TMPD/.script
-maxpaddr="\$(lsmem | grep ^0x0 | sed 's/[-+]/ /g' | awk '{print \$2}' | tail -n1)"
-maxpaddr=\$[maxpaddr + 1]
-blksize="0x\$(cat /sys/devices/system/memory/block_size_bytes)"
-blksizep=\$[blksize >> 12]
-maxblk=\$[maxpaddr / blksize]
-for blk in \$(seq \$maxblk -1 1) ; do
-	if [ ! -d /sys/devices/system/memory/memory\$blk/ ] ; then
-		continue
-	fi
-	if [ "\$(cat /sys/devices/system/memory/memory\$blk/state)" = offline ] ; then
-		continue
-	fi
-	page-types -a \$[blk * blksizep]+\$blksizep -r -b reserved,slab | grep total > /tmp/1
-	count=\$(grep total /tmp/1 | awk '{print \$2}')
-	if [ "\$count" -eq 0 ] ; then
-		echo \$blk
-		exit 0
-	fi
-done
+	page-types -b compound_head,huge=compound_head,huge -Nrl | grep -v offset | cut -f1 > /tmp/1
+	head -n1 /tmp/1
 EOF
 	scp $TMPD/.script $VM:/tmp/a.sh
-	ssh $VM bash /tmp/a.sh > $TMPD/good_memblock
+	ssh $VM bash /tmp/a.sh > $TMPD/target_pfn
 }
 
 _control() {
 	find_good_memblock_to_hotremove
-	if [ -s "$TMPD/good_memblock" ] ; then
-		local targetblock=$(cat $TMPD/good_memblock)
+	if [ -s "$TMPD/target_pfn" ] ; then
+		local targetpfn="0x$(cat $TMPD/target_pfn)"
 	else
-		echo "Failed to get good memblock to hotremove."
+		echo "Failed to find memblock to hotremove."
 		return 1
 	fi
 
 	ssh $VM lsmem | tee $TMPD/lsmem.1
 
 	local blksize="0x$(ssh $VM cat /sys/devices/system/memory/block_size_bytes)"
-	local newpaddr=$[targetblock * blksize]
-	printf "newpfn start with 0x%lx\n" $newpaddr
-	ssh $VM "echo $newpaddr > /sys/devices/system/memory/hard_offline_page"
+	local targetblock="$[(targetpfn << 12) / blksize]"
+	echo $targetblock > $TMPD/good_memblock
+	printf "newpfn start with 0x%lx (target block: $targetblock)\n" $targetpfn
+	echo "===== Injecting error on $newpfn"
+	ssh $VM "echo $[targetpfn * 4096] > /sys/devices/system/memory/hard_offline_page"
 	ssh $VM "page-types -b hwpoison -Nrl"
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.a
 
 	<% if param["hugetlb"] == "hwpoisoned" %>
 	# remove reservation to make hotremove succeed.
-	ssh $VM "pkill -f test_alloc_generic"
-	ssh $VM grep ^HugePages /proc/meminfo
+	echo "Cancel reserving gigantic pages"
+	ssh $VM "pkill -f hugetlb_1gb"
+	show_1GB_pool $VM
+	<% end %>
+
+	<% if param["unpoison"] == "true" %>
+	echo "===== Injecting error on the next memory block"
+	ssh $VM "echo $[targetpfn * 4096 + blksize] > /sys/devices/system/memory/hard_offline_page"
+	echo "===== Unpoisoning the 1GB hugepage"
+	ssh $VM "modprobe hwpoison-inject; page-types -b hwpoison -x"
+	echo "===== Shrinking 1GB hugepage pool"
+	ssh $VM "echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages"
+	ssh $VM "page-types -a $targetpfn+10 -Nrl"
+	show_1GB_pool $VM
 	<% end %>
 
 	echo "===== offline memory block $targetblock"
