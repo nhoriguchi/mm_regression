@@ -146,7 +146,7 @@ vm_running() {
 vm_ssh_connectable_one() {
 	local vm=$1
 
-	ssh -o ConnectTimeout=3 $vm date > /dev/null 2>&1
+	ssh -o ConnectTimeout=10 $vm date > /dev/null 2>&1
 }
 
 vm_start_wait_noexpect() {
@@ -209,6 +209,7 @@ elif [ "$cmd" = run ] ; then
 		for tmp in $(echo $line | tr ',' ' ') ; do
 			if [ "$tmp" = reboot ] ; then
 				if [ "$FINISHED" = true ] && [ "$VM" ] ; then
+					echo "[$VM] VM stopped after finishing unstable subproject."
 					virsh destroy $VM
 					sleep 5
 					FINISHED=
@@ -259,6 +260,7 @@ elif [ "$cmd" = run ] ; then
 				else
 					again=
 				fi
+				echo ssh -t $VM "STAP_DIR=$STAP_DIR PMEMDEV=$PMEMDEV bash mm_regression/run.sh project run $@ ${projbase}/$spj"
 				ssh -t $VM "STAP_DIR=$STAP_DIR PMEMDEV=$PMEMDEV bash mm_regression/run.sh project run $@ ${projbase}/$spj"
 				# Sometimes ssh connection is disconnected with error, so
 				# we need check that VM can continue to test or need rebooting.
@@ -284,7 +286,7 @@ elif [ "$cmd" = show ] ; then
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
-	for spj in $(cat $RUN_ORDER | cut -f1 -d,) ; do
+	for spj in $(cat $RUN_ORDER | grep -v reboot | cut -f1 -d,) ; do
 		./run.sh project show ${projbase}/$spj
 	done
 elif [ "$cmd" = summary ] ; then
@@ -292,7 +294,7 @@ elif [ "$cmd" = summary ] ; then
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
-	for spj in $(cat $RUN_ORDER | cut -f1 -d,) ; do
+	for spj in $(cat $RUN_ORDER | grep -v reboot | cut -f1 -d,) ; do
 		./run.sh project sum $@ ${projbase}/$spj
 	done
 elif [ "$cmd" = summary2 ] ; then
@@ -301,7 +303,7 @@ elif [ "$cmd" = summary2 ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
 	echo > /tmp/.summary2
-	for spj in $(cat $RUN_ORDER | cut -f1 -d,) ; do
+	for spj in $(cat $RUN_ORDER | grep -v reboot | cut -f1 -d,) ; do
 		./run.sh project sum -P ${projbase}/$spj >> /tmp/.summary2
 	done
 	echo "Summary Table:"
@@ -311,7 +313,7 @@ elif [ "$cmd" = check_finished ] ; then
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
-	for spj in $(cat $RUN_ORDER | cut -f1 -d,) ; do
+	for spj in $(cat $RUN_ORDER | grep -v reboot | cut -f1 -d,) ; do
 		./run.sh project check_finished ${projbase}/$spj
 		if [ $? -eq 7 ] ; then
 			# some subprojects are not done yet.
