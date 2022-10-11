@@ -271,6 +271,8 @@ elif [ "$cmd" = run ] ; then
 				fi
 			done
 
+			rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
+
 			finished_after="$(bash run.sh proj check_finished ${projbase}/$spj)"
 			# reboot only when this subproject is finished at this running.
 			# If it's already finished (judged by the existence of the file
