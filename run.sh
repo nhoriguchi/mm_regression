@@ -219,6 +219,23 @@ get_project() {
 	echo $proj
 }
 
+check_project_finished() {
+	local proj=$1
+	local finished=false
+
+	. work/$proj/config || return 1
+	for round in $(seq $FAILRETRY) ; do
+		local tmp=$(ruby test_core/lib/test_summary.rb -p work/$proj/$round | grep -e ^FAIL)
+		if [ -f "work/$proj/$round/__finished" ] && [ ! "$tmp" ] ; then
+			return 0
+		fi
+	done
+	if [ -f "work/$proj/$FAILRETRY/__finished" ] ; then
+		return 0
+	fi
+	return 7
+}
+
 set_project() {
 	if [ "$1" ] ; then
 		echo "$1" > .current_project
@@ -426,13 +443,11 @@ case $1 in
 					echo "No work/$proj found." >&2
 					exit 1
 				fi
-				. work/$proj/config
-				if [ -e work/${proj}/$FAILRETRY/__finished ] ; then
+				if check_project_finished $proj ; then
 					echo DONE
 					exit 0
 				else
 					echo NOTDONE
-					# Different from input failure (like unknown project)
 					exit 7
 				fi
 				;;
