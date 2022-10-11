@@ -118,7 +118,16 @@ run_test() {
 			fi
 
 			if [ -f "work/$RUNNAME/$round/__finished" ] ; then
+				echo "Round $round is finished, so skip it."
 				continue
+			fi
+
+			if [ "$round" -gt 1 ] ; then
+				tmp=$(ruby test_core/lib/test_summary.rb -p work/$BASERUNNAME/$[round-1] | grep -e ^FAIL | cut -f2 -d' ')
+				if [ ! "$tmp" ] ; then
+					echo "All testcases are done in round $[round-1], so no need to run another round."
+					break
+				fi
 			fi
 
 			export ROUND=$round
