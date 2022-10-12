@@ -107,28 +107,21 @@ run_test() {
 	if [ ! "$ROUND" ] ; then
 		for round in $(seq $FAILRETRY) ; do
 			if [ "$AGAIN" ] ; then
-				rm -f work/$RUNNAME/$round/__finished work/$RUNNAME/$round/recipelist
+				rm -f work/$BASERUNNAME/$round/__finished work/$BASERUNNAME/$round/recipelist
 			fi
 
 			# If round=x starts even though round=x-1 is not finished,
 			# the previous round is likely to be cancelled by user.
 			# So let's abort failretry iteration.
-			if [ "$round" -gt 1 ] && [ ! -f "work/$RUNNAME/$[round-1]/__finished" ] ; then
+			if [ "$round" -gt 1 ] && [ ! -f "work/$BASERUNNAME/$[round-1]/__finished" ] ; then
 				break
 			fi
 
-			if [ -f "work/$RUNNAME/$round/__finished" ] ; then
-				echo "Round $round is finished, so skip it."
+			if [ -f "work/$BASERUNNAME/$round/__finished" ] ; then
+				echo "Round $round is finished, so skip this round." >&2
 				continue
 			fi
 
-			if [ "$round" -gt 1 ] ; then
-				tmp=$(ruby test_core/lib/test_summary.rb -p work/$BASERUNNAME/$[round-1] | grep -e ^FAIL | cut -f2 -d' ')
-				if [ ! "$tmp" ] ; then
-					echo "All testcases are done in round $[round-1], so no need to run another round."
-					break
-				fi
-			fi
 
 			export ROUND=$round
 			export RUNNAME=$BASERUNNAME/$ROUND
@@ -152,6 +145,13 @@ run_test() {
 
 			echo "Test round: $ROUND"
 			bash test_core/run-test.sh
+
+			tmp=$(ruby test_core/lib/test_summary.rb -p work/$BASERUNNAME/$ROUND | grep -e ^FAIL | cut -f2 -d' ')
+			if [ ! "$tmp" ] ; then
+echo "DEBUG B"
+				echo "All testcases are done in round $ROUND, so no need to run another round."
+				break
+			fi
 		done
 	fi
 }
