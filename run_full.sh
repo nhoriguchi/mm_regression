@@ -11,9 +11,6 @@ EOF
 
 # TODO: kvm は beaker 環境のみ
 cat <<EOF > /tmp/run_order
-stress
-performance
-reboot
 1gb_hugetlb
 normal
 pmem
@@ -29,25 +26,17 @@ mce
 EOF
 
 if [ "$__DEBUG" ] ; then
-	cat <<EOF > /tmp/subprojects2
-1gbA 1GB_hwp_entry
-1gbB 1GB_hwpoison_race
-1gbC 1GB_inj/type-anon
-1gbD 1GB_inj/type-file
+	cat <<EOF > /tmp/subprojects
+a mm/thp/anonymous/mbind/thp-base.auto3
+b mm/thp/anonymous/mbind/thp-double_mapping.auto3
+c mm/thp/anonymous/mbind/thp-pmd_split.auto3
 normal
-EOF
-
-	cat <<EOF > /tmp/run_order2
-1gbA
-reboot
-1gbB
-1gbC
-reboot
-1gbD
 EOF
 
 	cat <<EOF > /tmp/run_order
-normal
+a
+b
+c
 EOF
 fi
 
@@ -58,6 +47,7 @@ fi
 # Description
 #   - This script is supposed to be called on host server and the testing
 #     server is the guest specified by VM=.
+#     You have to give environment variable VM= when running `prepare` subcommand.
 #   - Assuming that the remote testing server should have this test tool
 #     just under home directory.
 #
@@ -174,6 +164,12 @@ if [ "$VM" ] ; then
 	export PMEMDEV=$(ssh $VM ndctl list 2> /dev/null | jq -r '.[] | select(.mode=="fsdax") | [.blockdev] | @csv' | head -n1 | tr -d '"')
 fi
 
+if [ "$__DEBUG" ] ; then
+	echo "=== debug output ==="
+	env
+	set -x
+fi
+
 if [ "$cmd" = prepare ] ; then
 	make
 	bash run.sh recipe list > /tmp/recipe
@@ -181,7 +177,9 @@ if [ "$cmd" = prepare ] ; then
 		filter_file /tmp/recipe ${projbase} $spj $keywords
 	done
 	if [ "$VM" ] ; then
+		echo "=== preparing VM ($VM) ==="
 		echo $VM > work/$projbase/vm
+		echo "=== work/$projbase/vm $(cat work/$projbase/vm) ==="
 		rsync -ae ssh ./ $VM:mm_regression || exit 1
 		rsync -ae ssh lib/test_alloc_generic $VM:test_alloc_generic || exit 1
 		rsync -ae ssh work/$projbase/ $VM:mm_regression/work/$projbase/ || exit 1

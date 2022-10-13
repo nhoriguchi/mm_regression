@@ -148,7 +148,6 @@ run_test() {
 
 			tmp=$(ruby test_core/lib/test_summary.rb -p work/$BASERUNNAME/$ROUND | grep -e ^FAIL | cut -f2 -d' ')
 			if [ ! "$tmp" ] ; then
-echo "DEBUG B"
 				echo "All testcases are done in round $ROUND, so no need to run another round."
 				break
 			fi
