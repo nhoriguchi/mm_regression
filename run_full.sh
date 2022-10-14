@@ -159,6 +159,13 @@ vm_start_wait_noexpect() {
 	return 1
 }
 
+check_and_set_env_vm() {
+	local projbase=$1
+	if ! env | grep -q ^VM=\S ; then
+		export VM=$(cat work/$projbase/vm)
+	fi
+}
+
 if [ "$VM" ] ; then
 	vm_start_wait_noexpect $VM
 	export PMEMDEV=$(ssh $VM ndctl list 2> /dev/null | jq -r '.[] | select(.mode=="fsdax") | [.blockdev] | @csv' | head -n1 | tr -d '"')
@@ -191,8 +198,7 @@ if [ "$cmd" = prepare ] ; then
 		wc work/${projbase}/$spj/recipelist
 	done
 elif [ "$cmd" = run ] ; then
-	export VM=$(cat work/$projbase/vm)
-
+	check_and_set_env_vm $projbase
 	# checking run option
 	again=
 	for opt in $@ ; do
@@ -282,7 +288,7 @@ elif [ "$cmd" = run ] ; then
 		fi
 	done
 elif [ "$cmd" = show ] ; then
-	export VM=$(cat work/$projbase/vm)
+	check_and_set_env_vm $projbase
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
@@ -290,7 +296,7 @@ elif [ "$cmd" = show ] ; then
 		./run.sh project show ${projbase}/$spj
 	done
 elif [ "$cmd" = summary ] ; then
-	export VM=$(cat work/$projbase/vm)
+	check_and_set_env_vm $projbase
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
@@ -298,7 +304,7 @@ elif [ "$cmd" = summary ] ; then
 		./run.sh project sum $@ ${projbase}/$spj
 	done
 elif [ "$cmd" = summary2 ] ; then
-	export VM=$(cat work/$projbase/vm)
+	check_and_set_env_vm $projbase
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
@@ -309,7 +315,7 @@ elif [ "$cmd" = summary2 ] ; then
 	echo "Summary Table:"
 	ruby test_core/lib/summary_table.rb /tmp/.summary2
 elif [ "$cmd" = check_finished ] ; then
-	export VM=$(cat work/$projbase/vm)
+	check_and_set_env_vm $projbase
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
