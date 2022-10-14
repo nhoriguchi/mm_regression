@@ -190,6 +190,7 @@ if [ "$cmd" = prepare ] ; then
 		rsync -ae ssh ./ $VM:mm_regression || exit 1
 		rsync -ae ssh lib/test_alloc_generic $VM:test_alloc_generic || exit 1
 		rsync -ae ssh work/$projbase/ $VM:mm_regression/work/$projbase/ || exit 1
+		ssh $VM sync
 		# TODO: page-types might depend on GLIBC version
 		TMPD=/tmp bash lib/set_vm_numa_settings.sh $VM 8 8
 		vm_start_wait_noexpect $VM
