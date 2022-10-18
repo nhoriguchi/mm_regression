@@ -239,10 +239,15 @@ class TestSummary
 
   def show_progress_verbose
     @full_recipe_list.each do |recipe|
-      if @test_summary_hash[recipe].started?
-        puts "#{@test_summary_hash[recipe].testcase_result} #{@test_summary_hash[recipe].date.strftime("%Y%m%d/%H%M%S")} [%02d] (%s) #{recipe}" % [@test_summary_hash[recipe].priority, @test_summary_hash[recipe].test_type]
+      rc = @test_summary_hash[recipe]
+      if rc.started?
+        if rc.end_time
+          puts "#{rc.testcase_result} #{rc.date.strftime("%m%d/%H%M%S")} %6d [%02d] (%s) #{recipe}" % [rc.end_time - rc.start_time, rc.priority, rc.test_type]
+        else
+          puts "#{rc.testcase_result} #{rc.date.strftime("%m%d/%H%M%S")} xxxxxx [%02d] (%s) #{recipe}" % [rc.priority, rc.test_type]
+        end
       else
-        puts "#{@test_summary_hash[recipe].testcase_result} --------/------ [%02d] (%s) #{recipe}" % [@test_summary_hash[recipe].priority, @test_summary_hash[recipe].test_type]
+        puts "#{rc.testcase_result} ----/------ ------ [%02d] (%s) #{recipe}" % [rc.priority, rc.test_type]
       end
     end
     calc_progress_percentile
