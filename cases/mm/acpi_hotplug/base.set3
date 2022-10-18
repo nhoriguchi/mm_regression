@@ -223,7 +223,7 @@ _control() {
 	<% end %>
 
 	echo "===== offline memory block $targetblock"
-	ssh -t $VM "echo offline > /sys/devices/system/memory/memory$targetblock/state"
+	timeout --preserve-status -v -s 9 -k 30 30 ssh -t $VM "echo offline > /sys/devices/system/memory/memory$targetblock/state"
 	if [ $? -eq 0 ] ; then
 		set_return_code HOTREMOVE_PASS
 	else
