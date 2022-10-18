@@ -38,6 +38,21 @@ a
 b
 c
 EOF
+
+	cat <<EOF > /tmp/subprojects
+a m/thp/anonymous/hotremove/thp-base_
+b mm/acpi_hotplug/base/type-sysfs_hugetlb-
+c mm/thp/anonymous/mbind/thp-base.auto3
+normal
+EOF
+
+	cat <<EOF > /tmp/run_order
+a
+reboot
+b,needvm
+reboot
+c
+EOF
 fi
 
 #
@@ -159,6 +174,45 @@ vm_start_wait_noexpect() {
 	return 1
 }
 
+vm_shutdown_wait() {
+	local vm=$1
+	local ret=0
+
+	if ! vm_running $vm ; then
+		echo "[$vm] already shut off"
+		return 0
+	fi
+	if vm_ssh_connectable_one $vm ; then
+		echo "shutdown vm $vm"
+		ssh $vm "sync ; shutdown -h now"
+
+		# virsh start might fail, because the above command terminates the connection
+		# before the vm completes the shutdown. Need to confirm vm is shut off.
+		for i in $(seq 60) ; do
+			if ! vm_running $vm ; then
+				echo "[$vm] shutdown done"
+				return 0
+			fi
+			sleep 2
+		done
+		echo "[$vm] shutdown timeout, destroy it."
+	else
+		echo "[$vm] no ssh-connection, destroy it."
+	fi
+	timeout 5 virsh destroy $vm
+	ret=$?
+	if [ $ret -eq 0 ] ; then
+		return 1
+	else
+		if [ $ret -eq 124 ] ; then
+			echo "[$vm] virsh destroy timed out"
+		else
+			echo "[$vm] virsh destroy failed"
+			kill -9 $(cat /var/run/libvirt/qemu/$vm.pid)
+		fi
+	fi
+}
+
 check_and_set_env_vm() {
 	local projbase=$1
 	if ! env | grep -q ^VM=\S ; then
@@ -172,7 +226,7 @@ if [ "$VM" ] ; then
 fi
 
 if [ "$__DEBUG" ] ; then
-	echo "=== debug output ==="
+	echo "=== __DEBUG enabled, so show more information about how runtest.sh is running ==="
 	env
 	set -x
 fi
@@ -191,6 +245,7 @@ if [ "$cmd" = prepare ] ; then
 		rsync -ae ssh lib/test_alloc_generic $VM:test_alloc_generic || exit 1
 		rsync -ae ssh work/$projbase/ $VM:mm_regression/work/$projbase/ || exit 1
 		ssh $VM sync
+		vm_shutdown_wait $VM
 		# TODO: page-types might depend on GLIBC version
 		TMPD=/tmp bash lib/set_vm_numa_settings.sh $VM 8 8
 		vm_start_wait_noexpect $VM
@@ -215,7 +270,7 @@ elif [ "$cmd" = run ] ; then
 			if [ "$tmp" = reboot ] ; then
 				if [ "$FINISHED" = true ] && [ "$VM" ] ; then
 					echo "[$VM] VM stopped after finishing unstable subproject."
-					virsh destroy $VM
+					vm_shutdown_wait $VM
 					sleep 5
 					FINISHED=
 				fi
@@ -271,7 +326,7 @@ elif [ "$cmd" = run ] ; then
 				# we need check that VM can continue to test or need rebooting.
 				if ! vm_ssh_connectable_one $VM ; then
 					echo "[$VM] VM stopped forcibly"
-					virsh destroy $VM
+					vm_shutdown_wait $VM
 					sleep 5
 				fi
 			done
