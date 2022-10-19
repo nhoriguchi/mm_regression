@@ -242,7 +242,6 @@ if [ "$cmd" = prepare ] ; then
 		echo $VM > work/$projbase/vm
 		echo "=== work/$projbase/vm $(cat work/$projbase/vm) ==="
 		rsync -ae ssh ./ $VM:mm_regression || exit 1
-		rsync -ae ssh lib/test_alloc_generic $VM:test_alloc_generic || exit 1
 		rsync -ae ssh work/$projbase/ $VM:mm_regression/work/$projbase/ || exit 1
 		ssh $VM sync
 		vm_shutdown_wait $VM

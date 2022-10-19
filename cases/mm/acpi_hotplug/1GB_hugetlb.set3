@@ -55,9 +55,9 @@ EOF
 
 	<% if param["hugetlb"] == "hwpoisoned" %>
 	# reserve up all free hugepage
-	scp lib/hugetlb_1gb $VM:hugetlb_1gb
+	scp lib/hugetlb_1gb $VM:/usr/local/bin/hugetlb_1gb
 	ssh $VM "pkill -f hugetlb_1gb"
-	ssh $VM "./hugetlb_1gb -n $nr_hp allocate:type=anon pause" &
+	ssh $VM "hugetlb_1gb -n $nr_hp allocate:type=anon pause" &
 	sleep 0.2
 	ssh $VM "page-types -b compound_head,huge=compound_head,huge -rl"
 	show_1GB_pool $VM

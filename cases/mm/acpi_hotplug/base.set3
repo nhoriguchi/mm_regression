@@ -24,6 +24,8 @@ _prepare() {
 	# vm_start_wait $VM || return 1
 	start_vm_console_monitor $TMPD/vmconsole $VM
 
+	scp lib/test_alloc_generic $VM:/usr/local/bin/test_alloc_generic
+
 	<% if param["type"] == "acpi" %>
 	cat <<EOF > $TMPD/mem.xml
 <memory model='dimm'>
@@ -50,7 +52,7 @@ EOF
 		echo "virsh attach succeeded, but memory is not extended."
 		return 1
 	fi
-	ssh $VM "./test_alloc_generic -B anonymous -N 3000 -L \"mmap access:wait_after\"" &
+	ssh $VM "test_alloc_generic -B anonymous -N 3000 -L \"mmap access:wait_after\"" &
 	sleep 1
 	ssh $VM "page-types -a 0x240000,"
 	<% end %>
@@ -60,9 +62,8 @@ EOF
 	<% if param["hugetlb"] == "hwpoisoned" %>
 	nr_hp=$(ssh $VM sysctl vm.nr_hugepages | awk '{print $3}')
 	# reserve up all free hugepage
-	scp lib/test_alloc_generic $VM:test_alloc_generic
 	ssh $VM "pkill -f test_alloc_generic"
-	ssh $VM "./test_alloc_generic -B hugetlb_anon -N $nr_hp -L \"mmap:wait_after\"" &
+	ssh $VM "test_alloc_generic -B hugetlb_anon -N $nr_hp -L \"mmap:wait_after\"" &
 	sleep 0.2
 	ssh $VM "page-types -b huge"
 	ssh $VM "grep ^HugePages /proc/meminfo"
