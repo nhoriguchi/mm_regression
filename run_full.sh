@@ -11,6 +11,8 @@ EOF
 
 # TODO: kvm は beaker 環境のみ
 cat <<EOF > /tmp/run_order
+acpi_hotplug,needvm
+reboot
 1gb_hugetlb
 normal
 pmem
@@ -19,8 +21,6 @@ reboot
 huge_zero
 reboot
 hotremove
-reboot
-acpi_hotplug,needvm
 reboot
 mce
 EOF
