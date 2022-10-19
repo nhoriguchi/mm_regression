@@ -188,7 +188,7 @@ EOF
 overwrite_test_setting() {
 	local envfile=$1
 	local tmpf=$(mktemp)
-	env | grep -e ^RUNNAME= -e ^RUN_MODE= -e ^SOFT_RETRY= -e ^HARD_RETRY= -e ^TEST_DESCRIPTION= -e ^UNPOISON= -e ^FAILRETRY= -e ^PRIORITY= -e ^BACKWARD_KEYWORD= -e ^FORWARD_KEYWORD= -e ^LOGLEVEL= | sed -e 's/^/export /' > $tmpf
+	env | grep -e ^RUN_MODE= -e ^SOFT_RETRY= -e ^HARD_RETRY= -e ^TEST_DESCRIPTION= -e ^UNPOISON= -e ^FAILRETRY= -e ^PRIORITY= -e ^BACKWARD_KEYWORD= -e ^FORWARD_KEYWORD= -e ^LOGLEVEL= | sed -e 's/^/export /' > $tmpf
 	. $envfile
 	. $tmpf
 	env | grep -e ^RUNNAME= -e ^RUN_MODE= -e ^SOFT_RETRY= -e ^HARD_RETRY= -e ^TEST_DESCRIPTION= -e ^UNPOISON= -e ^FAILRETRY= -e ^PRIORITY= -e ^BACKWARD_KEYWORD= -e ^FORWARD_KEYWORD= -e ^LOGLEVEL= | sed 's/^/# /'
