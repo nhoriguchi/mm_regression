@@ -17,10 +17,11 @@ get_gpa_guest_memeater() {
 	local lines=`wc -l $TMPD/guest_page_types | cut -f1 -d' '`
 	[ "$lines" -eq 0 ] && echo_log "Page ($flagtype) not exist on guest memeater." >&2 && return 1
 	[ "$lines" -gt 2 ] && lines=`ruby -e "p rand($lines) + 1"`
-	echo "# of pages $flagtypes: $lines"
+	echo "# of pages $flagtype: $lines"
 	TARGETGVA=0x`cat $TMPD/guest_page_types | sed -n ${lines}p | cut -f1 -d ' '`
 	TARGETGPA=0x`cat $TMPD/guest_page_types | sed -n ${lines}p | cut -f2 -d ' '`
-	TARGETHPA=`ruby $GPA2HPA $VM $TARGETGPA -d`
+	TARGETHPA="$(virsh qemu-monitor-command --hmp $VM --cmd "gpa2hpa $[TARGETGPA * 4096]" | grep 0x | cut -f8 -d' ' | tr -d '\n\r')"
+	[ "$TARGETHPA" ] && TARGETHPA=$[TARGETHPA / 4096]
 	echo "--- TARGETGVA:$TARGETGVA, TARGETGPA:$TARGETGPA, TARGETHPA:$TARGETHPA"
 	[ "$TARGETGPA" == 0x ] && echo_log "Failed to get GPA. Test skipped." && return 1
 	if [ ! "$TARGETHPA" ] || [ "$TARGETHPA" == "0x" ] || [ "$TARGETHPA" == "0x0" ] ; then
@@ -62,7 +63,7 @@ prepare_mce_kvm() {
 	# TODO: reduce VM restarts
 	# unconditionally restart vm because memory background might change
 	# (thp <=> anon)
-	vm_shutdown_wait $VM $VMIP
+	# vm_shutdown_wait $VM $VMIP
 	echo 3 > /proc/sys/vm/drop_caches ; sync
 	vm_start_wait $VM || return 1
 	local vmip=$(vm_to_vmip $VM)
@@ -132,7 +133,7 @@ check_page_migrated() {
 	local oldhpa="$2"
 
 	count_testcount
-	currenthpa=$(ruby ${GPA2HPA} $VM $gpa)
+	currenthpa="$(virsh qemu-monitor-command --hmp $VM --cmd "gpa2hpa $[gpa * 4096]" | grep 0x | cut -f8 -d' ')"
 	# echo_log "[$TARGETGPA] [$TARGETHPA] [$currenthpa]"
 	if [ ! "$currenthpa" ] ; then
 		count_failure "Fail to get HPA after migration."

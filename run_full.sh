@@ -296,7 +296,6 @@ elif [ "$cmd" = run ] ; then
 		fi
 		vm_start_wait_noexpect $VM
 		if [ "$kvm" ] ; then
-			[ "$spj" = kvm ] && echo "KVM relay testing is not implemented yet." && continue
 			finished_before="$(bash run.sh proj check_finished ${projbase}/$spj)"
 			echo "Running testset \"$spj\" on the host server."
 			echo "bash run.sh project run $@ ${projbase}/$spj"

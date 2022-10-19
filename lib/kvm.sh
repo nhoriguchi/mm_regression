@@ -6,7 +6,6 @@
 [ ! "$VM" ] && echo_log "You must give VM name in recipe file" && return 1
 
 SSH_OPT="-o ConnectTimeout=5"
-GPA2HPA=$(dirname $(readlink -f $BASH_SOURCE))/gpa2hpa.rb
 GUESTTESTALLOC=/usr/local/bin/test_alloc_generic
 GUESTPAGETYPES=/usr/local/bin/page-types
 
