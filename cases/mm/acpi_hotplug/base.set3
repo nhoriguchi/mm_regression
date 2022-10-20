@@ -25,6 +25,7 @@ _prepare() {
 	start_vm_console_monitor $TMPD/vmconsole $VM
 
 	scp lib/test_alloc_generic $VM:/usr/local/bin/test_alloc_generic
+	scp build/page-types $VM:/usr/local/bin/page-types
 
 	<% if param["type"] == "acpi" %>
 	cat <<EOF > $TMPD/mem.xml
