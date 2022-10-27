@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 /*
  * Copyright (C) 2014 Intel Corporation
  * Authors: Tony Luck
@@ -28,7 +30,7 @@ static int pagesize=0x1000;
  * get information about address from /proc/{pid}/pagemap
  */
 
-unsigned long long vtop(unsigned long long addr, int proc_id)
+unsigned long long vtop(unsigned long long addr, pid_t pid)
 {
 	unsigned long  pinfo;
 	
@@ -39,7 +41,7 @@ unsigned long long vtop(unsigned long long addr, int proc_id)
 	offset = addr / pagesize * (sizeof pinfo);
 	
 	/* sprintf(pagemapname, "/proc/%d/pagemap", getpid()); */
-	sprintf(pagemapname, "/proc/%d/pagemap",proc_id);
+	sprintf(pagemapname, "/proc/%d/pagemap", pid);
 
 	fd = open(pagemapname, O_RDONLY);
 	if (fd == -1) {
@@ -60,10 +62,10 @@ unsigned long long vtop(unsigned long long addr, int proc_id)
 
 int main(int argc, char **argv)
 {
-	int process_id;
+	pid_t process_id;
 	unsigned long long buf, phys;
 
-	if(argc < 2) {
+	if (argc != 3) {
 		printf("require virtual address and pid: 'vtop vaddress pid'\n");
 		return 1;
 	}		

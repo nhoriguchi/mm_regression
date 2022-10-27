@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 /*
  * Copyright (C) 2014 Intel Corporation
  * Authors: Tony Luck
@@ -25,6 +27,9 @@
 #include <sys/wait.h>
 #include <sys/user.h>
 #include <sys/ptrace.h>
+#include <linux/ptrace.h>
+#include <sys/uio.h>
+#include <elf.h>
 
 static char *progname;
 
@@ -50,13 +55,46 @@ static void usage(void)
 #define EINJ_DOIT "/sys/kernel/debug/apei/einj/error_inject"
 
 #define check_ptrace(req, pid, addr, data) 				\
-	do { 								\
-		if (ptrace(req, pid, addr, data) == -1) { 		\
+	do {								\
+		if (ptrace(req, pid, addr, data) == -1) {		\
 			fprintf(stderr, "Failed to run "#req": %s\n",	\
-				strerror(errno)); 			\
-			return 1; 					\
-		} 							\
+				strerror(errno));			\
+			return errno;					\
+		}							\
 	} while (0)
+
+#if defined(__x86_64__)
+# define ARCH_REGS		struct user_regs_struct
+# define ARCH_PC(_regs)		(_regs).rip
+#elif defined(__arm__)
+# define ARCH_REGS		struct pt_regs
+# define ARCH_PC(_regs)		(_regs).ARM_pc
+#elif defined(__aarch64__)
+# define ARCH_REGS		struct user_pt_regs
+# define ARCH_PC(_regs)		(_regs).pc
+# endif
+
+/*
+ * Use PTRACE_GETREGS and PTRACE_SETREGS when available. This is useful for
+ * architectures without HAVE_ARCH_TRACEHOOK (e.g. User-mode Linux).
+ */
+#if defined(__x86_64__) || defined(__i386__) || defined(__mips__)
+# define ARCH_GETREGS(tracee, _regs)	check_ptrace(PTRACE_GETREGS, tracee, 0, &(_regs))
+# define ARCH_SETREGS(tracee, _regs)	check_ptrace(PTRACE_SETREGS, tracee, 0, &(_regs))
+#else
+# define ARCH_GETREGS(tracee, _regs)	({				\
+		struct iovec __v;					\
+		__v.iov_base = &(_regs);				\
+		__v.iov_len = sizeof(_regs);				\
+		check_ptrace(PTRACE_GETREGSET, tracee, NT_PRSTATUS, &__v);	\
+	})
+# define ARCH_SETREGS(tracee, _regs)	({				\
+		struct iovec __v;					\
+		__v.iov_base = &(_regs);				\
+		__v.iov_len = sizeof(_regs);				\
+		check_ptrace(PTRACE_SETREGSET, tracee, NT_PRSTATUS, &__v);	\
+	})
+#endif
 
 static void wfile(char *file, unsigned long val)
 {
@@ -208,7 +246,8 @@ int main(int argc, char **argv)
 	int	c;
 	int	status;
 	long	lo, hi, phys, virt;
-	struct user_regs_struct regs;
+	ARCH_REGS regs;
+	int ret = 0;
 
 	progname = argv[0];
 
@@ -237,8 +276,8 @@ int main(int argc, char **argv)
 	if (trace) {
 		check_ptrace(PTRACE_ATTACH, pid, NULL, NULL);
 		waitpid(pid, NULL, 0);
-		check_ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-		virt = regs.rip;
+		ARCH_GETREGS(pid, regs);
+		virt = ARCH_PC(regs);
 		check_ptrace(PTRACE_PEEKTEXT, pid, virt, NULL);
 		lo = hi = addr = virt;
 	} else {
@@ -259,17 +298,19 @@ int main(int argc, char **argv)
 	wfile(EINJ_ADDR, phys);
 	wfile(EINJ_DOIT, 1);
 
-	if (vflag) printf("%s: injected UC error at virt=%lx phys=%lx to pid=%d%s\n",
-		progname, virt, phys, pid, trace == 1 ? "(ptrace)" : "");
+	if (vflag)
+		printf("%s: injected UC error at virt=%lx phys=%lx to pid=%d%s\n",
+		       progname, virt, phys, pid, trace == 1 ? "(ptrace)" : "");
 
 	if (trace) {
 		sleep(1);
 		check_ptrace(PTRACE_DETACH, pid, NULL, NULL);
-		return 0;
+		goto end;
 	}
 	if (kill(pid, SIGCONT) == -1) {
 		fprintf(stderr, "%s: cannot resume process\n", progname);
-		return 1;
+		ret = 1;
+		goto end;
 	}
 	if (pflag) {
 		while (kill(pid, 0) != -1)
@@ -280,6 +321,8 @@ int main(int argc, char **argv)
 		if (WIFSIGNALED(status) && WTERMSIG(status) == SIGBUS)
 			printf("%s: process terminated by SIGBUS\n", progname);
 	}
+
+end:
 	wfile("/sys/devices/system/memory/hard_offline_page", phys);
-	return 0;
+	return ret;
 }

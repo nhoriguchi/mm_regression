@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 /*
  * Copyright (C) 2015 Intel Corporation
  * Author: Tony Luck
@@ -19,25 +21,29 @@
 #include <fcntl.h>
 
 /*
- * get information about address from /proc/self/pagemap
+ * get information about address from /proc/{pid}/pagemap
  */
-unsigned long long vtop(unsigned long long addr)
+unsigned long long vtop(unsigned long long addr, pid_t pid)
 {
 	static int pagesize;
 	unsigned long long pinfo;
 	long offset;
 	int fd;
+	char pagemapname[64];
 
 	if (pagesize == 0)
 		pagesize = getpagesize();
 	offset = addr / pagesize * (sizeof pinfo);
-	fd = open("/proc/self/pagemap", O_RDONLY);
+
+	sprintf(pagemapname, "/proc/%d/pagemap", pid);
+	fd = open(pagemapname, O_RDONLY);
 	if (fd == -1) {
-		perror("pagemap");
+		perror(pagemapname);
 		exit(1);
 	}
 	if (pread(fd, &pinfo, sizeof pinfo, offset) != sizeof pinfo) {
-		perror("pagemap");
+		perror(pagemapname);
+		close(fd);
 		exit(1);
 	}
 	close(fd);

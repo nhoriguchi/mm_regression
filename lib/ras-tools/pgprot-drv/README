@@ -1,0 +1,55 @@
+pgprot_drv
+
+Example of Linux kernel driver that allows a user-space program to mmap a
+buffer of contiguous physical memory with specific memory attribute.
+
+Usage:
+
+1. Compile the driver and test case
+
+	make
+
+2. Install the module with explicit memory attribute
+
+	insmod pgprot_drv.ko pgprot=0
+
+The remaped page provided by this driver is Normal Memory by default. If you
+prefer other attribute, e.g. MT_DEVICE_nGnRnE, change pgprot=4 and reload this
+module by:
+
+	rmmod pgprot_drv.ko
+	insmod pgprot_drv.ko pgprot=4
+
+Note: memory attribute index may vary with different kernel version.
+
+3. Then you will get the remaped physical address which memory attribute is
+reset.  Run user-level test case with -b to bench performance. When the memory
+attribute is normal memory (pgprot=0):
+
+	#./memattr -b
+	check ctx: vaddr = 0xffff8b12d000, num 56, paddr 8d3512000
+	Buffer size: 4 KB, stride 128, time 0.000095 s, latency 1.45 ns
+
+While if set the memory attribute as MT_DEVICE_nGnRnE (pgprot=4):
+
+	#./memattr -b
+	check ctx: vaddr = 0xffff8652f000, num 56, paddr 8a2af2000
+	Buffer size: 4 KB, stride 128, time 0.008787 s, latency 134.15 ns
+
+
+Run user-level test case with -p to poison.
+
+	modprobe einj
+	./memattr -p
+
+Check dmesg with PTE value:
+
+	[20049.964983] vma->vm_start = ffff8b12d000
+	[20049.964985] Memory Atrr: MT_NORMAL
+	[20049.972303] [0000ffff8b12d000] pgd=00000008959b1003
+	[20049.972304] , p4d=00000008959b1003
+	[20049.977169] , pud=00000008d06ae003
+	[20049.980559] , pmd=000000089cfb9003
+	[20049.983949] , pte=01680008d3512fc3
+	[20049.990725] , pte present
+	

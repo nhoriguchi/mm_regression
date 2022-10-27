@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 /*
  * Copyright (C) 2015 Intel Corporation
  * Author: Tony Luck
@@ -24,6 +26,7 @@
 #define EINJ_NOTRIGGER "/sys/kernel/debug/apei/einj/notrigger"
 #define EINJ_DOIT "/sys/kernel/debug/apei/einj/error_inject"
 
+extern unsigned long long vtop(unsigned long long addr, pid_t pid);
 volatile int trigger;
 
 #define	BUFSZ	(64 * 1024)
@@ -53,11 +56,12 @@ static void inject(int nerrors, double interval)
 {
 	char	*b, *buf;
 	long long paddr;
-	extern long long vtop(char *);
 	int	i;
 	unsigned long s, e;
 	int	bufsz = nerrors * 4096;
+	pid_t pid;
 
+	pid = getpid();
 	buf = malloc(bufsz);
 	if (buf == NULL) {
 		perror("malloc");
@@ -67,7 +71,7 @@ static void inject(int nerrors, double interval)
 
 	for (i = 0; i < nerrors; i++) {
 		b = buf + i * 4096;
-		paddr = vtop(b);
+		paddr = vtop((unsigned long long)b, pid);
 
 		printf("%d: vaddr = %p paddr = %llx\n", i, b, paddr);
 		wfile(EINJ_ADDR, paddr);

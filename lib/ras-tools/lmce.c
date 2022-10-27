@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <unistd.h>
@@ -13,7 +15,7 @@
 #include <sys/mman.h>
 #include <setjmp.h>
 
-extern long long vtop(long long);
+extern unsigned long long vtop(unsigned long long addr, pid_t pid);
 
 #define NR_THREADS 	2
 #define NR_CPUS 	2
@@ -352,6 +354,7 @@ int main(int argc, char *argv[])
 	int core_choice = 3;
 	/*default: INSTR/DATA*/
 	int idx = 1;
+	pid_t pid;
 
 	srandom(getpid() * time(0));
 	if (getuid() != (uid_t)0) {
@@ -395,6 +398,7 @@ int main(int argc, char *argv[])
 	pick_cpu(testcpu, core_choice);
 	memset(targ, 0, sizeof(targ));
 	sigaction(SIGBUS, &sa, NULL);
+	pid = getpid();
         for (i = 0; i < NR_ADDRS; i++)
         {
                 if ((vaddr[i] = mmap(0, pagesize, PROT_READ | PROT_WRITE | PROT_EXEC,
@@ -404,7 +408,7 @@ int main(int argc, char *argv[])
                         exit(1);
                 }
 		memcpy(vaddr[i], (void *)test_func, pagesize);
-                if ((paddr[i] = vtop((uint64_t)vaddr[i])) == 0)
+                if ((paddr[i] = vtop((uint64_t)vaddr[i], pid)) == 0)
                         return 1;
 		printf("Inject memory error at physical address 0x%lx(virt 0x%lx)\n",
 			paddr[i], (uint64_t)vaddr[i]);

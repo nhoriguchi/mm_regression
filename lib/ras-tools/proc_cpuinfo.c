@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 /*
  * Copyright (C) 2015 Intel Corporation
  * Author: Tony Luck
@@ -41,7 +43,7 @@ void proc_cpuinfo(int *nsockets, int *ncpus, char *model, int *modelnum, int **a
 			strcpy(model, p);
 		} else if (strncmp(line, "model\t", 6) == 0) {
 			p = strchr(&line[6], ':');
-			*modelnum = atoi(p);
+			*modelnum = atoi(p+1);
 		} else if (strncmp(line, "physical id", 11) == 0) {
 			(*ncpus)++;
 			p = strchr(&line[10], ':');

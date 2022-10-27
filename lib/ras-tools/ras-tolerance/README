@@ -1,0 +1,9 @@
+ras-tolerance
+
+When a hardware error occurs for a non corrected ras event the kernel can take
+different actions. If the severity is fatal, the kernel panic immediately.
+
+This driver allows to overwrite error severity to a lower level at runtime,
+recoverable by default. It is useful for test.
+
+NOTE: ONLY FOR TEST. Be sure what your are doing.

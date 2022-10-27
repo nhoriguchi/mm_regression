@@ -5,4 +5,14 @@ hornet
 lmce
 mca-recover
 vtop
+memattr
+rep_ce_page
+victim
+.vscode
+modules.order
+Module.symvers
+*.cmd
+*.mod
+*.mod.c
+*.ko
 

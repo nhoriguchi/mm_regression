@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 /*
  * Copyright (C) 2013 Intel Corporation
  * Authors: Tony Luck
@@ -22,36 +24,8 @@
 #include <signal.h>
 #include <sys/mman.h>
 
+extern unsigned long long vtop(unsigned long long addr, pid_t pid);
 static int pagesize;
-
-/*
- * get information about address from /proc/{pid}/pagemap
- * Assumes target address is mapped as 4K (not hugepage)
- */
-unsigned long long vtop(unsigned long long addr)
-{
-	unsigned long long pinfo;
-	long offset = addr / pagesize * (sizeof pinfo);
-	int fd;
-	char	pagemapname[64];
-
-	sprintf(pagemapname, "/proc/%d/pagemap", getpid());
-	fd = open(pagemapname, O_RDONLY);
-	if (fd == -1) {
-		perror(pagemapname);
-		exit(1);
-	}
-	if (pread(fd, &pinfo, sizeof pinfo, offset) != sizeof pinfo) {
-		perror(pagemapname);
-		exit(1);
-	}
-	close(fd);
-	if ((pinfo & (1ull << 63)) == 0) {
-		printf("page not present\n");
-		exit(1);
-	}
-	return ((pinfo & 0x007fffffffffffffull) * pagesize) + (addr & (pagesize - 1));
-}
 
 /*
  * Older glibc headers don't have the si_addr_lsb field in the siginfo_t
@@ -65,6 +39,7 @@ struct morebits {
 char	*buf;
 unsigned long long	phys;
 int tried_recovery;
+pid_t pid;
 
 /*
  * "Recover" from the error by allocating a new page and mapping
@@ -92,7 +67,7 @@ void recover(int sig, siginfo_t *si, void *v)
 	}
 	buf = newbuf;
 	memset(buf, '*', pagesize);
-	phys = vtop((unsigned long long)buf);
+	phys = vtop((unsigned long long)buf, pid);
 
 	printf("Recovery allocated new page at physical 0x%llx\n", phys);
 }
@@ -120,8 +95,9 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Can't get a single page of memory!\n");
 		return 1;
 	}
+	pid = getpid();
 	memset(buf, '*', pagesize);
-	phys = vtop((unsigned long long)buf);
+	phys = vtop((unsigned long long)buf, pid);
 
 	printf("vtop(%llx) = %llx\n", (unsigned long long)buf, phys);
 	printf("Use /sys/kernel/debug/apei/einj/... to inject\n");
@@ -130,7 +106,8 @@ int main(int argc, char **argv)
 
 	sigaction(SIGBUS, &recover_act, NULL);
 
-	fgets(reply, sizeof reply, stdin);
+	if (fgets(reply, sizeof reply, stdin) == NULL)
+		printf("\nI said 'Press <ENTER>'. Continuing anyway\n");
 
 	i = consume_poison();
 

@@ -1,0 +1,92 @@
+## ras-tools
+
+ras-tools are an excellent set of tools to inject and test RAS ability on X86 
+and Arm platform through APEI EINJ interface.
+
+## Brief Introduction
+
+Common tools on both X86 and Arm platform:
+
+- rep_ce_page: injects and consumes corrected errors from a single page
+until either the page is taken offline (and replaced) by the OS, or
+a limit of 30 tries is reached.
+- mca-recover: an example recovery application shows how to setup a SIGBUS handler for recoverable machine checks.
+- cmcistorm: inject a bunch of corrected errors, then trigger them all quickly.
+- hornet: inject a UC memory error into some other process.
+- einj_mem_uc: inject an error and then trigger it in one of a variety of ways.
+
+Arm platform specific drivers:
+
+- memattr: a test suit to poison specific memory attribute.
+- ras-tolerance: a driver to overwrite error severity to a lower level at runtime.
+
+Virtualization:
+
+Injecting errors into guests is a rather manual process. You can run einj_mem_uc
+inside the guest with special arguments to skip the injection, but still print
+the guest physical address. Then on the host convert that to a host physical
+address and inject. Finally have the process on the guest consume the error.
+
+Detailed steps are:
+
+- '-j': skip error injection, this step should do with host physical
+  address on host which creates GPA->HPA mappings for the guest.
+- '-k': kick off trigger by writing a file from remote (host).
+
+The steps to inject guest error are:
+
+STEP 1: start a VM with a stdio monitor which allows giving complex
+commands to the QEMU emulator.
+
+        qemu-system-aarch64  -enable-kvm \
+                -cpu host \
+                -M virt,gic-version=3 \
+                -m 8G \
+                -d guest_errors \
+                -rtc base=localtime,clock=host \
+                -smp cores=2,threads=2,sockets=2 \
+                -object memory-backend-ram,id=mem0,size=4G \
+                -object memory-backend-ram,id=mem1,size=4G \
+                -numa node,memdev=mem0,cpus=0-3,nodeid=0 \
+                -numa node,memdev=mem1,cpus=4-7,nodeid=1 \
+                -bios /usr/share/AAVMF/AAVMF_CODE.fd \
+                -drive driver=qcow2,media=disk,cache=writeback,if=virtio,id=alinu1_rootfs,file=/path/to/image.qcow2 \
+                -netdev user,id=n1,hostfwd=tcp::5555-:22  \
+                -serial telnet:localhost:4321,server,nowait \
+                -device virtio-net-pci,netdev=n1 \
+                -monitor stdio
+        QEMU 7.2.0 monitor - type 'help' for more information
+        (qemu) VNC server running on 127.0.0.1:5900
+
+STEP 2: login guest and install ras-tools, then run `einj_mem_uc` to
+allocate a page in userspace, dumps the virtual and physical address of the
+page. The `-j` is to skip error injection and `-k` is to wait for a kick.
+
+        $ ./einj_mem_uc single -j -k
+        0: single   vaddr = 0xffffbd88c400 paddr = 151f21400
+
+STEP 3: run command `gpa2hpa` in QEMU monitor and it will print the host
+physical address at which the guest's physical address addr is mapped.
+
+        (qemu) gpa2hpa 0x151f21400
+        Host physical address for 0x151f21400 (mem1) is 0x935757400
+
+STEP 4: inject an uncorrected error via the APEI interface to the finally
+translated host physical address on host.
+
+        echo 0x949a84400 > /sys/kernel/debug/apei/einj/param1
+        echo 0xfffffffffffff000 > /sys/kernel/debug/apei/einj/param2
+        echo 0x0 > /sys/kernel/debug/apei/einj/flags
+        echo 0x10 > /sys/kernel/debug/apei/einj/error_type
+        echo 1 > /sys/kernel/debug/apei/einj/notrigger
+        echo 1 > /sys/kernel/debug/apei/einj/error_inject
+
+STEP 5: then kick `einj_mem_uc` to trigger the error by writing
+"trigger_start".  In this example, the kick is done on host.
+
+        ssh -p 5555 root@localhost "echo trigger > ~/trigger_start"
+
+STEP 6: We will observe that the QEMU process exit.
+
+        (qemu) qemu-system-aarch64: Hardware memory error!
+
