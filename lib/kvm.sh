@@ -297,6 +297,6 @@ set_vm_maxmemory() {
 	echo "<maxMemory slots='16' unit='KiB'>125829120</maxMemory>" >> $TMPD/.vm1.xml
 	sed -ne '4,$p' $TMPD/vm.xml > $TMPD/.vm2.xml
 	cat $TMPD/.vm1.xml $TMPD/.vm2.xml > $TMPD/vm.xml
-	virsh define $TMPD/vm.xml
+	virsh define $TMPD/vm.xml || return 1
 	virsh start $vm
 }

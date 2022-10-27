@@ -241,7 +241,7 @@ if [ "$cmd" = prepare ] ; then
 		echo "=== preparing VM ($VM) ==="
 		echo $VM > work/$projbase/vm
 		echo "=== work/$projbase/vm $(cat work/$projbase/vm) ==="
-		rsync -a --exclude=work -e ssh ./ $VM:mm_regression || exit 1
+		rsync -a --include=work/$projbase --exclude=work/** -e ssh ./ $VM:mm_regression || exit 1
 		rsync -ae ssh work/$projbase/ $VM:mm_regression/work/$projbase/ || exit 1
 		ssh $VM sync
 		vm_shutdown_wait $VM
