@@ -1,0 +1,70 @@
+# Related to the change by the following patch.
+# https://lore.kernel.org/linux-mm/20221018200125.848471-1-jthoughton@google.com/T/#u
+
+#! {"mmap" => ""}
+#! {"sysrw" => ""}
+
+#! {"1GB" => "", "mmap" => ""}
+#! {"1GB" => "", "sysrw" => ""}
+
+TEST_TYPE=wip
+
+HUGETLBFSDIR=tmp
+
+<% if param["1GB"] %>
+. $TRDIR/lib/setup_1GB_hugetlb.sh
+<% end %>
+
+_prepare() {
+	mkdir -p $HUGETLBFSDIR
+	<% if param["1GB"] %>
+	prepare_1GB_hugetlb || return 1
+	<% else %>
+	sysctl vm.nr_hugepages=10 || return 1
+	mount -t hugetlbfs none "$HUGETLBFSDIR" || return 1
+	<% end %>
+}
+
+_cleanup() {
+	<% if param["1GB"] %>
+	cleanup_1GB_hugetlb
+	<% else %>
+	rm -rf $HUGETLBFSDIR/*
+	umount -f "$HUGETLBFSDIR"
+	sysctl vm.nr_hugepages=0
+	<% end %>
+	page-types -b hwpoison -x
+}
+
+<% if param["mmap"] %>
+EXPECTED_RETURN_CODE="CHILD_KILLED"
+<% elsif param["sysrw"] %>
+EXPECTED_RETURN_CODE="CHILD_EXITED"
+<% end %>
+
+_control() {
+	mount | grep hugetlb
+	echo test_alloc_generic -B hugetlb_file -N 2 -w $HUGETLBFSDIR -f testfile -L 'mmap access'
+	test_alloc_generic -B hugetlb_file -N 2 -w $HUGETLBFSDIR -f testfile -L 'mmap access'
+	sleep 1
+	sync
+	ls -l $HUGETLBFSDIR/hugetlbfs
+
+	<% if param["mmap"] %>
+	hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile
+	if [ $? -eq 0 ] ; then
+		set_return_code CHILD_EXITED
+	else
+		set_return_code CHILD_KILLED
+	fi
+	<% elsif param["sysrw"] %>
+	hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile sysrw
+	if [ $? -eq 0 ] ; then
+		set_return_code CHILD_EXITED
+	else
+		set_return_code CHILD_KILLED
+	fi
+	<% elsif param["unpoison"] %>
+	<% end %>
+	rm -f $HUGETLBFSDIR/hugetlbfs/testfile
+}

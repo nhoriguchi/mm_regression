@@ -1,0 +1,105 @@
+# Related to the change by the following patch.
+# https://lore.kernel.org/linux-mm/20221018200125.848471-1-jthoughton@google.com/T/#u
+
+#! {"punchhole" => ""}
+#! {"unpoison" => ""}
+
+TEST_TYPE=wip
+
+HUGETLBFSDIR=tmp/hugetlbfs
+
+_prepare() {
+	mkdir -p $HUGETLBFSDIR
+	sysctl vm.nr_hugepages=10 || return 1
+	mount -t hugetlbfs none "$HUGETLBFSDIR" || return 1
+	if [ -s "$HUGETLBFSDIR/hugetlbfs/testfile" ] ; then
+		rm -f $HUGETLBFSDIR/hugetlbfs/testfile
+	fi
+}
+
+_cleanup() {
+	rm -rf $HUGETLBFSDIR/*
+	umount -f "$HUGETLBFSDIR"
+	sysctl vm.nr_hugepages=0
+	page-types -b hwpoison -x
+}
+
+EXPECTED_RETURN_CODE="INJECT READ_FAILED READ_FAILED WRITE_FAILED WRITE_FAILED UNPOISON_FAIL READ_FAILED EXIT"
+
+_control() {
+	test_alloc_generic -B hugetlb_file -N 2 -w $HUGETLBFSDIR -f testfile -L 'mmap access:wait_after' &
+	local pid=$!
+	sleep 0.1
+	page-types -f $HUGETLBFSDIR/hugetlbfs/testfile -Nrl
+	page-types -p $pid -a 0x700000000+1024 -Nrl | grep -v offset | tee $TMPD/pagemap1
+	local targetpfn=0x$(sed -n 1p $TMPD/pagemap1 | cut -f2)
+
+	echo ${targetpfn}000 > /sys/devices/system/memory/hard_offline_page
+	if [ $? -eq 0 ] ; then
+		set_return_code INJECT
+	else
+		set_return_code INJECT_FAILED
+		return 1
+	fi
+
+	echo "===== just after hwpoison injection"
+	page-types -a ${targetpfn}+512 -Nrl | grep ___ | head | tee $TMPD/filemap2
+
+	dd if=$HUGETLBFSDIR/hugetlbfs/testfile of=/dev/null bs=4096 count=1 > /dev/null 2>&1
+	if [ $? -eq 0 ] ; then
+		set_return_code READ_SUCCEEDED
+	else
+		set_return_code READ_FAILED
+	fi
+
+	dd if=$HUGETLBFSDIR/hugetlbfs/testfile of=/dev/null bs=4096 count=1 skip=1 > /dev/null 2>&1
+	if [ $? -eq 0 ] ; then
+		set_return_code READ_SUCCEEDED
+	else
+		set_return_code READ_FAILED
+	fi
+
+	dd of=$HUGETLBFSDIR/hugetlbfs/testfile if=/dev/random bs=4096 count=1 seek=0 conv=notrunc > /dev/null 2>&1
+	if [ $? -eq 0 ] ; then
+		set_return_code WRITE_SUCCEEDED
+	else
+		set_return_code WRITE_FAILED
+	fi
+
+	dd of=$HUGETLBFSDIR/hugetlbfs/testfile if=/dev/random bs=4096 count=1 seek=1 conv=notrunc > /dev/null 2>&1
+	if [ $? -eq 0 ] ; then
+		set_return_code WRITE_SUCCEEDED
+	else
+		set_return_code WRITE_FAILED
+	fi
+
+	<% if param["punchhole"] %>
+	echo "===== punching hole hwpoisoned hugepage"
+	echo "fallocate -p -o 0 -l $[1<<21] -n $HUGETLBFSDIR/hugetlbfs/testfile"
+	fallocate -p -o 0 -l $[1<<21] -n $HUGETLBFSDIR/hugetlbfs/testfile
+	if [ $? -eq 0 ] ; then
+		set_return_code PUNCH_HOLE_OK
+	else
+		set_return_code PUNCH_HOLE_NG
+	fi
+	<% else %>
+	echo "===== unpoison the hwpoisoned hugepage"
+	echo ${targetpfn} > /sys/kernel/debug/hwpoison/unpoison-pfn
+	if [ $? -eq 0 ] ; then
+		set_return_code UNPOISON_PASS
+	else
+		set_return_code UNPOISON_FAIL
+	fi
+	<% end %>
+
+	dd if=$HUGETLBFSDIR/hugetlbfs/testfile of=/dev/null bs=4096 count=1 > /dev/null 2>&1
+	if [ $? -eq 0 ] ; then
+		set_return_code READ_SUCCEEDED
+	else
+		set_return_code READ_FAILED
+	fi
+
+	echo "===== final state"
+	page-types -a ${targetpfn}+512 -Nrl | grep ___ | head | tee $TMPD/filemap3
+	set_return_code EXIT
+}
