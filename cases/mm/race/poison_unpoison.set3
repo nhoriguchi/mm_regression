@@ -32,7 +32,7 @@ BACKEND=<%= param["backend"] %>
 ERROR_TYPE=<%= param["error"] %>
 TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
 
-<% if param["backend"] =~ /(buddy|ksm|zero)/ %>
+<% if param["backend"] =~ /(ksm|zero)/ %>
 SKIP_THIS_TEST=true
 <% end %>
 

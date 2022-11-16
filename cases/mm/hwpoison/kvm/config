@@ -63,7 +63,7 @@ prepare_mce_kvm() {
 	# TODO: reduce VM restarts
 	# unconditionally restart vm because memory background might change
 	# (thp <=> anon)
-	# vm_shutdown_wait $VM $VMIP
+	vm_shutdown_wait $VM $VMIP
 	echo 3 > /proc/sys/vm/drop_caches ; sync
 	vm_start_wait $VM || return 1
 	local vmip=$(vm_to_vmip $VM)

@@ -150,7 +150,7 @@ THP=100
 HUGETLB=100
 HUGEPAGESIZE=2048 # kB
 <% elsif param["backend"] == "ksm" %>
-FALSENEGATIVE=false
+FALSENEGATIVE=true
 <% elsif param["backend"] =~ /(zero|huge_zero)/ %>
 PRIORITY=18
 FALSENEGATIVE=true

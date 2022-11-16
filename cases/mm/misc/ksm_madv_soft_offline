@@ -2,6 +2,7 @@ TEST_PRIORITY=15
 TEST_TYPE=normal
 
 EXPECTED_RETURN_CODE="PASS EXIT"
+KNOWN_FAILURE=true
 
 # Reported issue on developing "soft offline rework" patchset.
 # https://lore.kernel.org/linux-mm/20200922135650.1634-1-osalvador@suse.de/

@@ -10,8 +10,6 @@
 #! {"type" => "anon", "offline" => "soft"}
 #! {"type" => "anon", "offline" => "hard", "access" => "memwrite"}
 #! {"type" => "anon", "offline" => "soft", "access" => "memwrite"}
-#! {"type" => "anon", "offline" => "hard", "access" => "syswrite"}
-#! {"type" => "anon", "offline" => "soft", "access" => "syswrite"}
 #! {"type" => "shmem", "offline" => "hard"}
 #! {"type" => "shmem", "offline" => "soft"}
 
@@ -25,10 +23,10 @@
 #! {"type" => "anon", "offline" => "madvsoft"}
 #! {"type" => "anon", "offline" => "madvhard", "access" => "memwrite"}
 #! {"type" => "anon", "offline" => "madvsoft", "access" => "memwrite"}
-#! {"type" => "anon", "offline" => "madvhard", "access" => "syswrite"}
-#! {"type" => "anon", "offline" => "madvsoft", "access" => "syswrite"}
 #! {"type" => "shmem", "offline" => "madvhard"}
 #! {"type" => "shmem", "offline" => "madvsoft"}
+
+# TODO: shmem + syswrite
 
 TEST_TYPE=devel
 TEST_PRIORITY=14
@@ -53,13 +51,9 @@ ACCESS=access:type=memwrite:tag=after_injection
 <% if param["type"] == "free" %>
 EXPECTED_RETURN_CODE="ERROR_HANDLE_PASSED"
 <% else %>
-  <% if param["offline"] == "madvhard" %>
+  <% if param["offline"] == "madvhard" or param["offline"] == "madvsoft" %>
   EXPECTED_RETURN_CODE="MADV_PASS"
-  <% elsif param["offline"] == "madvsoft" %>
-  EXPECTED_RETURN_CODE="MADV_PASS"
-  <% elsif param["offline"] == "hard" %>
-  EXPECTED_RETURN_CODE="OFFLINE_PASS"
-  <% elsif param["offline"] == "soft" %>
+  <% elsif param["offline"] == "hard" or param["offline"] == "soft" %>
   EXPECTED_RETURN_CODE="OFFLINE_PASS"
   <% end %>
 
@@ -69,10 +63,13 @@ EXPECTED_RETURN_CODE="ERROR_HANDLE_PASSED"
     <% elsif param["access"] == "syswrite" %>
     KNOWN_FAILURE=true
     EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ACCESS_ERROR_ADDRESS"
-	<% else %>
-    EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
+	<% end %>
+  <% else %>
+    <% if param["access"] %>
+    EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE ACCESS_ERROR_ADDRESS"
 	<% end %>
   <% end %>
+  EXPECTED_RETURN_CODE="$EXPECTED_RETURN_CODE EXIT"
 <% end %>
 
 . $TRDIR/lib/setup_1GB_hugetlb.sh

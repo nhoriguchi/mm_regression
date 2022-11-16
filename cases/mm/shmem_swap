@@ -5,20 +5,21 @@ TEST_PROGRAM="test_alloc_generic -B normal_shmem -n 3072 -L 'start:wait_after mm
 EXPECTED_RETURN_CODE="EXIT"
 
 _prepare() {
-    local swapfile=$TDIR/swapfile
-    create_cgroup || return 1
-    dd if=/dev/zero of=$swapfile bs=4096 count=10240 > /dev/null 2>&1
-    [ $? -ne 0 ] && echo "failed to create $swapfile" && return 1
-    mkswap $swapfile
-    chmod 0600 $swapfile
-    swapon $swapfile
-    count_testcount
-    if swapon -s | grep ^$swapfile > /dev/null ; then
-        count_success "create swapfile"
-    else
-        count_failure "create swapfile"
-    fi
-    echo 3 > /proc/sys/vm/drop_caches
+	local swapfile=$TDIR/swapfile
+	mkdir -p $(dirname $swapfile)
+	create_cgroup || return 1
+	dd if=/dev/zero of=$swapfile bs=4096 count=10240 > /dev/null 2>&1
+	[ $? -ne 0 ] && echo "failed to create $swapfile" && return 1
+	chmod 0600 $swapfile
+	mkswap $swapfile
+	swapon $swapfile
+	count_testcount
+	if swapon -s | grep ^$swapfile > /dev/null ; then
+		count_success "create swapfile"
+	else
+		count_failure "create swapfile"
+	fi
+	echo 3 > /proc/sys/vm/drop_caches
 
 	if [ "$CGROUPVER" = v1 ] ; then
 		set_cgroup_value memory test1 memory.limit_in_bytes 0x1000000 || return 1
@@ -27,15 +28,15 @@ _prepare() {
 		set_cgroup_value test1 memory.high 0x1000000 || return 1
 		set_cgroup_value test1 memory.swap.high 0x8000000 || return 1
 	fi
-    set_thp_never
-    return 0
+	set_thp_never
+	return 0
 }
 
 _cleanup() {
-    set_thp_always
+	set_thp_always
 	ipcrm --all
-    swapoff $TDIR/swapfile
-    rm -rf $TDIR/swapfile
+	swapoff $TDIR/swapfile
+	rm -rf $TDIR/swapfile
 	delete_cgroup
 }
 
@@ -68,44 +69,44 @@ __get_smaps_anon() {
 }
 
 _control() {
-    local pid="$1"
-    local line="$2"
+	local pid="$1"
+	local line="$2"
 
-    echo_log "$line"
-    case "$line" in
+	echo_log "$line"
+	case "$line" in
 		"after_start")
 			move_process_cgroup test1 $pid || set_return_code CGCLASSIFY_FAIL
-            kill -SIGUSR1 $pid
-            ;;
+			kill -SIGUSR1 $pid
+			;;
 		"after_access")
 			__get_smaps_shmem > $TMPD/smaps_shmem.1
 			__get_smaps_anon > $TMPD/smaps_anon.1
 			grep ^Swap: /proc/$pid/smaps > $TMPD/smaps_swap.1
-            page-types -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.1
+			page-types -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.1
 			cat /proc/$pid/status > $TMPD/proc_status.1
-            kill -SIGUSR1 $pid
-            ;;
+			kill -SIGUSR1 $pid
+			;;
 		"before_munmap")
 			__get_smaps_shmem > $TMPD/smaps_shmem.2
 			__get_smaps_anon > $TMPD/smaps_anon.2
 			grep ^Swap: /proc/$pid/smaps > $TMPD/smaps_swap.2
-            page-types -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.2
+			page-types -r -p $pid -a 0x700000000+8192 > $TMPD/page_type.2
 			cat /proc/$pid/status > $TMPD/proc_status.2
-            kill -SIGUSR1 $pid
+			kill -SIGUSR1 $pid
 			;;
 		"before_exit")
-            set_return_code EXIT
-            kill -SIGUSR1 $pid
-            return 0
-            ;;
-        *)
-            ;;
-    esac
-    return 1
+			set_return_code EXIT
+			kill -SIGUSR1 $pid
+			return 0
+			;;
+		*)
+			;;
+	esac
+	return 1
 }
 
 _check() {
-    check_system_default
+	check_system_default
 
 	# grep -e ^Swap: -e ^Size: -e ^Rss: $TMPD/smaps_shmem.1
 	# grep -e ^Swap: -e ^Size: -e ^Rss: $TMPD/smaps_shmem.2
@@ -131,17 +132,17 @@ _check() {
 
 	count_testcount
 	if [ "$[$anonsize - $anonrss - $anonswap]" -eq 0 ] ; then
-        count_success "anonsize - anonrss - anonswap == 0"
-    else
-        count_failure "anonsize - anonrss - anonswap != 0"
-    fi
+		count_success "anonsize - anonrss - anonswap == 0"
+	else
+		count_failure "anonsize - anonrss - anonswap != 0"
+	fi
 
-    FALSENEGATIVE=true
+	FALSENEGATIVE=true
 	count_testcount
 	if [ "$[$shmsize - $shmrss - $shmswap]" -eq 0 ] ; then
-        count_success "shmsize - shmrss - shmswap == 0"
-    else
-        count_failure "shmsize - shmrss - shmswap != 0"
-    fi
-    FALSENEGATIVE=false
+		count_success "shmsize - shmrss - shmswap == 0"
+	else
+		count_failure "shmsize - shmrss - shmswap != 0"
+	fi
+	FALSENEGATIVE=false
 }

@@ -48,6 +48,8 @@ EOF
 	fi
 	<% end %>
 
+	echo "ssh $VM \"echo 0 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages\""
+	ssh $VM "echo 0 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages"
 	echo "ssh $VM \"echo 10 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages\""
 	ssh $VM "echo 10 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages"
 	nr_hp=$(ssh $VM cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)
@@ -80,7 +82,7 @@ _cleanup() {
 	ssh $VM "modprobe hwpoison-inject; page-types -b hwpoison -x"
 	local targetblock=$(cat $TMPD/good_memblock)
 	if [ "$targetblock" ] ; then
-		ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
+		timeout --preserve-status -v -s 9 -k 15 15  ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
 	fi
 	<% end %>
 
@@ -229,7 +231,7 @@ _control() {
 	local targetblock="$[(targetpfn << 12) / blksize]"
 	echo $targetblock > $TMPD/good_memblock
 	printf "newpfn start with 0x%lx (target block: $targetblock)\n" $targetpfn
-	echo "===== Injecting error on $newpfn"
+	echo "===== Injecting error on $targetpfn"
 	ssh $VM "echo $[targetpfn * 4096] > /sys/devices/system/memory/hard_offline_page"
 	ssh $VM "page-types -b hwpoison -Nrl"
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.a
@@ -253,7 +255,7 @@ _control() {
 	<% end %>
 
 	echo "===== offline memory block $targetblock"
-	ssh -t $VM "echo offline > /sys/devices/system/memory/memory$targetblock/state"
+	timeout --preserve-status -v -s 9 -k 15 15 ssh -t $VM "echo offline > /sys/devices/system/memory/memory$targetblock/state"
 	if [ $? -eq 0 ] ; then
 		set_return_code HOTREMOVE_PASS
 	else
@@ -266,7 +268,7 @@ _control() {
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.3
 
 	echo "===== re-online memory block $targetblock"
-	ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
+	timeout --preserve-status -v -s 9 -k 15 15 ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
 	if [ $? -eq 0 ] ; then
 		set_return_code HOTPLUG_PASS
 	else

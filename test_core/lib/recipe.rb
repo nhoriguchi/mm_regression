@@ -43,7 +43,11 @@ class RecipeTemplate
 
   def get_id values
     values.each.map do |k, v|
-      "#{k}-#{v}"
+      if v.nil? or v == ""
+        k
+      else
+        "#{k}-#{v}"
+      end
     end.join('_')
   end
 end

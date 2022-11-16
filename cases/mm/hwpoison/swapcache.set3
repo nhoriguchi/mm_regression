@@ -4,6 +4,8 @@
 # Related patches
 # - https://lore.kernel.org/linux-mm/20220407130352.15618-2-linmiaohe@huawei.com/
 
+# TODO: handle this as FLAKY testcase?
+
 TEST_TYPE=normal
 TEST_PRIORITY=10
 
@@ -22,8 +24,8 @@ _prepare() {
 	if swapon | grep -q $SWAPFILE ; then
 		true
 	else
-		dd if=/dev/zero of=$SWAPFILE bs=4096 count=$SWAPSIZE > /dev/null 2>&1
-		[ $? -ne 0 ] && echo "failed to create $SWAPFILE" && exit 1
+		dd if=/dev/zero of=$SWAPFILE bs=4096 count=$SWAPSIZE > /dev/null
+		[ $? -ne 0 ] && echo "failed to create $SWAPFILE" >&2 && exit 1
 		chmod 0600 $SWAPFILE
 		mkswap $SWAPFILE || exit 1
 		echo "swapon $SWAPFILE"

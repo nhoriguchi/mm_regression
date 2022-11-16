@@ -40,8 +40,8 @@ _control() {
 			echo ${pfn}000 > /sys/devices/system/memory/hard_offline_page
 		done
 	) &
-	sleep 0.2
+	sleep 0.1
 	rm -f $TMPD/a
-	sleep 0.2
+	sleep 0.1
 	page-types -p $pid -a 0x700000000+1024 -Nrl
 }

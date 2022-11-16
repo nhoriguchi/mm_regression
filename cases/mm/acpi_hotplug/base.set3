@@ -84,9 +84,9 @@ _cleanup() {
 	echo "detaching additional memory blocks"
 	virsh detach-device $VM $TMPD/mem.xml --live
 	<% else %>
-	ssh $VM "modprobe hpwoison-inject; page-types -b hwpoison -x"
+	ssh $VM "modprobe hwpoison-inject; page-types -b hwpoison -x"
 	local targetblock=$(cat $TMPD/good_memblock)
-	ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
+	timeout --preserve-status -v -s 9 -k 15 15  ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
 	<% end %>
 
 	[ "$_VM_CONSOLE" ] && pkill -9 -f $_VM_CONSOLE
@@ -225,7 +225,7 @@ _control() {
 	<% end %>
 
 	echo "===== offline memory block $targetblock"
-	timeout --preserve-status -v -s 9 -k 30 30 ssh -t $VM "echo offline > /sys/devices/system/memory/memory$targetblock/state"
+	timeout --preserve-status -v -s 9 -k 15 15 ssh -t $VM "echo offline > /sys/devices/system/memory/memory$targetblock/state"
 	if [ $? -eq 0 ] ; then
 		set_return_code HOTREMOVE_PASS
 	else
@@ -238,7 +238,7 @@ _control() {
 	ssh $VM grep -i HardwareCorrupted /proc/meminfo | tee $TMPD/meminfo.3
 
 	echo "===== re-online memory block $targetblock"
-	ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
+	timeout --preserve-status -v -s 9 -k 15 15 ssh $VM "echo online > /sys/devices/system/memory/memory$targetblock/state"
 	if [ $? -eq 0 ] ; then
 		set_return_code HOTPLUG_PASS
 	else

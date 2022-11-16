@@ -7,7 +7,6 @@
 # NEED: khugepaged focused setting
 
 TEST_PRIORITY=10
-TEST_TYPE=normal
 
 . $TRDIR/lib/setup_mmgeneric.sh
 
@@ -18,8 +17,11 @@ THP=true
 <% end %>
 
 <% if param["backend"] =~ /hugetlb/ %>
-FALSENEGATIVE=true
+KNOWN_FAILURE=true
+TEST_TYPE=obsolete
 HUGETLB=100
+<% else %>
+TEST_TYPE=normal
 <% end %>
 
 TEST_PROGRAM="test_alloc_generic -B $BACKEND -N 1 -L 'start mmap access:tag=1 access:tag=2:wait_before:wait_after munmap exit:wait_before'"

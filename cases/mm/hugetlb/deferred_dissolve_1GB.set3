@@ -18,7 +18,7 @@ TEST_TYPE=devel
 EXPECTED_RETURN_CODE="HUGETLB_POISONED EXIT"
 <% elsif param["multi-error"] == "true" %>
 TEST_TYPE=devel
-EXPECTED_RETURN_CODE="UGETLB_POISONED RAW_PAGE_POISONED MULTIPLE_RAW_PAGE_POISONED EXIT"
+EXPECTED_RETURN_CODE="HUGETLB_POISONED RAW_PAGE_POISONED MULTIPLE_RAW_PAGE_POISONED EXIT"
 <% else %>
 TEST_TYPE=wip
 EXPECTED_RETURN_CODE="EXIT"
@@ -36,7 +36,7 @@ _prepare() {
 	fi
 
 	if [ ! -s "$STAP_DIR/stap" ] ; then
-		echo "Systemtap binary not found ($STAP_DIR/stap)"
+		echo "Systemtap binary not found ($STAP_DIR/stap)" >&2
 		return 1
 	fi
 
@@ -46,8 +46,11 @@ _prepare() {
 						   -DSTP_OVERLOAD_THRESHOLD=10000000 \
 						   --suppress-time-limits \
 						   -DMAXACTION=1000000 \
-						   $TRDIR/lib/stap/unpoison.stp \
-				|| return 1
+						   $TRDIR/lib/stap/unpoison.stp
+			if [ $? -ne 0 ] ; then
+				echo "compiling stap module failed." >&2
+				return 1
+			fi
 			mv unpoison.ko $GTMPD/
 		fi
 	fi
@@ -95,7 +98,9 @@ _control() {
 	<% if param["dissolve"] == "dequeue" %>
 	# this allocation tries to dequeue the hwpoisoned free page in free list,
 	# which should causes deferred dissolve.
-	echo 10 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_overcommit_hugepages
+	# nr_overcommit_hugepages is not supported for 1GB hugepage, so this
+	# testcase is not completed yet.
+	## echo 10 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_overcommit_hugepages
 	hugetlb_1gb -n $nr_gp -p $PIPE allocate:type=anon access pause &
 	read -t10 line <> $PIPE
 	echo "--- $line ---"
