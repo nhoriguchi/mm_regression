@@ -1,6 +1,7 @@
 cat <<EOF > /tmp/subprojects
 huge_zero huge_zero
 hotremove hotremove
+sysfs_hotplug acpi_hotplug sysfs
 acpi_hotplug acpi_hotplug
 1gb_hugetlb 1GB
 mce mce/einj mce/uc/sr
@@ -11,11 +12,14 @@ EOF
 
 # TODO: kvm は beaker 環境のみ
 cat <<EOF > /tmp/run_order
+sysfs_hotplug,needvm
+reboot
 acpi_hotplug,needvm
 reboot
 1gb_hugetlb
 normal
 pmem
+reboot
 kvm,needvm
 reboot
 huge_zero
