@@ -90,7 +90,7 @@ count_success() {
 	local label="$__TESTCOUNT_LABEL"
 	[ "$@" ] && label="$@"
 	__TESTCOUNT_LABEL=""
-    if [ "$FALSENEGATIVE" = true ] ; then
+    if [ "$FALSENEGATIVE" = true ] || [ "$KNOWN_FAILURE" = true ] ; then
         add_counts $RTMPD/_later 1
         echo_log $nonewline "LATER: PASS: $label"
         return 0

@@ -43,11 +43,12 @@ get_project() {
 
 PROJECT="$(get_project $PROJECT)"
 
-# echo "project: $PROJECT"
+echo "project: $PROJECT"
+echo "testcases: $@"
 for arg in $@ ; do
 	resfile="$(find work/$PROJECT -name result | grep $arg | sort | tail -n1)"
 	if [ -s "$resfile" ] ; then
-		echo "##### $arg"
+		echo "##### $arg $resfile"
 		cat $resfile
 		echo
 	fi

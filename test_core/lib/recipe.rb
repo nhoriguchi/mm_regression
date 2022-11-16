@@ -37,7 +37,9 @@ class RecipeTemplate
         outbase = basename + '/' + get_id(param) + '.auto3'
         FileUtils.mkdir_p(dirname + "/" + basename)
       end
-      File.write(dirname + "/" + outbase, template.result(binding))
+      str = template.result(binding)
+      str.gsub!(/\n\s+\n/m, "\n")
+      File.write(dirname + "/" + outbase, str)
     end
   end
 

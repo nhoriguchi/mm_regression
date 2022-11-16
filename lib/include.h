@@ -332,7 +332,7 @@ static void prepare_memory(struct mem_chunk *mc, void *baseaddr,
 	case HUGETLB_SHMEM:
 		/*
 		 * TODO: currently alloc_shm_hugepage is not designed to be called
-		 * multiple times, so controlling scruipt must cleanup shmems after
+		 * multiple times, so controlling script must cleanup shmems after
 		 * running the testcase.
 		 */
 		mc->p = alloc_shmem(mc, baseaddr, 1);

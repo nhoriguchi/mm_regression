@@ -3,7 +3,7 @@
 . $TRDIR/lib/mm.sh
 
 [ ! -x /usr/local/bin/sshvm ] && install $TCDIR/lib/sshvm /usr/local/bin/sshvm
-[ ! "$VM" ] && echo_log "You must give VM name in recipe file" && return 1
+[ ! "$VM" ] && echo_log "You must give VM name in recipe file" >&2 && return 1
 
 SSH_OPT="-o ConnectTimeout=5"
 GUESTTESTALLOC=/usr/local/bin/test_alloc_generic

@@ -8,7 +8,6 @@ prepare_1GB_hugetlb() {
 
 	echo 0 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages || return 1
 	echo 10 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages || return 1
-	echo 0 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_overcommit_hugepages
 
 	[ ! -d "$HUGETLBFSDIR" ] && mkdir -p "$HUGETLBFSDIR"
 	mount -t hugetlbfs -o pagesize=1G,size=1G none "$HUGETLBFSDIR"
