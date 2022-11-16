@@ -1,10 +1,13 @@
 # TODO: errors on huge zero page is not properly handled yet, and once
 # this testcase is run, any subsequent testcases could encounter bugs
 # coming from hwpoisoned huge zero page.
-TEST_TYPE=wip
 
 #! {"error" => "madv_hard"}
 #! {"error" => "madv_soft"}
+
+. $TRDIR/lib/mce.sh
+
+TEST_TYPE=wip
 
 ERROR=<%= param["error"] %>
 
@@ -16,7 +19,7 @@ _prepare() {
 }
 
 _cleanup() {
-	page-types -b hwpoison -x
+	all_unpoison
 	# sysctl kernel.panic_on_warn=1
 }
 
@@ -36,8 +39,5 @@ _control() {
 	sleep 0.1
 	page-types -p $pid -a 0x700000000+10 -Nrl | tee $TMPD/pagemap4
 
-	# unpoison
-	page-types -b hwpoison -x -Nrl
-	page-types -a $pfn+512 -Nrl
 	set_return_code EXIT
 }

@@ -30,7 +30,7 @@ _cleanup() {
 	corrupt_filter_off
 	sysctl vm.nr_hugepages=0
 	save_nr_corrupted_inject
-	page-types -b hwpoison -x
+	all_unpoison
 	save_nr_corrupted_unpoison
 }
 

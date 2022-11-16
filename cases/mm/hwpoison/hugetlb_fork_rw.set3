@@ -9,6 +9,8 @@
 #! {"1GB" => "", "mmap" => ""}
 #! {"1GB" => "", "sysrw" => ""}
 
+. $TRDIR/lib/mce.sh
+
 <% if param["unpoison"] %>
 TEST_TYPE=manual
 <% else %>
@@ -40,7 +42,7 @@ _cleanup() {
 	umount -f "$HUGETLBFSDIR"
 	sysctl vm.nr_hugepages=0
 	<% end %>
-	page-types -b hwpoison -x
+	all_unpoison
 	<% if param["shmem"] %>
 	ipcrm --all > /dev/null 2>&1
 	<% end %>

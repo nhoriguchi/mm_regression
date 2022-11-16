@@ -3,6 +3,8 @@
 #! {"type" => "free-hugepage"}
 #! {"type" => "file-hugepage"}
 
+. $TRDIR/lib/mce.sh
+
 TEST_TYPE=wip
 
 <% if param["type"] == "free-hugepage" %>
@@ -33,7 +35,7 @@ _cleanup() {
 	umount -f tmp/hugetlbfs
 	sysctl vm.nr_hugepages=0
 	# TODO: need to check consistent counter value.
-	page-types -b hwpoison -x
+	all_unpoison
 }
 
 get_free_hwpoisoned_hugepage() {

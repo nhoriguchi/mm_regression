@@ -3,6 +3,8 @@
 
 # TODO: find reproduction condition for list corruption when raced with drop_caches. #1580
 
+. $TRDIR/lib/mce.sh
+
 TEST_TYPE=wip
 # soft-offline should succeed
 EXPECTED_RETURN_CODE="SOFT_OFFLINE_PASS NOTSAME"
@@ -12,7 +14,7 @@ _prepare() {
 }
 
 _cleanup() {
-	page-types -b hwpoison -x
+	all_unpoison
 	sysctl vm.nr_hugepages=0
 }
 

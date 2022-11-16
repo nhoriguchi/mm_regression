@@ -55,6 +55,7 @@ _control() {
 
 	save_nr_corrupted 2
 
+	# forcibly unpoison all regardless of UNPOISON=
 	page-types -b hwpoison -x
 
 	save_nr_corrupted 3

@@ -4,6 +4,8 @@
 #! {"punchhole" => ""}
 #! {"unpoison" => ""}
 
+. $TRDIR/lib/mce.sh
+
 TEST_TYPE=wip
 
 HUGETLBFSDIR=tmp/hugetlbfs
@@ -21,7 +23,7 @@ _cleanup() {
 	rm -rf $HUGETLBFSDIR/*
 	umount -f "$HUGETLBFSDIR"
 	sysctl vm.nr_hugepages=0
-	page-types -b hwpoison -x
+	all_unpoison
 }
 
 EXPECTED_RETURN_CODE="INJECT READ_FAILED READ_FAILED WRITE_FAILED WRITE_FAILED UNPOISON_FAIL READ_FAILED EXIT"
