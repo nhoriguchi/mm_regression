@@ -257,9 +257,14 @@ class TestSummary
   def show_failure_detail
     outstr = []
     @full_recipe_list.each do |recipe|
-      next if ! ["FAIL", "WARN", "SKIP"].include?(@test_summary_hash[recipe].testcase_result)
-      tmp = [recipe]
+      result = @test_summary_hash[recipe].testcase_result
+      next if ! ["FAIL", "WARN", "SKIP"].include?(result)
+      tmp = ["#{result}: #{recipe}"]
       tmp << File.read(@test_summary_hash[recipe].tc_dir + "/result").split("\n").select{|line| line =~ /^(FAIL|SKIPPED):/}.uniq.map {|line| "  " + line}.join("\n")
+      prepare_stderr = @test_summary_hash[recipe].tc_dir + "/1-1/prepare.stderr"
+      if File.exist? prepare_stderr
+        tmp << File.read(prepare_stderr).split("\n").map {"  " + _1}
+      end
       outstr << tmp.join("\n")
     end
     puts outstr.join("\n\n")

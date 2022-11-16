@@ -245,7 +245,7 @@ prepare() {
 			[ $? -ne 0 ] && ret=1 && break;
 		elif [ "$(type -t _prepare)" = "function" ] ; then
 			prepfunc=_prepare
-			_prepare
+			_prepare 2> >(tee $TMPD/prepare.stderr)
 			[ $? -ne 0 ] && ret=1 && break;
 			prepare_system_default
 			[ $? -ne 0 ] && ret=1 && break;
