@@ -118,11 +118,16 @@ set_return_code() {
 check_return_code() {
 	local expected="$1"
 	[ ! "${expected}" ] && return
+	expected2="A $expected Z"
+	returned="$(get_return_code_seq)"
+	returned2="A $returned Z"
 	count_testcount
-	if [[ "$(get_return_code_seq)" =~ $expected ]] ; then
-		count_success "return code: $(get_return_code_seq)"
+	# Sometimes expected code can be like "A (B|C) D", so we need
+	# match with regexp.  Note that we can't use quotation.
+	if [[ $returned2 =~ $expected2 ]] ; then
+		count_success "return code: $returned"
 	else
-		count_failure "return code: $(get_return_code_seq) (expected ${expected})"
+		count_failure "return code: $returned (expected ${expected})"
 	fi
 }
 
