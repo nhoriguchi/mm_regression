@@ -3,11 +3,17 @@
 
 #! {"mmap" => ""}
 #! {"sysrw" => ""}
+#! {"unpoison" => ""}
+#! {"shmem" => ""}   # no sysrw
 
 #! {"1GB" => "", "mmap" => ""}
 #! {"1GB" => "", "sysrw" => ""}
 
-TEST_TYPE=wip
+<% if param["unpoison"] %>
+TEST_TYPE=manual
+<% else %>
+TEST_TYPE=devel
+<% end %>
 
 HUGETLBFSDIR=tmp
 
@@ -34,14 +40,38 @@ _cleanup() {
 	sysctl vm.nr_hugepages=0
 	<% end %>
 	page-types -b hwpoison -x
+	<% if param["shmem"] %>
+	ipcrm --all > /dev/null 2>&1
+	<% end %>
 }
 
 <% if param["mmap"] %>
 EXPECTED_RETURN_CODE="CHILD_KILLED"
 <% elsif param["sysrw"] %>
-EXPECTED_RETURN_CODE="CHILD_EXITED"
+EXPECTED_RETURN_CODE="CHILD_EXITED_PASS"
+<% elsif param["shmem"] %>
+EXPECTED_RETURN_CODE="CHILD_KILLED"
 <% end %>
 
+<% if param["shmem"] %>
+_control() {
+	echo "hugetlb_fork_rw shmem mmap 2> $TMPD/stderr"
+	hugetlb_fork_rw shmem mmap 2> $TMPD/stderr
+	ret=$?
+	case $ret in
+		0)
+			set_return_code CHILD_EXITED_PASS
+			;;
+		1)
+			set_return_code CHILD_KILLED
+			;;
+		2)
+			set_return_code CHILD_EXITED_FAIL
+			;;
+	esac
+	cat $TMPD/stderr
+}
+<% else %>
 _control() {
 	mount | grep hugetlb
 	echo test_alloc_generic -B hugetlb_file -N 2 -w $HUGETLBFSDIR -f testfile -L 'mmap access'
@@ -51,20 +81,41 @@ _control() {
 	ls -l $HUGETLBFSDIR/hugetlbfs
 
 	<% if param["mmap"] %>
-	hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile
-	if [ $? -eq 0 ] ; then
-		set_return_code CHILD_EXITED
-	else
-		set_return_code CHILD_KILLED
-	fi
+	echo "hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile mmap 2> $TMPD/stderr"
+	hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile mmap 2> $TMPD/stderr
+	ret=$?
 	<% elsif param["sysrw"] %>
-	hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile sysrw
-	if [ $? -eq 0 ] ; then
-		set_return_code CHILD_EXITED
-	else
-		set_return_code CHILD_KILLED
-	fi
+	echo "hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile sysrw 2> $TMPD/stderr"
+	hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile sysrw 2> $TMPD/stderr
+	ret=$?
 	<% elsif param["unpoison"] %>
+	page-types -b huge,compound_head=huge,compound_head -Nrl
+	local pfn="0x$(page-types -b dirty,huge,compound_head=dirty,huge,compound_head -Nrl | grep -v offset | head -n1 | cut -f1)"
+	echo "-- pfn:$pfn"
+	if [ "$pfn" != 0x ] ; then
+		echo ${pfn}000 > /sys/devices/system/memory/hard_offline_page
+		ret=$?
+		page-types -a ${pfn}+10 -Nrl
+	fi
+
+	hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile nofork read
+	hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile nofork write
+	hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile nofork mmap
+	# trace-cmd record -p function hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile nofork read
+
 	<% end %>
+	case $ret in
+		0)
+			set_return_code CHILD_EXITED_PASS
+			;;
+		1)
+			set_return_code CHILD_KILLED
+			;;
+		2)
+			set_return_code CHILD_EXITED_FAIL
+			;;
+	esac
+	cat $TMPD/stderr
 	rm -f $HUGETLBFSDIR/hugetlbfs/testfile
 }
+<% end %>
