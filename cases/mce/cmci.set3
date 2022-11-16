@@ -1,0 +1,40 @@
+. lib/mce.sh
+
+EXPECTED_RETURN_CODE="MCEINJ_PASS SOFT_OFFLINE_TRIGGERED"
+
+NR_CES=11
+
+_control() {
+	test_alloc_generic -B anonymous -N 1 -L 'mmap access busyloop' &
+	pid=$!
+	sleep 0.01
+	page-types -p $pid -a 0x700000000+512 -NrL | grep -v offset | cut -f2 > $TMPD/pagelist1
+
+	if [ "$(cat $TMPD/pagelist1 | wc -l)" -eq 0 ] ; then
+		echo "Failed to get target pfn." >&2
+		return 1
+	fi
+
+	local pfn=0x$(head -n1 $TMPD/pagelist1)
+	local ret=0
+	for i in $(seq $NR_CES) ; do
+		$MCEINJECT -e mce-ce -a $pfn
+		ret=$?
+		if [ "$ret" -ne 0 ] ; then
+			break
+		fi
+	done
+	if [ "$ret" -eq 0 ] ; then
+		set_return_code MCEINJ_PASS
+	else
+		set_return_code MCEINJ_FAIL
+	fi
+
+	page-types -p $pid -a 0x700000000+512 -NrL | grep -v offset | cut -f2 > $TMPD/pagelist2
+
+	if diff -q $TMPD/pagelist1 $TMPD/pagelist2 ; then
+		set_return_code SOFT_OFFLINE_NOT_TRIGGERED
+	else
+		set_return_code SOFT_OFFLINE_TRIGGERED
+	fi
+}
