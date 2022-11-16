@@ -13,6 +13,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/shm.h>
+#include <stdlib.h>
 
 #define ADDR_INPUT 0x700000000000
 #define PS	0x1000
@@ -33,16 +34,22 @@ int main(int argc, char **argv)
 	int wstatus;
 	int shmkey = 0;
 	char buf[PS];
+	int hps = HPS;
 
 	if (argc < 2) {
 		fprintf(stderr, "need to pass hugetlb file.\n");
 		return -1;
 	}
 
+	if (getenv("HPS") && !strcmp(getenv("HPS"), "1GB")) {
+		printf("HPS = 1GB\n");
+		hps = GPS;
+	}
+
 	if (!strcmp(argv[1], "shmem")) {
 		int shmid;
 		int flags = IPC_CREAT | SHM_R | SHM_W | SHM_HUGETLB;
-		if ((shmid = shmget(shmkey, HPS, flags)) < 0) {
+		if ((shmid = shmget(shmkey, hps, flags)) < 0) {
 			perror("shmget");
 			return -1;
 		}
@@ -66,7 +73,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "failed to open file %s.\n", argv[1]);
 			return -1;
 		}
-		addr = mmap((void *)ADDR_INPUT, HPS, PROT_READ | PROT_WRITE,
+		addr = mmap((void *)ADDR_INPUT, hps, PROT_READ | PROT_WRITE,
 			    MAP_SHARED, fd, 0);
 	}
 
@@ -84,7 +91,7 @@ int main(int argc, char **argv)
 			if (ret)
 				return errno;
 		} else if (!strcmp(argv[3], "mmap")) {
-			memset(addr, 'a', HPS);
+			memset(addr, 'a', hps);
 		}
 		return 0;
 	}
@@ -93,7 +100,7 @@ int main(int argc, char **argv)
 
 	if (pid) {
 		// parent
-		memset(addr, 'a', HPS);
+		memset(addr, 'a', hps);
 		ret = madvise(addr, PS, MADV_HWPOISON);
 		printf("[parent %d] madvise(MADV_HWPOISON) returned %d\n", getpid(), ret);
 		wait(&wstatus);
@@ -118,8 +125,8 @@ int main(int argc, char **argv)
 				printf("[child %d] pread() hwpoison hugepage passed.\n", getpid());
 				return -1;
 			}
-			// ret = fallocate(fd, FALLOC_FL_PUNCH_HOLE, 0, HPS);
-			ret = fallocate(fd, 3, 0, HPS);
+			// ret = fallocate(fd, FALLOC_FL_PUNCH_HOLE, 0, hps);
+			ret = fallocate(fd, 3, 0, hps);
 			if (ret == -1) {
 				printf("[child %d] fallocate() hwpoison hugepage failed: %d %d\n", getpid(), errno);
 				perror("fallocate");
@@ -136,7 +143,7 @@ int main(int argc, char **argv)
 			}
 		} else {
 			printf("[child %d] try to access to hwpoison memory by memset().\n", getpid());
-			memset(addr, 'a', HPS);
+			memset(addr, 'a', hps);
 			printf("[child %d] access after hwpoison by parent process.\n", getpid());
 		}
 		return 0;

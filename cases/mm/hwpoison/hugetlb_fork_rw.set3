@@ -19,6 +19,7 @@ HUGETLBFSDIR=tmp
 
 <% if param["1GB"] %>
 . $TRDIR/lib/setup_1GB_hugetlb.sh
+export HPS=1GB
 <% end %>
 
 _prepare() {
