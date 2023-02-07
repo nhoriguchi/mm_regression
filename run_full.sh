@@ -393,5 +393,6 @@ elif [ "$cmd" = check_finished ] ; then
 		echo "subproject:$spj DONE"
 	done
 	# all subprojects are done.
+	touch work/${projbase}/__finished
 	exit 0
 fi
