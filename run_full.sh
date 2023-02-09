@@ -89,7 +89,8 @@ show_help() {
 	exit 0
 }
 
-cd $(dirname $BASH_SOURCE)
+THISDIR=$(readlink -f $(dirname $BASH_SOURCE))
+cd $THISDIR
 
 RUN_ORDER=/tmp/run_order
 while true ; do
@@ -245,8 +246,8 @@ if [ "$cmd" = prepare ] ; then
 		echo "=== preparing VM ($VM) ==="
 		echo $VM > work/$projbase/vm
 		echo "=== work/$projbase/vm $(cat work/$projbase/vm) ==="
-		rsync -a --include=work/$projbase --exclude=work/** -e ssh ./ $VM:mm_regression || exit 1
-		rsync -ae ssh work/$projbase/ $VM:mm_regression/work/$projbase/ || exit 1
+		rsync -a --include=work/$projbase --exclude=work/** -e ssh $THISDIR/ $VM:mm_regression || exit 1
+		rsync -ae ssh $THISDIR/work/$projbase/ $VM:mm_regression/work/$projbase/ || exit 1
 		ssh $VM sync
 		vm_shutdown_wait $VM
 		# TODO: page-types might depend on GLIBC version
@@ -379,6 +380,9 @@ elif [ "$cmd" = summary2 ] ; then
 	echo "Summary Table:"
 	ruby test_core/lib/summary_table.rb /tmp/.summary2
 elif [ "$cmd" = check_finished ] ; then
+	if [ -f "work/${projbase}/__finished" ] ; then
+		exit 0
+	fi
 	check_and_set_env_vm $projbase
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
