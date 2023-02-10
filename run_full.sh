@@ -11,7 +11,23 @@ normal
 EOF
 
 # TODO: kvm は beaker 環境のみ
-cat <<EOF > /tmp/run_order
+if [ "$STABLE" ] ; then
+	cat <<EOF > /tmp/run_order
+sysfs_hotplug,needvm
+reboot
+acpi_hotplug,needvm
+reboot
+1gb_hugetlb
+normal
+reboot
+huge_zero
+reboot
+hotremove
+reboot
+mce
+EOF
+else
+	cat <<EOF > /tmp/run_order
 sysfs_hotplug,needvm
 reboot
 acpi_hotplug,needvm
@@ -28,6 +44,7 @@ hotremove
 reboot
 mce
 EOF
+fi
 
 if [ "$__DEBUG" ] ; then
 	cat <<EOF > /tmp/subprojects

@@ -21,6 +21,8 @@
 # environment variable VM should be given via environment variable
 # VM=f21a
 
+TEST_TYPE=wip
+
 . $TRDIR/lib/mm.sh || return 1
 
 ERROR_TYPE=<%= param["error"] %>
