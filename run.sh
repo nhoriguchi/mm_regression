@@ -376,7 +376,7 @@ case $1 in
 				echo "Project Name: $proj"
 				echo "Total testcases: $totaltc"
 				echo "Target testcases: $targettc"
-				# TODO: list testcase by option?
+				cat work/$proj/recipelist
 				;;
 			su|sum|summ|summa|summar|summary)
 				shift 2

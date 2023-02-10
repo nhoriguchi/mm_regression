@@ -1,7 +1,7 @@
 cat <<EOF > /tmp/subprojects
 huge_zero huge_zero
 hotremove hotremove
-sysfs_hotplug acpi_hotplug sysfs
+sysfs_hotplug acpi_hotplug.*sysfs
 acpi_hotplug acpi_hotplug
 1gb_hugetlb 1GB
 mce mce/einj mce/uc/sr
@@ -272,7 +272,7 @@ if [ "$cmd" = prepare ] ; then
 		vm_start_wait_noexpect $VM
 	fi
 	for spj in $(cat /tmp/subprojects | cut -f1 -d' ') ; do
-		wc work/${projbase}/$spj/recipelist
+		wc -l work/${projbase}/$spj/recipelist
 	done
 elif [ "$cmd" = run ] ; then
 	check_and_set_env_vm $projbase

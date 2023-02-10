@@ -344,6 +344,7 @@ class SummaryPrinter
       "SKIP" => 0,
       "WARN" => 0,
     }
+    return if @test_summary_hash.nil?
     @test_summary_hash.each do |id, tc|
       sum[tc.testcase_result] += 1
     end
