@@ -4,8 +4,6 @@
 #! {"type" => "file", "offline" => "soft"}
 #! {"type" => "file", "offline" => "hard", "access" => "memwrite"}
 #! {"type" => "file", "offline" => "soft", "access" => "memwrite"}
-#! {"type" => "file", "offline" => "hard", "access" => "syswrite"}
-#! {"type" => "file", "offline" => "soft", "access" => "syswrite"}
 #! {"type" => "anon", "offline" => "hard"}
 #! {"type" => "anon", "offline" => "soft"}
 #! {"type" => "anon", "offline" => "hard", "access" => "memwrite"}
@@ -17,8 +15,6 @@
 #! {"type" => "file", "offline" => "madvsoft"}
 #! {"type" => "file", "offline" => "madvhard", "access" => "memwrite"}
 #! {"type" => "file", "offline" => "madvsoft", "access" => "memwrite"}
-#! {"type" => "file", "offline" => "madvhard", "access" => "syswrite"}
-#! {"type" => "file", "offline" => "madvsoft", "access" => "syswrite"}
 #! {"type" => "anon", "offline" => "madvhard"}
 #! {"type" => "anon", "offline" => "madvsoft"}
 #! {"type" => "anon", "offline" => "madvhard", "access" => "memwrite"}
@@ -26,7 +22,8 @@
 #! {"type" => "shmem", "offline" => "madvhard"}
 #! {"type" => "shmem", "offline" => "madvsoft"}
 
-# TODO: shmem + syswrite
+# hugetlbfs does not support write() system call, so no meaning to
+# test syswrite case.
 
 TEST_TYPE=devel
 TEST_PRIORITY=14
