@@ -6,6 +6,12 @@ soft_offline() {
 	echo $addr > /sys/devices/system/memory/soft_offline_page
 }
 
+hard_offline() {
+	local addr=$1
+
+	echo $addr > /sys/devices/system/memory/hard_offline_page
+}
+
 EXPECTED_RETURN_CODE="KILLED EXIT"
 
 _prepare() {
@@ -17,30 +23,38 @@ _cleanup() {
 	rm -f tmp/testfile
 }
 
+NR_SUBPROCS=100
+
 _control() {
 	local pid1
 	local pid2
 
-	for i in $(seq 100) ; do
+	for i in $(seq $NR_SUBPROCS) ; do
 		test_alloc_generic -B pagecache -N 1 -w tmp -L "mmap busyloop" &
 		pid1="$pid1 $!"
 		test_alloc_generic -B pagecache -N 1 -w tmp -L "mmap access:wait_after" &
 		pid2="$pid2 $!"
 	done
 
-	sleep 0.1
+	echo pid1: $pid1
+	echo pid2: $pid2
+
+	# making sure that all test_alloc_generic processes are mapping
+	# the target page cache.
+	sleep 3
 	local pid=$(echo $pid1 | awk '{print $1}')
 
-	echo "page-types -p $pid -N -a 0x700000000 -X"
-	page-types -p $pid -N -a 0x700000000 -X
+	pfn=0x$(page-types -f tmp/testfile -a 0 -Nrl | grep ^0 | cut -f2)
+	echo "hard_offlining pfn=${pfn}"
+	hard_offline ${pfn}000
 	
 	# TODO: better way to confirm all processes are kill by SIGBUS
 	sleep 3
-	if ! pgrep -f test_alloc_generic ; then
+	if ! pgrep -f test_alloc_generic > /dev/null ; then
 		set_return_code KILLED
 	else
 		echo "Some subprocesses are still alive"
-		ps fj
+		ps fj | grep test_alloc_generic
 	fi
 
 	set_return_code EXIT
