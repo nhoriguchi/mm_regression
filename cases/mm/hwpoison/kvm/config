@@ -11,6 +11,7 @@ memsize=$(virsh dominfo $VM | grep "Used memory:" | tr -s ' ' | cut -f3 -d' ')
 get_gpa_guest_memeater() {
 	local vmip=$(vm_to_vmip $VM)
 	local flagtype="$1"
+	local pid=$(cat /var/run/libvirt/qemu/$VM.pid)
 
 	ssh $vmip "for pid in $(cat $TMPD/_guest_memeater_pids.1) ; do $GUESTPAGETYPES -p \$pid -NrL -b $flagtype -a 0x700000000+0x10000000 ; done" | grep -v offset | tr '\t' ' ' | tr -s ' ' > $TMPD/guest_page_types
 
@@ -20,11 +21,19 @@ get_gpa_guest_memeater() {
 	echo "# of pages $flagtype: $lines"
 	TARGETGVA=0x`cat $TMPD/guest_page_types | sed -n ${lines}p | cut -f1 -d ' '`
 	TARGETGPA=0x`cat $TMPD/guest_page_types | sed -n ${lines}p | cut -f2 -d ' '`
-	TARGETHPA="$(virsh qemu-monitor-command --hmp $VM --cmd "gpa2hpa $[TARGETGPA * 4096]" | grep 0x | cut -f8 -d' ' | tr -d '\n\r')"
-	[ "$TARGETHPA" ] && TARGETHPA=$[TARGETHPA / 4096]
-	echo "--- TARGETGVA:$TARGETGVA, TARGETGPA:$TARGETGPA, TARGETHPA:$TARGETHPA"
+	grep -C3 $(echo $TARGETGPA | sed 's/0x//') $TMPD/guest_page_types
+
+	# gpa2hpa command seems not work for now, so work this around with
+	# gpa2hva and additional address translation.
+	# TARGETHPA="$(virsh qemu-monitor-command --hmp $VM --cmd "gpa2hpa $[TARGETGPA * 4096]" | grep 0x | cut -f8 -d' ' | tr -d '\n\r')"
+	# [ "$TARGETHPA" ] && TARGETHPA=$[TARGETHPA / 4096]
+	TARGETHVA="$(virsh qemu-monitor-command --hmp $VM --cmd "gpa2hva $[TARGETGPA * 4096]" | grep 0x | cut -f8 -d' ' | tr -d '\n\r')"
+	echo "TARGETHVA:$TARGETHVA"
+	[ "$TARGETHVA" ] && TARGETHVA=$[TARGETHVA / 4096]
+	TARGETHPA=0x$(page-types -p $pid -a $TARGETHVA -Nrl | grep -v offset | cut -f2)
+	echo "--- TARGETGVA:$TARGETGVA, TARGETGPA:$TARGETGPA, TARGETHVA:$TARGETHVA, TARGETHPA:$TARGETHPA"
 	[ "$TARGETGPA" == 0x ] && echo_log "Failed to get GPA. Test skipped." && return 1
-	if [ ! "$TARGETHPA" ] || [ "$TARGETHPA" == "0x" ] || [ "$TARGETHPA" == "0x0" ] ; then
+	if [ ! "$TARGETHPA" ] || [ "$TARGETHPA" == "0" ] ; then
 		echo_log "Failed to get HPA. Test skipped." && return 1
 	fi
 	echo_log "GVA:$TARGETGVA => GPA:$TARGETGPA => HPA:$TARGETHPA"
