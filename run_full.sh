@@ -382,9 +382,13 @@ elif [ "$cmd" = summary ] ; then
 	if [ "$VM" ] ; then
 		rsync -ae ssh $VM:mm_regression/work/$projbase/ work/$projbase/
 	fi
+	tmpf=$(mktemp)
 	for spj in $(cat $RUN_ORDER | grep -v reboot | cut -f1 -d,) ; do
-		./run.sh project sum $@ ${projbase}/$spj
+		./run.sh project sum $@ ${projbase}/$spj >> $tmpf
+		echo >> $tmpf
 	done
+	awk 'NF{c=1} (c++)<3' $tmpf
+	rm $tmpf
 elif [ "$cmd" = summary2 ] ; then
 	check_and_set_env_vm $projbase
 	if [ "$VM" ] ; then

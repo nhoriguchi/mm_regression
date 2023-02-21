@@ -271,11 +271,12 @@ show_summary() {
 		exit 1
 	fi
 	echo "Project Name: $proj"
+	echo ""
 	if [ "$LOGLEVEL" ] && [ "$LOGLEVEL" -ge 2 ] ; then
 		echo "# [$@, $proj]"
 		echo "ruby test_core/lib/test_summary.rb $SHOW_FAILURE $SHOW_PROGRESS $SHOW_TIMESUMMARY work/$proj"
 	fi
-	ruby test_core/lib/test_summary.rb $SHOW_FAILURE $SHOW_PROGRESS $SHOW_TIMESUMMARY work/$proj
+	ruby test_core/lib/test_summary.rb $SHOW_FAILURE $SHOW_PROGRESS $SHOW_TIMESUMMARY work/$proj | sed 's/^/  /'
 }
 
 case $1 in
