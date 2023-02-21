@@ -21,7 +21,7 @@ _prepare() {
 	set_vm_maxmemory $VM || return 1
 
 	# vm_shutdown_wait $VM
-	# vm_start_wait $VM || return 1
+	vm_start_wait $VM || return 1
 	start_vm_console_monitor $TMPD/vmconsole $VM
 
 	scp lib/test_alloc_generic $VM:/usr/local/bin/test_alloc_generic
