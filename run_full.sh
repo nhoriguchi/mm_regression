@@ -346,8 +346,8 @@ elif [ "$cmd" = run ] ; then
 				else
 					again=
 				fi
-				echo ssh -t $VM "STAP_DIR=$STAP_DIR PMEMDEV=$PMEMDEV bash mm_regression/run.sh project run $@ ${projbase}/$spj"
-				ssh -t $VM "STAP_DIR=$STAP_DIR PMEMDEV=$PMEMDEV bash mm_regression/run.sh project run $@ ${projbase}/$spj"
+				echo ssh -t $VM "REBOOTABLE=true STAP_DIR=$STAP_DIR PMEMDEV=$PMEMDEV bash mm_regression/run.sh project run $@ ${projbase}/$spj"
+				ssh -t $VM "REBOOTABLE=true STAP_DIR=$STAP_DIR PMEMDEV=$PMEMDEV bash mm_regression/run.sh project run $@ ${projbase}/$spj"
 				# Sometimes ssh connection is disconnected with error, so
 				# we need check that VM can continue to test or need rebooting.
 				if ! vm_ssh_connectable_one $VM ; then

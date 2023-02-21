@@ -16,6 +16,12 @@ prepare_1GB_hugetlb() {
 	done
 
 	if [ "$(cat /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages)" -lt 2 ] ; then
+		if [ "$REBOOTABLE" ] ; then
+			echo "This test process should be controlled by external test process."
+			echo "So just reboot this system, hoping that the test process is properly re-run after system reboot."
+			reboot
+			shutdown -r now
+		fi
 		echo "enough 1GB hugetlb not allocated. abort." >&2
 		return 1
 	fi
