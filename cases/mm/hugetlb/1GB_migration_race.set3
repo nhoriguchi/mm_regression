@@ -33,19 +33,18 @@ _cleanup() {
 }
 
 _control() {
+	cp /proc/vmstat $TMPD/vmstat.1
 	for i in $(seq $RACE_ITERATIONS) ; do
 		hugetlb_1gb iterate_mapping:type=$HUGETLBTYPE &
 		local pid=$!
 		sleep 0.$RANDOM
 
 		for j in $(seq 20) ; do
-			page-types -b compound_head,huge=compound_head,huge -rlN | grep -v offset
 			<% if param["migration"] == "move_pages" %>
 			test_numa_move_pages 1 $pid 1 1
 			<% else %>
 			migratepages $pid 0 1
 			<% end %>
-			page-types -b compound_head,huge=compound_head,huge -rlN | grep -v offset
 			<% if param["migration"] == "move_pages" %>
 			test_numa_move_pages 1 $pid 0 1
 			<% else %>
@@ -56,6 +55,7 @@ _control() {
 		kill_all_subprograms $BASHPID
 		echo 4 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages
 	done
+	cp /proc/vmstat $TMPD/vmstat.2
 
 	set_return_code EXIT
 }
