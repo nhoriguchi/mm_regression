@@ -37,6 +37,9 @@ _prepare() {
 </memory>
 EOF
 
+	# cleanup existing allocating processes (by previous testcases)
+	ssh $VM "pkill -f -9 test_alloc_generic"
+
 	ssh $VM "echo \"7 7 7 7\" > /proc/sys/kernel/printk"
 
 	ssh $VM lsmem | tee $TMPD/lsmem.1
