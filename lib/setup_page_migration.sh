@@ -13,6 +13,11 @@ check_migration_pagemap() {
 	local after=$(grep "^+" $TMPD/.mig.diff | wc -l)
 	local unchange=$(grep "^ " $TMPD/.mig.diff | wc -l)
 
+	echo "--- before migration"
+	grep "^-" $TMPD/.mig.diff | head
+	echo "--- after migration"
+	grep "^+" $TMPD/.mig.diff | head
+
 	echo_log "check pagemap"
 	if [ "$before" -gt 0 ] && [ "$after" -gt 0 ] ; then
 		if [ "$unchange" -ne 0 ] ; then
@@ -42,6 +47,11 @@ check_migration_hugeness() {
 	local before=$(grep "^-" $TMPD/.pagetypes.huge.diff | wc -l)
 	local after=$(grep "^+" $TMPD/.pagetypes.huge.diff | wc -l)
 	local unchange=$(grep "^ " $TMPD/.pagetypes.huge.diff | wc -l)
+
+	echo "--- before migration"
+	grep "^-" $TMPD/.pagetypes.huge.diff | head
+	echo "--- after migration"
+	grep "^+" $TMPD/.pagetypes.huge.diff | head
 
 	echo_log "check hugepage migration"
 	if [ ! -s $TMPD/.pagetypes.huge.1 ] ; then
