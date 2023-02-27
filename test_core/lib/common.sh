@@ -89,7 +89,7 @@ check_process_status() {
 system_health_check() {
 	if dmesg | tail -n 100 | grep -q "Failed to send WATCHDOG=1 notification message" ; then
 		echo "WARNING: Failed to send WATCHDOG=1 notification message"
-		if [ "$TEST_RUN_MODE" ] ; then
+		if [ "$TEST_RUN_MODE" ] || [ "$REBOOTABLE" ] ; then
 			echo "systemd seems have unstability, so reboot before continuing testing."
 			sync
 			echo 1 > /proc/sys/kernel/sysrq
@@ -101,7 +101,7 @@ system_health_check() {
 	systemctl status -q test 2> /dev/null
 	if [ "$?" -eq 1 ] ; then
 		echo "WARNING: systemd (PID 1) caught some signal and got frozen."
-		if [ "$TEST_RUN_MODE" ] ; then
+		if [ "$TEST_RUN_MODE" ] || [ "$REBOOTABLE" ] ; then
 			echo "Let's restart the system to keep test reliable."
 			echo 1 > /proc/sys/kernel/sysrq
 			echo b > /proc/sysrq-trigger

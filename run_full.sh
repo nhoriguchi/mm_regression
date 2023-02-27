@@ -112,6 +112,7 @@ fi
 #   - STAP_DIR
 #   - PMEMDEV
 #   - DAXDEV
+#   - REBOOTABLE
 #
 show_help() {
 	sed -n 2,$[$BASH_LINENO-4]p $BASH_SOURCE | grep "^#" | sed 's/^#/ /'
