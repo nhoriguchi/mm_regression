@@ -94,6 +94,7 @@ system_health_check() {
 			sync
 			echo 1 > /proc/sys/kernel/sysrq
 			echo b > /proc/sysrq-trigger
+			exit 1
 		fi
 	fi
 
@@ -104,6 +105,7 @@ system_health_check() {
 			echo "Let's restart the system to keep test reliable."
 			echo 1 > /proc/sys/kernel/sysrq
 			echo b > /proc/sysrq-trigger
+			exit 1
 		fi
 	fi
 }

@@ -10,9 +10,21 @@ pmem pmem
 normal
 EOF
 
-# TODO: kvm は beaker 環境のみ
-if [ "$STABLE" ] ; then
+if [ "$MODE" == baremetal ] ; then
 	cat <<EOF > /tmp/run_order
+1gb_hugetlb
+normal
+reboot
+EOF
+elif [ "$MODE" == kvm ] ; then
+	cat <<EOF > /tmp/run_order
+sysfs_hotplug,needvm
+reboot
+acpi_hotplug,needvm
+reboot
+EOF
+elif [ "$MODE" == onlystable ] ; then
+	cat <<EOF > /tmp/run_ordfer
 sysfs_hotplug,needvm
 reboot
 acpi_hotplug,needvm
