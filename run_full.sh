@@ -278,6 +278,8 @@ if [ "$cmd" = prepare ] ; then
 		echo "=== work/$projbase/vm $(cat work/$projbase/vm) ==="
 		rsync -a --include=work/$projbase --exclude=work/** -e ssh $THISDIR/ $VM:mm_regression || exit 1
 		rsync -ae ssh $THISDIR/work/$projbase/ $VM:mm_regression/work/$projbase/ || exit 1
+		scp lib/test_alloc_generic $VM:/usr/local/bin/test_alloc_generic
+		scp build/page-types $VM:/usr/local/bin/page-types
 		ssh $VM sync
 		vm_shutdown_wait $VM
 		# TODO: page-types might depend on GLIBC version
