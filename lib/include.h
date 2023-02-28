@@ -1174,9 +1174,13 @@ static int __do_split_thp_chunk(struct mem_chunk *mc, void *args) {
 }
 
 static void do_split_thp(struct op_control *opc) {
-	if (opc_defined(opc, "only_pmd"))
+	if (opc_defined(opc, "only_pmd")) {
 		do_work_memory(__do_split_thp_chunk, opc);
-	else if (1) {
+	} else if (1) {
+		char buf[256];
+		sprintf(buf, "echo %d,0x%lx,0x%lx > /sys/kernel/debug/split_huge_pages", getpid(), ADDR_INPUT, ADDR_INPUT + nr_p * PS);
+		system(buf);
+	} else if (1) {
 		system("echo 1 > /sys/kernel/debug/split_huge_pages");
 	} else {
 		opc_set_value(opc, "hp_partial", "");
