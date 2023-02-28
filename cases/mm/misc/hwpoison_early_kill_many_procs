@@ -48,11 +48,17 @@ _control() {
 	echo "hard_offlining pfn=${pfn}"
 	hard_offline ${pfn}000
 	
-	# TODO: better way to confirm all processes are kill by SIGBUS
-	sleep 3
-	if ! pgrep -f test_alloc_generic > /dev/null ; then
-		set_return_code KILLED
-	else
+	killed=false
+	for i in $(seq 15) ; do
+		sleep 1
+		if ! pgrep -f test_alloc_generic > /dev/null ; then
+			killed=true
+			set_return_code KILLED
+			break
+		fi
+	done
+
+	if [ "$killed" == false ] ; then
 		echo "Some subprocesses are still alive"
 		ps fj | grep test_alloc_generic
 	fi
