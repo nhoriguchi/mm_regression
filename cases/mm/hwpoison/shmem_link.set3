@@ -1,6 +1,7 @@
 #! {"link" => "sym"}
 #! {"link" => "hard"}
 
+. $TRDIR/lib/setup_mmgeneric.sh
 . $TRDIR/lib/thp.sh
 
 TEST_TYPE=normal
