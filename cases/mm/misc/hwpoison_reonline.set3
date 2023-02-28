@@ -6,7 +6,7 @@
 . $TRDIR/lib/setup_page_migration.sh
 
 TEST_PRIORITY=12
-TEST_TYPE=normal
+TEST_TYPE=obsolete
 
 NUMA_NODE=2
 

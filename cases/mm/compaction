@@ -1,6 +1,6 @@
 # NEED: khugepaged focused setting
 
-TEST_TYPE=devel
+TEST_TYPE=obsolete
 # TODO: support proactiveness
 
 . $TRDIR/lib/setup_mmgeneric.sh
@@ -33,12 +33,13 @@ _control() {
 			# TODO: check vmstat
 
 			# show_current_tuning_parameters_compact
+			page-types -r -p $pid -a 0x700000000+1024 -Nl
 			grep -e compa -e thp /proc/vmstat > $TMPD/vmstat.1
 			# show_stat_thp
 			kill -SIGUSR1 $pid
 			;;
 		"before_exit")
-			page-types -r -p $pid -a 0x700000000+0x20 -Nl
+			page-types -r -p $pid -a 0x700000000+1024 -Nl
 			grep -e compa -e thp /proc/vmstat > $TMPD/vmstat.2
 			# show_stat_thp
 			diff -u0 $TMPD/vmstat.1 $TMPD/vmstat.2
@@ -47,7 +48,7 @@ _control() {
 			return 0
 			;;
 		"now doing memory compaction")
-			for i in $(seq 12) ; do
+			for i in $(seq 6) ; do
 				sleep 1
 				echo 1 > /proc/sys/vm/compact_memory
 				page-types -r -p $pid -a 0x700000000+1024 -Nl | grep -v offset
