@@ -113,6 +113,7 @@ fi
 #   - PMEMDEV
 #   - DAXDEV
 #   - REBOOTABLE
+#   - MODE
 #
 show_help() {
 	sed -n 2,$[$BASH_LINENO-4]p $BASH_SOURCE | grep "^#" | sed 's/^#/ /'
@@ -255,6 +256,22 @@ check_and_set_env_vm() {
 	fi
 }
 
+validate_recipelist() {
+	local pj=$1
+	local rlfile=work/$pj/recipelist
+
+	# recipelist should only have a list of testcases (file path of
+	# each recipe), so should not have any whitespace, so let's use
+	# it for validation.  This is not 100% reliable, but good enough
+	# for simple checking.
+	if [ -s "$rlfile" ] ; then
+		if grep -q " " "$rlfile" ; then
+			echo "WARNING: recipefile contains irrelevant (not a recipe) line, so removed it."
+			sed -i -e '/ /d' "$rlfile"
+		fi
+	fi
+}
+
 if [ "$VM" ] ; then
 	vm_start_wait_noexpect $VM
 	export PMEMDEV=$(ssh $VM ndctl list 2> /dev/null | jq -r '.[] | select(.mode=="fsdax") | [.blockdev] | @csv' | head -n1 | tr -d '"')
@@ -322,6 +339,8 @@ elif [ "$cmd" = run ] ; then
 		done
 		[ ! "$spj" ] && continue
 		echo "subproject:$spj, cmds:${kvm:+kvm}"
+		echo "validate recipelist for ${projbase}/$spj"
+		validate_recipelist ${projbase}/$spj
 		if [ ! "$VM" ] ; then # running testcases on the current server
 			if [ "$kvm" ] ; then
 				echo "KVM-related testset $spj is skipped when VM= is not set."
