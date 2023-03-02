@@ -292,7 +292,7 @@ set_vm_maxmemory() {
 		return 0;
 	fi
 
-	virsh destroy $vm || return 1
+	virsh destroy $vm
 	head -n3 $TMPD/vm.xml > $TMPD/.vm1.xml
 	echo "<maxMemory slots='16' unit='KiB'>125829120</maxMemory>" >> $TMPD/.vm1.xml
 	sed -ne '4,$p' $TMPD/vm.xml > $TMPD/.vm2.xml

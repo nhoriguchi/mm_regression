@@ -18,9 +18,9 @@ _prepare() {
 		return 1
 	fi
 
+	vm_shutdown_wait $VM
 	set_vm_maxmemory $VM || return 1
 	vm_start_wait $VM || return 1
-
 	start_vm_console_monitor $TMPD/vmconsole $VM
 
 	<% if param["type"] == "acpi" %>
