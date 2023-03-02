@@ -80,6 +80,8 @@ check_dissolve() {
 
 	if [ "$match" -eq 1 ] ; then
 		res=DISSOLVED
+	else
+		grep HugePages /proc/meminfo
 	fi
 	echo "$FUNCNAME $pfn: $res"
 	set_return_code $res
@@ -156,6 +158,12 @@ __control_free() {
 	set_and_check_hugetlb_pool 0
 	echo "page state after shrink pool"
 	page-types -a 0x$target1+0x200 -Nrl | tee $TMPD/4 >&2
+
+	# Sometimes following checks fail because the target page has unexpectedly
+	# no buddy flag after shrink pool.  Maybe that's due to page freeing is
+	# done in batched manner and the target pages are still on the intermediate
+	# state. So let's insert a short sleep here to handle it.
+	sleep 0.5
 
 	check_leak 0x$target1
 	check_dissolve $[0x$target1+3]

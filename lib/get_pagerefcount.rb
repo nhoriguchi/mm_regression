@@ -12,5 +12,5 @@ begin
   b = a.unpack("Q")[0] & 0xfffffffffff
   puts "%d" % b
 rescue
-  puts ""
+  puts "-1"
 end
