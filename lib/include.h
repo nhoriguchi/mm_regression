@@ -113,7 +113,7 @@ static int get_nr_mem_types(void) {
 }
 
 struct op_control {
-	char *name;
+	char name[256];
 	int wait_before;
 	int wait_after;
 	char *tag;
@@ -122,6 +122,8 @@ struct op_control {
 	char **values;
 	int nr_args;
 };
+#define OP_CONTROL_KEY_SIZE	64
+#define OP_CONTROL_VALUE_SIZE	128
 
 struct backend {
 	int type;
@@ -1147,7 +1149,7 @@ static pid_t do_fork(struct op_control *opc) {
 	pid_t pid = fork();
 
 	if (!pid) {
-		opc->name = "access";
+		strcpy(opc->name, "access");
 		opc->wait_after = 1;
 		opc_set_value(opc, "type", "read");
 		testpipe = NULL;
@@ -1192,7 +1194,7 @@ static pid_t do_fork_pmd_split(struct op_control *opc) {
 	pid_t pid = fork();
 
 	if (!pid) { /* child */
-		opc->name = "access";
+		strcpy(opc->name, "access");
 		opc->wait_after = 1;
 		opc_set_value(opc, "type", "read");
 		testpipe = NULL;
@@ -1553,8 +1555,8 @@ static int parse_operation_arg(struct op_control *opc) {
 	int op_idx = get_op_index(opc);
 
 	for (i = 0; i < opc->nr_args; i++) {
-		opc->keys[i] = calloc(1, 64);
-		opc->values[i] = calloc(1, 64);
+		opc->keys[i] = calloc(1, OP_CONTROL_KEY_SIZE);
+		opc->values[i] = calloc(1, OP_CONTROL_VALUE_SIZE);
 
 		sscanf(opc->args[i], "%[^=]=%s", opc->keys[i], opc->values[i]);
 
@@ -1598,7 +1600,6 @@ static void parse_operation_args(struct op_control *opc, char *str) {
 	strcpy(buf, str);
 
 	/* TODO: need overrun check */
-	opc->name = malloc(256);
 	opc->args = malloc(10 * sizeof(void *));
 	opc->keys = malloc(10 * sizeof(void *));
 	opc->values = malloc(10 * sizeof(void *));
