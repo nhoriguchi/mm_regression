@@ -119,7 +119,7 @@ check_thp_migration() {
 	grep _t_ $before | cut -f1,2 > $TMPD/.pagetypes.huge.before
 	grep _t_ $after  | cut -f1,2 > $TMPD/.pagetypes.huge.after
 
-	if [ -s $TMPD/.pagetypes.huge.before ] ; then # thp exists before migration
+	if [ -s $TMPD/.pagetypes.huge.after ] ; then # thp exists before migration
 		if diff -q $TMPD/.pagetypes.huge.before $TMPD/.pagetypes.huge.after > /dev/null ; then
 			set_return_code HUGEPAGE_NOT_MIGRATED
 		elif [ -s $TMPD/.pagetypes.huge.after ] ; then
@@ -147,17 +147,23 @@ control_split_retry() {
 		echo "1 after_access"
 
 		kill -SIGUSR1 $pid
+		sleep 0.1
+		grep ^700000000 /proc/$pid/numa_maps
+		head -n5 $TMPD/pagetypes.0.$pid | sed "s/^/[$pid] /"
 	else
 		return 1
 	fi
-
-	echo "FORK: [$FORK]"
 
 	if [ "$FORK" ] ; then
 		if read -t60 line <> $TMPD/.tmp_pipe ; then
 			echo "1.5 after_fork"
 
 			pgrep -f test_alloc_generic > $TMPD/pids
+
+			for p in $(cat $TMPD/pids) ; do
+				page-types -p $p -rlN -a 0x700000000+0x10000000 | grep -v offset > $TMPD/pagetypes.1.$p
+				head -n5 $TMPD/pagetypes.1.$p | sed "s/^/[$p] /"
+			done
 
 			kill -SIGUSR1 $pid
 		else
@@ -172,12 +178,16 @@ control_split_retry() {
 
 		for p in $(cat $TMPD/pids) ; do
 			page-types -p $p -rlN -a 0x700000000+0x10000000 | grep -v offset > $TMPD/pagetypes.2.$p
+			echo "--- num_maps of PID:$p"
+			grep ^700000000 /proc/$pid/numa_maps
+			head -n5 $TMPD/pagetypes.2.$p | sed "s/^/[$p] /"
 		done
 
 		kill -SIGUSR1 $pid
 	else
 		return 1
 	fi
+	grep ^700000000 /proc/$pid/numa_maps
 
 	if read -t60 line <> $TMPD/.tmp_pipe ; then
 		echo "3 after_munmap"
@@ -185,6 +195,7 @@ control_split_retry() {
 		for p in $(cat $TMPD/pids) ; do
 			page-types -p $p -rlN -a 0x700000000+0x10000000 | grep -v offset > $TMPD/pagetypes.3.$p
 			check_thp_migration $TMPD/pagetypes.2.$p $TMPD/pagetypes.3.$p
+			head -n5 $TMPD/pagetypes.3.$p | sed "s/^/[$p] /"
 		done
 
 		kill -SIGUSR1 $pid

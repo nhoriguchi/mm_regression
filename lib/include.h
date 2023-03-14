@@ -1167,7 +1167,7 @@ static int __do_split_thp_chunk(struct mem_chunk *mc, void *args) {
 	int i;
 
 	for (i = 0; i * THPS < size; i++) {
-		int ret = madvise(p + i * THPS, PS, MADV_DONTNEED);
+		int ret = madvise(p + (i + 1) * THPS - PS, PS, MADV_DONTNEED);
 		if (ret < 0)
 			err("split_thp");
 		else
