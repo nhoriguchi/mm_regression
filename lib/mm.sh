@@ -89,13 +89,22 @@ get_backend_pageflags() {
 			echo "huge,thp,mmap,anonymous=anonymous,mmap"
 			;;
 		pagecache)		# __RU_lA____M_____________________________
-			echo "huge,thp,mmap,anonymous,file=mmap,file"
+			echo "mmap,anonymous,file=mmap,file"
 			;;
 		clean_pagecache)
-			echo "dirty,huge,thp,mmap,anonymous,file=mmap,file"
+			echo "dirty,mmap,anonymous,file=mmap,file"
 			;;
 		dirty_pagecache)
-			echo "dirty,huge,thp,mmap,anonymous,file=dirty,mmap,file"
+			echo "dirty,mmap,anonymous,file=dirty,mmap,file"
+			;;
+		folio)
+			echo "thp,mmap,anonymous,file=thp,mmap,file"
+			;;
+		clean_folio)
+			echo "thp,dirty,mmap,anonymous,file=thp,mmap,file"
+			;;
+		dirty_folio)
+			echo "thp,dirty,mmap,anonymous,file=dirty,thp,mmap,file"
 			;;
 		hugetlb_all)    # _______________H_G_______________________
 			echo "huge,compound_head=huge,compound_head"

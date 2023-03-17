@@ -1,0 +1,37 @@
+#! {"hard_offline" => ""}
+#! {"soft_offline" => ""}
+
+TEST_TYPE=wip
+
+<% if param["hard_offline"] %>
+TYPE=hard
+EXPECTED_RETURN_CODE="SIGBUS"
+<% elsif param["soft_offline"] %>
+TYPE=soft
+EXPECTED_RETURN_CODE="MADV_PASSED"
+<% end %>
+
+_prepare() {
+	echo 0 > /proc/sys/kernel/panic_on_warn
+}
+
+_cleanup() {
+	rm -f tmp/testfile
+	echo 1 > /proc/sys/kernel/panic_on_warn
+}
+
+_control() {
+	test_folio_readahead $TYPE
+	local ret=$?
+	if [ "$ret" -eq 0 ] ; then
+		set_return_code MADV_PASSED
+	elif [ "$ret" -eq 1 ] ; then
+		set_return_code MADV_FAILED
+	elif [ "$ret" -eq 255 ] ; then
+		set_return_code FAILED
+	elif [ "$ret" -eq 135 ] ; then
+		set_return_code SIGBUS
+	else
+		set_return_code UNKNOWN
+	fi
+}

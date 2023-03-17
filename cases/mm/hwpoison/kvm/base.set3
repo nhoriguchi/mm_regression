@@ -7,7 +7,7 @@
 
 # # TODO: assuming that sshvm is installed (via deploy_vm_image)
 TEST_PRIORITY=15
-TEST_TYPE=wip
+TEST_TYPE=manual
 
 <% if param["flavor"] == "panic" %>
 EXPECTED_RETURN_CODE="GOT_HPA GUEST_PANICKED"
