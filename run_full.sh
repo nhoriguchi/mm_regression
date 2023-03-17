@@ -22,6 +22,8 @@ sysfs_hotplug,needvm
 reboot
 acpi_hotplug,needvm
 reboot
+kvm
+reboot
 EOF
 elif [ "$MODE" == onlystable ] ; then
 	cat <<EOF > /tmp/run_ordfer
