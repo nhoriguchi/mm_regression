@@ -1,5 +1,6 @@
 #include <sys/uio.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <stdlib.h>
 #include <sys/prctl.h>
 #include "test_core/lib/include.h"

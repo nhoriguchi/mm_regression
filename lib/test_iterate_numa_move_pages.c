@@ -7,6 +7,8 @@
 #define HPS		0x200000
 #define PS		0x1000
 
+#define err(x) perror(x),exit(EXIT_FAILURE)
+
 int flag = 1;
 
 void sig_handle_flag(int signo) { flag = 0; }
@@ -33,7 +35,7 @@ int main(int argc, char *argv[]) {
 			nodes[i] = 1;
 			status[i] = 0;
 		}
-		ret = numa_move_pages(pid, nr_p, addrs, nodes, status,
+		ret = move_pages(pid, nr_p, addrs, nodes, status,
 				      MPOL_MF_MOVE_ALL);
 		if (ret == -1)
 			err("move_pages");
@@ -43,7 +45,7 @@ int main(int argc, char *argv[]) {
 			nodes[i] = 0;
 			status[i] = 0;
 		}
-		ret = numa_move_pages(pid, nr_p, addrs, nodes, status,
+		ret = move_pages(pid, nr_p, addrs, nodes, status,
 				      MPOL_MF_MOVE_ALL);
 		if (ret == -1)
 			err("move_pages");
