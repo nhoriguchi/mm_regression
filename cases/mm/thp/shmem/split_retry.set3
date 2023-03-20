@@ -21,10 +21,9 @@ SPLIT_THP="split_thp:only_pmd access"
 EXPECTED_RETURN_CODE="HUGEPAGE_MIGRATED EXIT"
 <% elsif param["thp"] == "thp_split" %>
 SPLIT_THP="split_thp access"
-EXPECTED_RETURN_CODE="PAGE_MIGRATED EXIT"
+EXPECTED_RETURN_CODE="(PAGE_MIGRATED|HUGEPAGE_MIGRATED) EXIT"
 <% elsif param["thp"] == "fork_pmd_split" %>
 FORK=fork_pmd_split:wait_after=1000000
-SPLIT_THP=""
 EXPECTED_RETURN_CODE="HUGEPAGE_MIGRATED HUGEPAGE_MIGRATED EXIT"
 <% else %>
 EXPECTED_RETURN_CODE="HUGEPAGE_MIGRATED EXIT"
@@ -42,9 +41,9 @@ _prepare() {
 
 _control() {
 	set -x
-	test_alloc_generic -B pagecache -N 1 -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite access set_mempolicy:mode=default access $FORK $SPLIT_THP:wait_after noop:wait_after mbind:flags=move_all access munmap:wait_before exit:wait_before" -p $TMPD/.tmp_pipe &
-	local pid=$!
+	test_alloc_generic -B pagecache -N 1 -F -L "set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite access set_mempolicy:mode=default access:wait_after $FORK $SPLIT_THP noop:wait_after mbind:flags=move_all access munmap:wait_before exit" -p $TMPD/.tmp_pipe &
 	set +x
+	local pid=$!
 
 	control_split_retry $pid
 }

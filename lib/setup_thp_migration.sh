@@ -144,12 +144,13 @@ control_split_retry() {
 	pgrep -f test_alloc_generic > $TMPD/pids
 
 	if read -t60 line <> $TMPD/.tmp_pipe ; then
+		get_mm_stats 0 $pid > /dev/null
 		echo "1 after_access"
 
 		kill -SIGUSR1 $pid
 		sleep 0.1
 		grep ^700000000 /proc/$pid/numa_maps
-		head -n5 $TMPD/pagetypes.0.$pid | sed "s/^/[$pid] /"
+		head -n5 $TMPD/pagetypes.0 | sed "s/^/[$pid] /"
 	else
 		return 1
 	fi
@@ -174,12 +175,13 @@ control_split_retry() {
 	echo "PIDs: $(cat $TMPD/pids | tr '\n' ' ')"
 
 	if read -t60 line <> $TMPD/.tmp_pipe ; then
+		get_mm_stats 2 $pid $(pgrep -P $pid) > /dev/null
 		echo "2 after_noop"
 
 		for p in $(cat $TMPD/pids) ; do
 			page-types -p $p -rlN -a 0x700000000+0x10000000 | grep -v offset > $TMPD/pagetypes.2.$p
 			echo "--- num_maps of PID:$p"
-			grep ^700000000 /proc/$pid/numa_maps
+			grep ^700000000 /proc/$p/numa_maps
 			head -n5 $TMPD/pagetypes.2.$p | sed "s/^/[$p] /"
 		done
 
@@ -190,10 +192,11 @@ control_split_retry() {
 	grep ^700000000 /proc/$pid/numa_maps
 
 	if read -t60 line <> $TMPD/.tmp_pipe ; then
-		echo "3 after_munmap"
-
+		get_mm_stats 3 $pid $(pgrep -P $pid) > /dev/null
+		echo "3 before_munmap"
 		for p in $(cat $TMPD/pids) ; do
-			page-types -p $p -rlN -a 0x700000000+0x10000000 | grep -v offset > $TMPD/pagetypes.3.$p
+			page-types -p $p -rlN -a 0x700000000+0x10000000 | grep -v offset | tee $TMPD/pagetypes.3.$p
+			grep ^700000000 /proc/$p/numa_maps
 			check_thp_migration $TMPD/pagetypes.2.$p $TMPD/pagetypes.3.$p
 			head -n5 $TMPD/pagetypes.3.$p | sed "s/^/[$p] /"
 		done
