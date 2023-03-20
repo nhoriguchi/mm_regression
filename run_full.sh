@@ -22,7 +22,7 @@ sysfs_hotplug,needvm
 reboot
 acpi_hotplug,needvm
 reboot
-kvm
+kvm,needvm
 reboot
 EOF
 elif [ "$MODE" == onlystable ] ; then
