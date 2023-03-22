@@ -44,7 +44,7 @@ _prepare() {
 
 _control() {
 	set -x
-	test_alloc_generic -B thp -N 1 -F -L "set_mempolicy:mode=bind:node=0 mmap access:wait_after set_mempolicy:mode=default $FORK $SPLIT_THP noop:wait_after mbind:flags=move_all access munmap:wait_before exit" -p $TMPD/.tmp_pipe &
+	test_alloc_generic -B thp -N 1 -F -L "set_mempolicy:mode=bind:node=0 mmap access:wait_after set_mempolicy:mode=default $FORK $SPLIT_THP noop:wait_after mbind:flags=move_all access:type=read munmap:wait_before exit" -p $TMPD/.tmp_pipe &
 	set +x
 	local pid=$!
 
