@@ -4,7 +4,8 @@ hotremove hotremove
 sysfs_hotplug acpi_hotplug.*sysfs
 acpi_hotplug acpi_hotplug
 1gb_hugetlb 1GB
-mce mce/einj mce/uc/sr
+mce_einj mce/einj
+mce mce/uc/sr
 kvm kvm/
 pmem pmem
 normal
@@ -15,6 +16,7 @@ if [ "$MODE" == baremetal ] ; then
 1gb_hugetlb
 normal
 reboot
+mce_einj
 EOF
 elif [ "$MODE" == kvm ] ; then
 	cat <<EOF > /tmp/run_order
@@ -38,7 +40,7 @@ huge_zero
 reboot
 hotremove
 reboot
-mce
+mce_einj
 EOF
 else
 	cat <<EOF > /tmp/run_order
@@ -56,37 +58,9 @@ huge_zero
 reboot
 hotremove
 reboot
+mce_einj
+reboot
 mce
-EOF
-fi
-
-if [ "$__DEBUG" ] ; then
-	cat <<EOF > /tmp/subprojects
-a mm/thp/anonymous/mbind/thp-base.auto3
-b mm/thp/anonymous/mbind/thp-double_mapping.auto3
-c mm/thp/anonymous/mbind/thp-pmd_split.auto3
-normal
-EOF
-
-	cat <<EOF > /tmp/run_order
-a
-b
-c
-EOF
-
-	cat <<EOF > /tmp/subprojects
-a m/thp/anonymous/hotremove/thp-base_
-b mm/acpi_hotplug/base/type-sysfs_hugetlb-
-c mm/thp/anonymous/mbind/thp-base.auto3
-normal
-EOF
-
-	cat <<EOF > /tmp/run_order
-a
-reboot
-b,needvm
-reboot
-c
 EOF
 fi
 
