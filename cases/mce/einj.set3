@@ -2,17 +2,61 @@
 #! {"tp" => "mca-recover"}
 #! {"tp" => "hornet"}
 #! {"tp" => "cmcistorm"}
-#! {"tp" => "einj_mem_uc"}
-#! {"tp" => "einj_mem_uc_fatal"}
+#! {"einj_mem_uc" => "single"}
+#! {"einj_mem_uc" => "double"}
+#! {"einj_mem_uc" => "split"}
+#! {"einj_mem_uc" => "THP"}
+#! {"einj_mem_uc" => "hugetlb"}
+#! {"einj_mem_uc" => "store"}
+#! {"einj_mem_uc" => "prefetch"}
+#! {"einj_mem_uc" => "memcpy"}
+#! {"einj_mem_uc" => "instr"}
+#! {"einj_mem_uc" => "patrol"}
+#! {"einj_mem_uc" => "thread"}
+#! {"einj_mem_uc" => "share"}
+#! {"einj_mem_uc" => "overflow"}
+#! {"einj_mem_uc" => "llc"}
+#! {"einj_mem_uc" => "copyin"}
+#! {"einj_mem_uc" => "copyout"}
+#! {"einj_mem_uc" => "copy-on-write"}
+#! {"einj_mem_uc" => "futex"}
+#! {"einj_mem_uc" => "mlock"}
+#! {"einj_mem_uc" => "core_ce"}
+#! {"einj_mem_uc" => "core_non_fatal"}
+#! {"einj_mem_uc" => "core_fatal"}
 
-TEST_TYPE=manual
+TEST_TYPE=devel
+
+get_einj_error_type() {
+	local injfunc=$1
+	case $injfunc in
+		inject_uc|inject_double_uc)
+			grep -q -P "0010\t" /sys/kernel/debug/apei/einj/available_error_type
+			return $?
+			;;
+		inject_core_ce)
+			grep -q -P "0001\t" /sys/kernel/debug/apei/einj/available_error_type
+			return $?
+			;;
+		inject_core_non_fatal)
+			grep -q -P "0002\t" /sys/kernel/debug/apei/einj/available_error_type
+			return $?
+			;;
+		inject_core_fatal)
+			grep -q -P "0004\t" /sys/kernel/debug/apei/einj/available_error_type
+			return $?
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
 
 _prepare() {
-	cd $TRDIR/lib/ras-tools/
-	make || return 1
+	make -C $TRDIR/lib/ras-tools || return 1
 	modprobe einj || return 1
 
-	cat /sys/kernel/debug/apei/einj/available_error_type
+	# cat /sys/kernel/debug/apei/einj/available_error_type
 	# 0x00000008      Memory Correctable
 	# 0x00000010      Memory Uncorrectable non-fatal
 	# 0x00000020      Memory Uncorrectable fatal
@@ -22,11 +66,25 @@ _prepare() {
 		return 1
 	fi
 
-	echo 1 > /sys/kernel/debug/mce/fake_panic
+	<% if param["einj_mem_uc"] %>
+	pwd
+	local injfunc=$(grep -A1 "\"<%= param["einj_mem_uc"] %>\"" lib/ras-tools/einj_mem_uc.c | tail -1 | tr -d , | awk '{print $2}')
+	if ! get_einj_error_type "$injfunc" ; then
+		echo "Associated error type is not supported."
+		return 1
+	fi
+	<% end %>
+
+	<% if param["einj_mem_uc"] =~ /hugetlb/ %>
+	sysctl vm.nr_hugepages=100
+	<% end %>
 }
 
 _cleanup() {
-	echo 0 > /sys/kernel/debug/mce/fake_panic
+	true
+	<% if param["einj_mem_uc"] =~ /hugetlb/ %>
+	sysctl vm.nr_hugepages=0
+	<% end %>
 }
 
 set_apei_einj() {
@@ -40,6 +98,10 @@ set_apei_einj() {
 	echo 1 > "/sys/kernel/debug/apei/einj/notrigger"
 	echo 1 > "/sys/kernel/debug/apei/einj/error_inject"
 }
+
+<% if param["einj_mem_uc"] %>
+EXPECTED_RETURN_CODE="EINJ_MEM_UC_PASS"
+<% end %>
 
 _control() {
 	cd $TRDIR/lib/ras-tools/
@@ -75,5 +137,14 @@ _control() {
 	for testname in split memcpy copyin copyout futex ; do
 		./einj_mem_uc -c 3 -d 5 -f $testname
 	done
+	<% elsif param["einj_mem_uc"] %>
+	set -x
+	./einj_mem_uc -i -f <%= param["einj_mem_uc"] %>
+	set +x
+	if [ "$ret" -eq  0 ] ; then
+		set_return_code EINJ_MEM_UC_PASS
+	else
+		set_return_code EINJ_MEM_UC_FAIL
+	fi
 	<% end %>
 }
