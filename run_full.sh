@@ -1,4 +1,5 @@
 cat <<EOF > /tmp/subprojects
+selftests selftests
 huge_zero huge_zero
 hotremove hotremove
 sysfs_hotplug acpi_hotplug.*sysfs
@@ -13,6 +14,7 @@ EOF
 
 if [ "$MODE" == baremetal ] ; then
 	cat <<EOF > /tmp/run_order
+selftests
 1gb_hugetlb
 normal
 reboot

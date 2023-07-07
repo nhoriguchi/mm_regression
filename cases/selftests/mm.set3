@@ -1,0 +1,62 @@
+. $TRDIR/lib/mce.sh
+
+TEST_TYPE=devel
+
+EXPECTED_RETURN_CODE="ALL_PASS"
+
+NR_HUGETLB=512
+
+_prepare() {
+	if [ ! -d "$KERNEL_SRC" ] ; then
+		echo "Environment variable KERNEL_SRC $KERNEL_SRC not set. skipped"
+		return 1
+	fi
+
+	local nr_binaries=$(find $KERNEL_SRC/tools/testing/selftests/mm -executable -type f | wc -l)
+	if [ "$nr_binaries" -eq 0 ] ; then
+		make -C $KERNEL_SRC/tools/testing/selftests
+	fi
+
+	sysctl vm.nr_hugepages=$NR_HUGETLB
+}
+
+_cleanup() {
+	sysctl vm.nr_hugepages=0
+	all_unpoison
+}
+
+_check() {
+	true
+}
+
+_control() {
+	echo_log "start tools/testing/selftests/mm"
+	local passes=0
+	local fails=0
+
+	for exe in $(find $KERNEL_SRC/tools/testing/selftests/mm -executable -type f | sort) ; do
+		if [ "$exe" = "$KERNEL_SRC/tools/testing/selftests/mm/hmm-tests" ] ; then
+			continue
+		fi
+		echo "################### $exe"
+		$exe
+		local ret=$?
+		echo "################### $exe result $ret"
+		if [ "$ret" -eq 0 ] ; then
+			passes=$[passes + 1]
+		else
+			fails=$[fails + 1]
+		fi
+	done
+
+	echo "$passes passes, $fails fails"
+	if [ "$fails" -eq 0 ] ; then
+		if [ "$passes" -gt 0 ] ; then
+			set_return_code NO_PASS
+		else
+			set_return_code ALL_PASS
+		fi
+	else
+		set_return_code FAILED
+	fi
+}

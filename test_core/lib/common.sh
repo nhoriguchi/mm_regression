@@ -1,6 +1,6 @@
 MEMTOTAL=$(grep ^MemTotal: /proc/meminfo | awk '{print $2}')
 MEMFREE=$(grep ^MemFree: /proc/meminfo | awk '{print $2}')
-KERNEL_SRC=/src/linux-dev
+[ ! "$KERNEL_SRC" ] && KERNEL_SRC=/src/linux-dev
 
 # higher value means more verbose (0:minimum, 1:normal (default), 2:verbose)
 [ ! "$LOGLEVEL" ] && export LOGLEVEL=1
