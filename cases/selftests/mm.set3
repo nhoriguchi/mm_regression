@@ -5,6 +5,7 @@ TEST_TYPE=devel
 EXPECTED_RETURN_CODE="ALL_PASS"
 
 NR_HUGETLB=512
+SOFT_RETRY=1
 
 _prepare() {
 	if [ ! -d "$KERNEL_SRC" ] ; then
@@ -14,7 +15,10 @@ _prepare() {
 
 	local nr_binaries=$(find $KERNEL_SRC/tools/testing/selftests/mm -executable -type f | wc -l)
 	if [ "$nr_binaries" -eq 0 ] ; then
-		make -C $KERNEL_SRC/tools/testing/selftests
+		pushd $KERNEL_SRC/tools/testing/selftests/mm
+		# assuming KBUID_OUTPUT is set.
+		make OUTPUT=$PWD
+		popd
 	fi
 
 	sysctl vm.nr_hugepages=$NR_HUGETLB
@@ -33,6 +37,11 @@ _control() {
 	echo_log "start tools/testing/selftests/mm"
 	local passes=0
 	local fails=0
+
+	echo "find $KERNEL_SRC/tools/testing/selftests/mm -type f | sort"
+	find $KERNEL_SRC/tools/testing/selftests/mm -type f | sort
+	echo "find $KERNEL_SRC/tools/testing/selftests/mm -executable -type f | sort"
+	find $KERNEL_SRC/tools/testing/selftests/mm -executable -type f | sort
 
 	for exe in $(find $KERNEL_SRC/tools/testing/selftests/mm -executable -type f | sort) ; do
 		if [ "$exe" = "$KERNEL_SRC/tools/testing/selftests/mm/hmm-tests" ] ; then
