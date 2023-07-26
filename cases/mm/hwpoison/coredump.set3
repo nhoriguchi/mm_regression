@@ -1,6 +1,14 @@
 TEST_TYPE=obsolete
 
 _prepare() {
+	ulimit -c unlimited
+	rm -rf /var/lib/systemd/coredump/*
+	sysctl kernel.core_pattern=/var/lib/systemd/coredump/core.%e.%p.%h.%t
+}
+
+_cleanup() {
+	ulimit -c 0
+	sysctl kernel.core_pattern=|/bin/false
 	rm -rf /var/lib/systemd/coredump/*
 }
 
