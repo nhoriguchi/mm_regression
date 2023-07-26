@@ -1,0 +1,190 @@
+# Related patches
+# - https://lore.kernel.org/linux-mm/20220424091105.48374-2-linmiaohe@huawei.com/
+#
+# Testing kernel need to have CONFIG_FAULT_INJECTION and
+# CONFIG_FAIL_MAKE_REQUEST enabled.
+#
+TEST_TYPE=manual
+TEST_PRIORITY=10
+
+EXPECTED_RETURN_CODE="SWAPCACHE_GENERATED HARD_OFFLINE_PASS HWPOISONED"
+
+SWAPFILE=$TDIR/swapfile
+# SWAPSIZE=$[1024*256] # 1GB
+SWAPSIZE=100 # 100 pages
+
+_prepare() {
+	# use dm-dust to simulate EIO (TODO: not available on RHEL9)
+	modprobe dm-dust || return 1
+
+	# disable/remove zram-generator service
+	swapoff -a 2> /dev/null
+	dmsetup remove /dev/mapper/test-dust
+	if swapon | grep -q $SWAPFILE ; then
+		true
+	else
+		dd if=/dev/zero of=$SWAPFILE bs=4096 count=$SWAPSIZE > /dev/null 2>&1
+		[ $? -ne 0 ] && echo "failed to create $SWAPFILE" && return 1
+
+		losetup -fP $SWAPFILE || return 1
+		LOOPDEV=$(losetup -a | grep $SWAPFILE | cut -f1 -d:)
+		dmsetup create test-dust --table "0 $[SWAPSIZE * 8] dust $LOOPDEV 0 512" || return 1
+		DMDEV=/dev/mapper/test-dust
+		file $DMDEV
+		mkswap $DMDEV || return 1
+		echo "swapon $DMDEV"
+		swapon $DMDEV || return 1
+		swapon -s
+	fi
+
+	if [ ! -s "$STAP_DIR" ] ; then
+		echo "environment variable STAP_DIR not set." >&2
+		return 1
+	fi
+
+	if [ ! -s "$STAP_DIR/stap" ] ; then
+		echo "Systemtap binary not found ($STAP_DIR/stap)"
+		return 1
+	fi
+
+	if [ ! -s "$GTMPD/stap_make_swapin_fail.ko" ] ; then
+		$STAP_DIR/stap -g -p4 -m stap_make_swapin_fail \
+					   -DSTP_OVERLOAD_THRESHOLD=10000000 \
+					   --suppress-time-limits \
+					   -DMAXACTION=1000000 \
+					   $TRDIR/lib/stap/make_swapin_fail.stp \
+			|| return 1
+		mv stap_make_swapin_fail.ko $GTMPD/
+	fi
+
+	cat <<EOF > /tmp/tmp_madv_pageout.c
+#include <stdio.h>
+#include <sys/mman.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <signal.h>
+
+#define VADDR	0x700000000000
+
+#define MADV_COLD	20
+#define MADV_PAGEOUT	21
+
+int flag = 1;
+void sig_handle_flag(int signo) { flag = 0; }
+
+int main() {
+	int nr_pages = 10;
+	// nr_pages = 128 * 1024;
+	int size = 4096 * nr_pages; //512 * 1024 * 1024;
+	char *ptr;
+	int ret;
+	char buf1[4096];
+	char buf2[4096];
+
+	signal(SIGUSR1, sig_handle_flag);
+
+	ptr = mmap((void *)VADDR, size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+	memset(ptr, 'a', size);
+	for (int i = 0; i < nr_pages; i++) {
+		if (i >= 80) break;
+		buf1[i] = ptr[i * 4096];
+	}
+	while (flag) {
+		ret = madvise(ptr, size, MADV_PAGEOUT);
+	}
+	madvise(ptr, size, MADV_COLD);
+	pause();
+	for (int i = 0; i < nr_pages; i++) {
+		if (i >= 80) break;
+		buf2[i] = ptr[i * 4096];
+		if (buf1[i] != buf2[i])
+			printf("Data BROKEN i:%d buf1:%c buf2:%c\n", i, buf1[i], buf2[i]);
+	}
+	printf("buf1:%s\n", buf1);
+	printf("buf2:%s\n", buf2);
+ 	pause();
+	return 0;
+}
+EOF
+	gcc -o /tmp/tmp_madv_pageout /tmp/tmp_madv_pageout.c || return 1
+}
+
+_control() {
+	/tmp/tmp_madv_pageout > $TMPD/madv_pageout_stdout &
+	local pid=$!
+	sleep 1 # better sleep time?
+
+	page-types -b swapcache -Nrl | grep -ve offset > $TMPD/tmp_swapcache
+
+	echo "--- check swapcache"
+	head $TMPD/tmp_swapcache
+	if [ ! -s "$TMPD/tmp_swapcache" ] ; then
+		echo "No swapcache generated. Abort"
+		set_return_code NO_SWAPCACHE_GENERATED
+		return 1
+	else
+		set_return_code SWAPCACHE_GENERATED
+	fi
+
+	echo "--- stop madvise(MADV_PAGEOUT) loop"
+	kill -SIGUSR1 $pid
+	sleep 1
+	page-types -b swapcache -r | sed 's/^/A /'
+	page-types -p $pid -a 0x700000000+10 -rl | sed 's/^/B /'
+
+	# $STAP_DIR/staprun -o $TMPD/stap_stdout $GTMPD/stap_make_swapin_fail.ko targetpfn=$targetpfn &
+	# local stappid=$!
+	# echo "--- insert stap module ($stappid) for IO error injection $targetpfn"
+	# sleep 1
+	# lsmod | grep stap_
+
+	echo "--- somehow need to remove swapcache"
+	local freepages=$(grep MemFree /proc/meminfo | awk '{print $2}')
+	# freepages=$[110 * freepages / 4 / 400]
+	freepages=$[freepages / 4 * 90 / 100]
+	echo "----- allocate $freepages pages"
+	echo 3 > /proc/sys/vm/drop_caches
+	test_alloc_generic -B anonymous -n ${freepages} -L 'mmap access access'
+	page-types -b swapcache -rl | sed 's/^/A /'
+	page-types -p $pid -a 0x700000000+10 -rl | sed 's/^/B /'
+return
+	echo "--- swapoff"
+	dmsetup message test-dust 0 quiet
+	for i in $(seq 0 4 $[4 * $SWAPSIZE - 1]) ; do
+		dmsetup message test-dust 0 addbadblock $i
+	done
+	dmsetup message test-dust 0 quiet
+	dmsetup message test-dust 0 countbadblocks
+
+	dmsetup message test-dust 0 enable
+	swapoff -a
+	sleep 1
+	page-types -b swapcache -r | sed 's/^/A /'
+	page-types -p $pid -a 0x700000000+10 -rl | sed 's/^/B /'
+
+	echo "--- read buffer"
+	kill -SIGUSR1 $pid
+	sleep 1
+	cat "/tmp/tmp_madv_pageout.file"
+	page-types -b swapcache -r | sed 's/^/A /'
+	page-types -p $pid -a 0x700000000+10 -rl | sed 's/^/B /'
+
+	sleep 1
+	echo "--- done"
+	kill -SIGUSR1 $pid
+	cat $TMPD/madv_pageout_stdout
+	if [ "$stappid" ] ; then
+		kill -9 $stappid
+	fi
+	[ -s $TMPD/stap_stdout ] && cat $TMPD/stap_stdout
+}
+
+_cleanup() {
+	dmsetup remove $DMDEV
+	rm $LOOPDEV
+	rmmod -f stap_make_swapin_fail 2> /dev/null
+	# remove swapfile?
+	true
+}

@@ -1,0 +1,24 @@
+%{
+#include <linux/mm.h>
+#include <linux/bio.h>
+%}
+
+function arg1:long () { return register("rdi"); }
+
+function clear_uptodate(page:long) %{
+	struct page *page = (struct page*)STAP_ARG_page;
+	unsigned long pfn = page_to_pfn(page);
+
+	if (PageUptodate(page)) {
+		printk("---> pfn %lx, flags %lx\n", pfn, page->flags);
+		_stp_printf("---> pfn %lx, flags %lx\n", pfn, page->flags);
+	}
+%}
+
+#		page->flags &= ~(1 << PG_uptodate);
+
+probe kernel.function("lookup_swap_cache").return {
+	page = returnval()
+	if (page != NULL)
+		clear_uptodate(page);
+}
