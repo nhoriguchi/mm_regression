@@ -39,19 +39,15 @@ _check() {
 }
 
 try_race() {
-	sysctl vm.nr_hugepages=$NR_HUGETLB
-	grep -i huge /proc/meminfo
-	test_alloc_generic -B hugetlb_anon -N 10 -L "start mmap access:wait_after" > /dev/null 2>&1 &
+	sysctl vm.nr_hugepages=$NR_HUGETLB > /dev/null
+	test_alloc_generic -B hugetlb_anon -N 5 -L "start mmap access:wait_after" > /dev/null 2>&1 &
 	local pid=$!
-	touch $TMPD/.a
 
 	# corrupt_filter_on
 	(
 		for i in $(seq 100) ; do
-			page-types -p $pid -b huge,compound_head=huge,compound_head -Nrl
 			migratepages $pid 0 1 > /dev/null 2>&1
 			migratepages $pid 1 0 > /dev/null 2>&1
-			echo "---> $i"
 		done
 	) > /dev/null 2>&1 &
 	local pid1=$!
