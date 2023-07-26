@@ -19,8 +19,8 @@ SWAPFILE=$TDIR/swapfile
 SWAPSIZE=$[1024*256] # 1GB
 
 _prepare() {
-	# disable/remove zram-generator service
-	swapoff /dev/zram0
+	# disable/remove existing zram-generator service
+	swapoff -a
 	if swapon | grep -q $SWAPFILE ; then
 		true
 	else
