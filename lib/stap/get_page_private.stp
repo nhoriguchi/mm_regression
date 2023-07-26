@@ -1,0 +1,16 @@
+%{
+#include <linux/mm.h>
+%}
+
+function get_page_private(pfn:long) %{
+	unsigned long pfn = (unsigned long)STAP_ARG_pfn;
+	struct page *page = pfn_to_page(pfn);
+
+	_stp_printf("pfn:%lx, page:%p, flags:%lx, private:%lx\n", pfn, page, page->flags, age->private);
+%}
+
+global pfn = 0;
+probe begin {
+	get_page_private(pfn);
+	exit();
+}
