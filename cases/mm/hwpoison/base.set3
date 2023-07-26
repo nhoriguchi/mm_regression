@@ -149,8 +149,6 @@ THP=100
 <% elsif param["backend"] =~ /(hugetlb_free|hugetlb_anon|hugetlb_shmem|hugetlb_file)/ %>
 HUGETLB=100
 HUGEPAGESIZE=2048 # kB
-<% elsif param["backend"] == "ksm" %>
-FALSENEGATIVE=true
 <% elsif param["backend"] =~ /(zero|huge_zero)/ %>
 PRIORITY=18
 FALSENEGATIVE=true

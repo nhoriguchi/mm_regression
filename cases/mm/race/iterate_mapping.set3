@@ -27,7 +27,7 @@ TARGET_PAGEFLAGS=$(get_backend_pageflags $BACKEND)
 RACE_ITERATIONS=100
 MONARCH_TIMEOUT=20000000
 
-<% if param["backend"] =~ /(ksm|zero)/ %>
+<% if param["backend"] =~ /zero/ %>
 SKIP_THIS_TEST=true
 <% end %>
 
