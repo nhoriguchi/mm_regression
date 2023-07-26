@@ -2,6 +2,7 @@
 #! {"tp" => "mca-recover"}
 #! {"tp" => "hornet"}
 #! {"tp" => "cmcistorm"}
+#! {"tp" => "rep_ce_page"}
 #! {"einj_mem_uc" => "single"}
 #! {"einj_mem_uc" => "double"}
 #! {"einj_mem_uc" => "split"}
@@ -67,7 +68,6 @@ _prepare() {
 	fi
 
 	<% if param["einj_mem_uc"] %>
-	pwd
 	local injfunc=$(grep -A1 "\"<%= param["einj_mem_uc"] %>\"" lib/ras-tools/einj_mem_uc.c | tail -1 | tr -d , | awk '{print $2}')
 	if ! get_einj_error_type "$injfunc" ; then
 		echo "Associated error type is not supported."
@@ -99,7 +99,9 @@ set_apei_einj() {
 	echo 1 > "/sys/kernel/debug/apei/einj/error_inject"
 }
 
-<% if param["einj_mem_uc"] %>
+<% if param["tp"] == "rep_ce_page" %>
+EXPECTED_RETURN_CODE="REP_CE_PAGE_PASS"
+<% elsif param["einj_mem_uc"] %>
 EXPECTED_RETURN_CODE="EINJ_MEM_UC_PASS"
 <% end %>
 
@@ -127,16 +129,13 @@ _control() {
 	./hornet -v
 	<% elsif param["tp"] == "cmcistorm" %>
 	./cmcistorm
-	<% elsif param["tp"] == "einj_mem_uc" %>
-	# TODO: skip testcase "llc"
-	for testname in single double THP store instr patrol mlock ; do
-		./einj_mem_uc -c 3 -d 5 $testname
-	done
-	<% elsif param["tp"] == "einj_mem_uc_fatal" %>
-	# F_FATAL testcases
-	for testname in split memcpy copyin copyout futex ; do
-		./einj_mem_uc -c 3 -d 5 -f $testname
-	done
+	<% elsif param["tp"] == "rep_ce_page" %>
+	./rep_ce_page
+	if [ "$ret" -eq  0 ] ; then
+		set_return_code REP_CE_PAGE_PASS
+	else
+		set_return_code REP_CE_PAGE_FAIL
+	fi
 	<% elsif param["einj_mem_uc"] %>
 	set -x
 	./einj_mem_uc -i -f <%= param["einj_mem_uc"] %>

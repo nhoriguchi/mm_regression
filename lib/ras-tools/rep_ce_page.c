@@ -78,7 +78,7 @@ int main(int argc, char **argv)
 		wfile(EINJ_DOIT, 1);
 		usleep(250);
 		trigger += *addr;
-		sleep(2);
+		usleep(10000);
 		if (paddr != vtop((unsigned long long)addr, pid))
 			break;
 	}
