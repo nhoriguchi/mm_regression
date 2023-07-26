@@ -1,0 +1,78 @@
+# This testcase reproduces the race mentioned in the following thread.
+# https://lore.kernel.org/linux-mm/20230711220942.43706-1-mike.kravetz@oracle.com/T/#u
+
+#! {"hvo" => "off"}
+#! {"hvo" => "on"}
+#! {"hvo" => "off", "offset" => true}
+#! {"hvo" => "on", "offset" => true}
+
+. $TRDIR/lib/mce.sh
+
+TEST_TYPE=devel
+
+EXPECTED_RETURN_CODE="EXIT"
+
+ITERATION=10
+NR_HUGETLB=256
+
+_prepare() {
+	<% if param["hvo"] == "on" %>
+	sysctl vm.hugetlb_optimize_vmemmap=1
+	<% else %>
+	sysctl vm.hugetlb_optimize_vmemmap=0
+	<% end %>
+	save_nr_corrupted_before
+}
+
+_cleanup() {
+	sysctl vm.hugetlb_optimize_vmemmap=0
+	sysctl vm.nr_hugepages=0
+	save_nr_corrupted_inject
+	all_unpoison
+	save_nr_corrupted_unpoison
+}
+
+_check() {
+	check_nr_hwcorrupted
+}
+
+try_race() {
+	sysctl vm.nr_hugepages=$NR_HUGETLB > /dev/null
+
+	page-types -b huge,compound_head=huge,compound_head -Nrl | grep -v offset | cut -f1 > $TMPD/hugetlb_list
+	(
+		local count=0
+		for pfn in $(cat $TMPD/hugetlb_list) ; do
+			<% if param["offset"] == true %>
+			local paddr=$[(0x$pfn + 511) * 4096]
+			echo $paddr > /sys/devices/system/memory/hard_offline_page
+			local ret=$?
+			<% else %>
+			echo 0x${pfn}000 > /sys/devices/system/memory/hard_offline_page
+			local ret=$?
+			<% end %>
+			if [ $ret -ne 0 ] ; then
+				echo "abort $count" > $TMPD/xxx
+				set_return_code HWPOISON_FAILED
+				exit
+			fi
+			# sleep 0.001
+			count=$[count + 1]
+		done
+		echo "done $count"
+	) & # > /dev/null 2>&1 &
+	local pid=$!
+	sleep 0.01
+	grep Corrupted /proc/meminfo
+	page-types -b hwpoison
+	sysctl vm.nr_hugepages=0 > /dev/null
+	kill -9 $pid
+}
+
+_control() {
+	for i in $(seq $ITERATION) ; do
+		try_race
+	done
+
+	set_return_code EXIT
+}
