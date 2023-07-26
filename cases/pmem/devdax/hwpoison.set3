@@ -1,0 +1,29 @@
+TEST_TYPE=manual
+
+EXPECTED_RETURN_CODE="SIGBUS_KILLED EXIT"
+
+_prepare() {
+	check_binary test_devdax_simple || return 1
+}
+
+_control() {
+	test_devdax_simple
+	ret=$?
+	if [ "$ret" -eq 0 ] ; then
+		set_return_code PASSED
+	elif [ "$ret" -eq 1 ] ; then
+		set_return_code MADVISE_FAILED
+	elif [ "$ret" -eq 2 ] ; then
+		set_return_code ACCESS_HWPOISON_PASSED
+	elif [ "$ret" -eq 135 ] ; then
+		set_return_code SIGBUS_KILLED
+	elif [ "$ret" -eq 139 ] ; then
+		set_return_code SIGSEGV_KILLED
+	elif [ "$ret" -eq 255 ] ; then
+		set_return_code PRECHECK_FAILED
+	else
+		echo "Return code: $ret"
+		set_return_code UNKNOWN_EXIT
+	fi
+	set_return_code EXIT
+}
