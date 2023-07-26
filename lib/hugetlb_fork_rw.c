@@ -141,6 +141,44 @@ int main(int argc, char **argv)
 			} else {
 				printf("[child %d] pread() hwpoison hugepage passed (error was cancelled by fallocate().\n", getpid());
 			}
+		} else if (!strcmp(argv[2], "mmap_again")) {
+			if (!strcmp(argv[1], "shmem")) {
+				int shmid;
+				int flags = IPC_CREAT | SHM_R | SHM_W | SHM_HUGETLB;
+				if ((shmid = shmget(shmkey, hps, flags)) < 0) {
+					perror("shmget");
+					return -1;
+				}
+				addr = shmat(shmid, (void *)ADDR_INPUT, 0);
+				if (addr == (char *)-1) {
+					perror("Shared memory attach failure");
+					shmctl(shmid, IPC_RMID, NULL);
+					perror("shmat failed");
+					return -1;
+				}
+				if (addr != (void *)ADDR_INPUT) {
+					printf("Shared memory not attached to expected address (%p -> %p) %lx %lx\n", (void *)ADDR_INPUT, addr, SHMLBA, SHM_RND);
+					shmctl(shmid, IPC_RMID, NULL);
+					perror("shmat failed");
+					return -1;
+				}
+				shmkey = shmid;
+			} else {
+				fd = open(argv[1], O_RDWR);
+				if (fd == -1) {
+					fprintf(stderr, "[child %d] failed to open file %s.\n", getpid(), argv[1]);
+					return -1;
+				}
+				addr = mmap((void *)(ADDR_INPUT + hps), hps, PROT_READ | PROT_WRITE,
+					    MAP_SHARED, fd, 0);
+				if (addr != (void *)(ADDR_INPUT + hps)) {
+					fprintf(stderr, "[child %d] failed to mmap file %s again.\n", getpid(), argv[1]);
+					return -1;
+				}
+			}
+			printf("[child %d] try to access to newly mmaped hwpoison memory by memset().\n", getpid());
+			memset(addr, 'a', hps);
+			printf("[child %d] access after hwpoison by parent process.\n", getpid());
 		} else {
 			printf("[child %d] try to access to hwpoison memory by memset().\n", getpid());
 			memset(addr, 'a', hps);

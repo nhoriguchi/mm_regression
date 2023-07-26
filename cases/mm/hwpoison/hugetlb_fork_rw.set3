@@ -2,6 +2,7 @@
 # https://lore.kernel.org/linux-mm/20221018200125.848471-1-jthoughton@google.com/T/#u
 
 #! {"mmap" => ""}
+#! {"mmap2" => ""}
 #! {"sysrw" => ""}
 #! {"unpoison" => ""}
 #! {"shmem" => ""}   # no sysrw
@@ -50,6 +51,8 @@ _cleanup() {
 
 <% if param["mmap"] %>
 EXPECTED_RETURN_CODE="CHILD_KILLED"
+<% elsif param["mmap2"] %>
+EXPECTED_RETURN_CODE="CHILD_KILLED"
 <% elsif param["sysrw"] %>
 EXPECTED_RETURN_CODE="CHILD_EXITED_PASS"
 <% elsif param["shmem"] %>
@@ -86,6 +89,10 @@ _control() {
 	<% if param["mmap"] %>
 	echo "hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile mmap 2> $TMPD/stderr"
 	hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile mmap 2> $TMPD/stderr
+	ret=$?
+	<% elsif param["mmap2"] %>
+	echo "hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile mmap_again 2> $TMPD/stderr"
+	hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile mmap_again 2> $TMPD/stderr
 	ret=$?
 	<% elsif param["sysrw"] %>
 	echo "hugetlb_fork_rw $HUGETLBFSDIR/hugetlbfs/testfile sysrw 2> $TMPD/stderr"
