@@ -202,13 +202,27 @@ static int get_size_of_chunked_mmap_area(int i) {
 		return CHUNKSIZE * PS;
 }
 
-static void read_memory(char *p, int size) {
+static void read_memory(char *p, int size, int reverse) {
 	int i;
 	char c;
 
-	for (i = 0; i < size; i += PS) {
-		c = p[i];
-	}
+	if (reverse)
+		for (i = size - PS; i >= 0; i -= PS)
+			c = p[i];
+	else
+		for (i = 0; i < size; i += PS)
+			c = p[i];
+}
+
+static void write_memory(char *p, int size, int reverse) {
+	int i;
+	char c;
+
+	if (reverse)
+		for (i = size - PS; i >= 0; i -= PS)
+			p[i] = 'a';
+	else
+		memset(p, 'a', size);
 }
 
 static void create_workdir(char *dpath) {
@@ -375,26 +389,29 @@ static void prepare_memory(struct mem_chunk *mc, void *baseaddr,
 	}
 }
 
-static void access_memory(struct mem_chunk *mc, char *type) {
+static void access_memory(struct mem_chunk *mc, char *type, int reverse) {
 	if (!type) { /* default access type of a given backend type */
 		if (mc->mem_type == ZERO || mc->mem_type == HUGE_ZERO)
-			read_memory(mc->p, mc->chunk_size);
+			read_memory(mc->p, mc->chunk_size, reverse);
 		else if (mc->mem_type == DEVMEM) {
 			memset(mc->p, 'a', PS);
 			memset(mc->p + 2 * PS, 'a', PS);
 		} else
-			memset(mc->p, 'a', mc->chunk_size);
+			write_memory(mc->p, mc->chunk_size, reverse);
 	} else if (!strcmp(type, "read")) {
-		read_memory(mc->p, mc->chunk_size);
+		read_memory(mc->p, mc->chunk_size, reverse);
 	} else if (!strcmp(type, "write")) {
-		memset(mc->p, 'a', mc->chunk_size);
+		write_memory(mc->p, mc->chunk_size, reverse);
 	} else if (!strcmp(type, "syswrite")) {
 		unsigned long i;
 		char buf[PS];
 		memset(buf, 'a', PS);
-		for (i = 0UL; i < mc->chunk_size; i += PS) {
-			pwrite(fd, buf, PS, mc->offset + i);
-		}
+		if (reverse)
+			for (i = mc->chunk_size - PS; i >= 0; i -= PS)
+				pwrite(fd, buf, PS, mc->offset + i);
+		else
+			for (i = 0UL; i < mc->chunk_size; i += PS)
+				pwrite(fd, buf, PS, mc->offset + i);
 	}
 }
 
@@ -512,12 +529,13 @@ static int do_access(void *ptr) {
 	struct op_control *opc = (struct op_control *)ptr;
 	char *type = opc_get_value(opc, "type");
 	int check = opc_defined(opc, "check");
+	int reverse = opc_defined(opc, "reverse");
 
 	if (type && !strcmp(type, "read") && !strcmp(type, "write") && !strcmp(type, "syswrite"))
 		errmsg("invalid parameter access:type=%s\n", type);
 	for (j = 0; j < nr_mem_types; j++)
 		for (i = 0; i < nr_chunk; i++) {
-			access_memory(&chunkset[i + j * nr_chunk], type);
+			access_memory(&chunkset[i + j * nr_chunk], type, reverse);
 			if (check)
 				check_memory(&chunkset[i + j * nr_chunk]);
 		}
@@ -1506,7 +1524,7 @@ static const char *op_supported_args[][10] = {
 	[NR_open]			= {"path"},
 	[NR_mmap]			= {},
 	[NR_mmap_numa]			= {"preferred_cpu_node", "preferred_mem_node"},
-	[NR_access]			= {"type", "check"},
+	[NR_access]			= {"type", "check", "reverse"},
 	[NR_busyloop]			= {"type"},
 	[NR_munmap]			= {"hp_partial"},
 	[NR_mbind]			= {"hp_partial", "flags"},
