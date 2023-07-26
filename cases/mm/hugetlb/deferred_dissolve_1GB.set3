@@ -5,6 +5,8 @@
 #! {"error-type" => "hard-offline", "multi-error" => "true"}
 ##! {"error-type" => "none", "dissolve" => "free"}
 
+# this testcase assume that systemtap is available on STAP_DIR/stap
+TEST_TYPE=manual
 TEST_PRIORITY=14
 
 <% if param["dissolve"] == "dequeue" %>
