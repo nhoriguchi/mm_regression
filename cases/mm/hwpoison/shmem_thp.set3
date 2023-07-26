@@ -35,8 +35,6 @@ _prepare() {
 	rm -rf $SHMEM_DIR > /dev/null 2>&1
 	mkdir -p $SHMEM_DIR > /dev/null 2>&1
 	mount -t tmpfs -o huge=always tmpfs $SHMEM_DIR || return 1
-
-	echo "test_alloc_generic -B pagecache -N $NR_THP -F -L \"set_mempolicy:mode=bind:node=0 open:path=$SHMEM_DIR/testfile mmap access:type=syswrite\""
 }
 
 _cleanup() {
